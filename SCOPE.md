@@ -1,4 +1,4 @@
-# SWEEP — detection spike and product scope
+# SWEEP — Android alpha and detection scope
 
 Updated October 12, 2026. Codename: SWEEP. Base: [OffGridPete/Fieldwatch](https://github.com/OffGridPete/Fieldwatch), pinned at `844ace8c5c787695977b2c4857e06533603aba95` (app 1.1.26, catalog 95).
 
@@ -29,13 +29,17 @@ Fork: [BennyB90/Fieldwatch](https://github.com/BennyB90/Fieldwatch). Working bra
 
 Reuse `BleRadio`, `WifiRadio`, `Observation`, `Sighting`, `DeviceStore`, `SignatureEngine`, `DefaultCatalog`, and `OpenDroneId`. Upstream already decodes BLE FFFA and Wi-Fi vendor-IE Remote ID and distinguishes operator location types. Validate and extend those paths.
 
-`ScanService` is tightly coupled to Fieldwatch's sits, alerts, GNSS, and TAK features. The production session facade should own lifecycle and transport capabilities while passing observations to the inherited engine. The spike keeps the existing instrument UI inside a small start/end shell; it is an engineering build, not the finished consumer app.
+`ScanService` is tightly coupled to Fieldwatch's sits, alerts, GNSS, and TAK features. The new SWEEP alpha uses a separate `SweepApplication`, session coordinator, foreground scan service and Compose interface. It reuses `WifiRadio`, `BleRadio`, `DeviceStore`, the catalog and decoders; it does not initialize Fieldwatch's GNSS, geocoder, TAK or other network features. The spike remains a separate comparison instrument.
 
 Ownership proposed in the supplied plan: Viktor — engine and rig; Carlos — UI; architecture owner — integration. No messages or assignments have been sent to those people from this chat.
 
 Preserve `LICENSE`, `NOTICE`, and Off Grid Pete LLC attribution. The original source is MIT. IEEE/Bluetooth SIG lookup tables and the compiled Fast Pair model list have separate provenance/terms described in `NOTICE`; the MIT statement must not be applied indiscriminately to every bundled data asset.
 
 ## Current implementation
+
+The `sweep` alpha installs separately as `app.fieldwatch.sweep`, labeled **SWEEP**. It includes start/end sessions, four finding views with actual evidence and next checks, local history, searchable catalog, report sharing with names/identifiers and coordinates off by default, deletion, and an offline plot of reported drone positions. A clearly labeled sample mode is never mixed into saved scan history. The service checks a 20-minute session limit while it is running; Android sleep can delay the stop until it resumes.
+
+The SWEEP manifest removes Internet permission. Phone Location permission is needed for Android's scan APIs, but the SWEEP app does not request phone GPS fixes or store the phone's location. External maps and report sharing happen only through explicit user actions. Session storage, sharing and deletion run through one ordered queue; process-killed active checkpoints recover as interrupted, and deletion prevents delayed work from recreating a removed report.
 
 The `spike` build has a separate installation ID, `app.fieldwatch.sweep.spike`, and label, `SWEEP Spike`. It starts scanning after a user starts a session. Ending the session stops the service. The normal Fieldwatch build remains available as the comparison instrument.
 
@@ -81,11 +85,11 @@ Initial gates:
 - Camera: classify the positive setup/AP control; require zero camera false-alert sessions across all ten inventoried 60-second office negative controls. This strict initial tolerance is declared here before any hardware trials and recorded in the template. Each baseline needs independently confirmed Wi-Fi scanning and received samples, so a disabled scanner cannot pass. Zero observed false alerts in ten sessions is a screening result, not proof of a population false-positive rate.
 - Battery: less than 10 **percentage points** lost in exactly 20 minutes on each tested phone, without charging, at recorded screen/GPS/radio settings. Run a matched idle control for context. This is an absolute consumption gate, not a claim about incremental scanner power.
 
-## Privacy and consumer UX after the spike
+## Privacy and consumer UX
 
-Detection stays on device. Offer explicit deletion and report sharing; keep location recording off unless useful and requested. Audit optional geocoding, catalog fetching, map resources, TAK publishing, exports, and retained logs before claiming fully offline operation. A local detector does not by itself prove every app workflow is offline.
+Detection stays on device. The SWEEP application has no Internet permission and does not initialize geocoding, catalog fetching, map resources or TAK publishing. It offers explicit deletion and report sharing, records no phone GPS fixes, and omits names/identifiers and reported drone coordinates from shares by default. External maps and sharing hand selected data to another app only after a user action. The separate inherited Fieldwatch instrument retains its own behavior and permissions.
 
-The consumer result needs a compact finding, match evidence and age, handset coverage, and a practical next check. Confidence must reflect a measured rule/state rather than a made-up probability. Raw signal strength supports comparisons while moving; it is not a calibrated meter-distance reading.
+The alpha shows a compact finding, match evidence and age, handset coverage, and a practical next check. It does not assign made-up confidence probabilities. Raw signal strength supports comparisons while moving; it is not a calibrated meter-distance reading. Actual decoding time is retained separately for reported drone coordinates when available.
 
 ## Evidence appendix
 
@@ -97,4 +101,4 @@ Physical Remote ID reception/map accuracy: **not measured**.
 
 Phone battery drain: **not measured**.
 
-Build and regression-test results are recorded separately in `docs/SPIKE_BUILD.md`; passing software tests does not satisfy these physical gates.
+Alpha build and regression-test results are recorded separately in `docs/SWEEP_ALPHA.md`; spike details are in `docs/SPIKE_BUILD.md`. Passing software tests does not satisfy these physical gates. Phone installation and native interface interaction remain unverified because no physical phone was attached and emulator setup exceeded available Mac storage.

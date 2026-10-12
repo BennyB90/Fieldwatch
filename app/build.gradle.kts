@@ -86,6 +86,15 @@ android {
             isShrinkResources = false
             matchingFallbacks += "debug"
         }
+        create("sweep") {
+            initWith(getByName("spike"))
+            applicationIdSuffix = ".sweep"
+            versionNameSuffix = "-sweep-alpha.1"
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            matchingFallbacks += listOf("spike", "debug")
+        }
     }
 
     compileOptions {

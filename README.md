@@ -1,8 +1,12 @@
-# SWEEP detection-spike fork
+# SWEEP — on-device wireless scanner
 
-This is the independent SWEEP fork of Fieldwatch. Current product scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.md](spike/README.md). Hardware candidates: [docs/PROCUREMENT.md](docs/PROCUREMENT.md). Build notes: [docs/SPIKE_BUILD.md](docs/SPIKE_BUILD.md).
+SWEEP is a native Android scanner built from Fieldwatch's radio wrappers, signature engine and catalog. The alpha has its own scan interface, evidence details, local session history, reports with sharing controls, and a searchable catalog. Detection runs on-device; the SWEEP APK has no Internet permission. [Alpha features and installation](docs/SWEEP_ALPHA.md).
 
-The `spike` build uses a separate installation ID and starts scans on demand. It is a test instrument; physical detection rates and battery performance have not yet been measured. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP spike APK.
+Build with `./gradlew :app:testSweepUnitTest :app:assembleSweep`; output is `app/build/outputs/apk/sweep/app-sweep.apk`. It installs separately as `app.fieldwatch.sweep` alongside the upstream and spike instruments.
+
+Scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.md](spike/README.md). Hardware candidates: [docs/PROCUREMENT.md](docs/PROCUREMENT.md). Spike build: [docs/SPIKE_BUILD.md](docs/SPIKE_BUILD.md).
+
+Physical detection rates and battery performance have not yet been measured. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP APK. Sample mode is explicitly synthetic and is excluded from saved scan history.
 
 ## Original Fieldwatch README
 

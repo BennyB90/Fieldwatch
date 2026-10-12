@@ -30,7 +30,7 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest testSpikeUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest lintSweep --stacktrace
 
       - name: Spike evidence tests
         run: python3 -m unittest discover -s spike/tests -v
@@ -43,6 +43,7 @@ jobs:
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/reports/tests/testSpikeUnitTest/
+            app/build/reports/tests/testSweepUnitTest/
           if-no-files-found: ignore
 
   build:
@@ -70,7 +71,7 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug assembleSpike --stacktrace
+        run: ./gradlew assembleDebug assembleSpike assembleSweep --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -84,4 +85,16 @@ jobs:
         with:
           name: sweep-spike-apk
           path: app/build/outputs/apk/spike/app-spike.apk
+          if-no-files-found: error
+
+      - name: Verify SWEEP has no network permission
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/sweep/app-sweep.apk > sweep-permissions.txt
+          python3 -c "from pathlib import Path; assert 'android.permission.INTERNET' not in Path('sweep-permissions.txt').read_text()"
+
+      - name: Upload SWEEP alpha APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-alpha-apk
+          path: app/build/outputs/apk/sweep/app-sweep.apk
           if-no-files-found: error

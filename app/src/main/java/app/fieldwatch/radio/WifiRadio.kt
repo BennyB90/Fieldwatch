@@ -89,6 +89,12 @@ class WifiRadio(
         awaitingScan.set(false)
     }
 
+    /** Dispose a service-owned instance. stop() remains restartable for radio toggles. */
+    fun close() {
+        stop()
+        callbackExecutor.shutdownNow()
+    }
+
     @SuppressLint("MissingPermission")
     fun requestScan(minIntervalMs: Long = 30_000L, unthrottled: Boolean = false): Boolean {
         val now = System.currentTimeMillis()

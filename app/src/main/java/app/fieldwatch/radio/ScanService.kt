@@ -372,7 +372,7 @@ class ScanService : LifecycleService() {
         gnssReady = false
         publishJob?.cancel()
         inbound.close()
-        runCatching { wifi.stop() }
+        runCatching { wifi.close() }
         runCatching { ble.stop() }
         runCatching { (application as FieldwatchApp).tak.close() }
         val app = application as FieldwatchApp
