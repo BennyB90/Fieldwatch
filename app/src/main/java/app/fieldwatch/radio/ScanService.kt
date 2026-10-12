@@ -282,6 +282,8 @@ class ScanService : LifecycleService() {
                 app.config.watchlist,
                 selfFix = app.lastFix,
                 gnssRemark = phoneNote,
+                gnssNotice = gnss.notice,
+                gnssLives = gnss.lives,
             )
         } catch (e: CancellationException) {
             throw e

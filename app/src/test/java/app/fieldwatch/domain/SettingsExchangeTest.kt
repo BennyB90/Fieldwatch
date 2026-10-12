@@ -266,6 +266,8 @@ class SettingsExchangeTest {
         assertFalse(missing.gnssMonitor)
         assertEquals(GnssSensitivity.MEDIUM, missing.gnssSensitivity)
         assertEquals(TakGnssSend.OFF, missing.takGnss)
+        assertEquals(TakGnssHold.HOUR, missing.takGnssHold)
+        assertEquals(TakGnssHold.HOUR, missing.takRadioHold)
         assertEquals(TakFloodSend.OFF, missing.takFlood)
         assertEquals(GnssAlertFloor.MEDIUM, missing.gnssAlertFloor)
         assertTrue(missing.gnssBeep)

@@ -486,6 +486,117 @@ class TakPublishTest {
         assertNull(TakGnss.line(TakGnssSend.ANY, ended, emptyList()))
         assertEquals("Possible GNSS interference · Low", TakGnss.line(TakGnssSend.ANY, null, listOf(low)))
         assertEquals(TakGnssSend.OFF, AppSettings().takGnss)
+        assertEquals(TakGnssHold.HOUR, AppSettings().takGnssHold)
+        assertEquals(TakGnssHold.HOUR, AppSettings().takRadioHold)
+    }
+
+    @Test
+    fun gnssMarkIsAPinThenAnOvalHalfAsWide() {
+        val startLat = 40.0
+        val startLon = -74.0
+        val pin = TakGnss.plot(startLat, startLon, startLat, -74.0004)
+        assertTrue(Geo.meters(startLat, startLon, startLat, -74.0004) < TakGnss.SPAN_PIN_M)
+        assertTrue(pin.pin)
+        assertEquals(startLat, pin.lat, 1e-9)
+        assertEquals(startLon, pin.lon, 1e-9)
+
+        val endLon = -73.998
+        val span = Geo.meters(startLat, startLon, startLat, endLon)
+        val oval = TakGnss.plot(startLat, startLon, startLat, endLon)
+        assertTrue(span >= TakGnss.SPAN_PIN_M)
+        assertFalse(oval.pin)
+        assertEquals(span / 2.0, oval.semiMajorM, 0.01)
+        assertEquals(span / 4.0, oval.semiMinorM, 0.01)
+        assertEquals(oval.semiMajorM, oval.semiMinorM * 2.0, 0.01)
+        assertEquals(Geo.bearingDegrees(startLat, startLon, startLat, endLon), oval.angleDeg, 0.05)
+        val (midLat, midLon) = Geo.midpoint(startLat, startLon, startLat, endLon)
+        assertEquals(midLat, oval.lat, 1e-6)
+        assertEquals(midLon, oval.lon, 1e-6)
+    }
+
+    @Test
+    fun gnssMarkFreezesWhenTheHitEndsAndClearsWhenOff() {
+        val live = GnssLive(
+            kind = GnssKind.INTERFERENCE,
+            confidence = GnssConfidence.MEDIUM,
+            startedWall = 50L,
+            detail = "GPS L1",
+            adapted = false,
+            rose = false,
+        )
+        val active = GnssNotice(false, "Possible GNSS interference (Medium)", "", "Possible GNSS interference · Medium")
+        val opened = TakGnss.plan(
+            open = null,
+            mode = TakGnssSend.ALERT,
+            notice = active,
+            lives = listOf(live),
+            lat = 40.0,
+            lon = -74.0,
+            now = 1_000L,
+            hold = TakGnssHold.HOUR,
+        )
+        assertTrue(opened.send)
+        assertTrue(opened.plot!!.pin)
+        assertEquals("FIELDWATCH-GNSS-50", opened.track!!.uid)
+        assertTrue(opened.remarks.contains("Where this phone was"))
+        assertFalse(opened.remarks.contains("40.0"))
+
+        val quiet = TakGnss.plan(
+            open = opened.track,
+            mode = TakGnssSend.ALERT,
+            notice = active,
+            lives = listOf(live),
+            lat = 40.0,
+            lon = -74.0,
+            now = 2_000L,
+            hold = TakGnssHold.HOUR,
+        )
+        assertFalse(quiet.send)
+
+        val stretched = TakGnss.plan(
+            open = opened.track,
+            mode = TakGnssSend.ALERT,
+            notice = active,
+            lives = listOf(live),
+            lat = 40.0,
+            lon = -73.998,
+            now = 2_000L,
+            hold = TakGnssHold.HOURS_6,
+        )
+        assertTrue(stretched.send)
+        assertFalse(stretched.plot!!.pin)
+        assertEquals(TakGnssHold.HOURS_6.staleMs(), stretched.staleMs)
+
+        val ended = active.copy(line = "Possible GNSS interference ended 15:04", ended = true)
+        val frozen = TakGnss.plan(
+            open = stretched.track,
+            mode = TakGnssSend.RED_LINE,
+            notice = ended,
+            lives = emptyList(),
+            lat = 40.01,
+            lon = -73.99,
+            now = 30_000L,
+            hold = TakGnssHold.HOUR,
+        )
+        assertTrue(frozen.send)
+        assertFalse(frozen.track!!.open)
+        assertEquals(stretched.plot!!.semiMajorM, frozen.plot!!.semiMajorM, 0.01)
+        assertEquals(40.0, frozen.plot!!.lat, 1e-4)
+        assertEquals(TakGnssHold.HOUR.staleMs(), frozen.staleMs)
+
+        val off = TakGnss.plan(
+            open = null,
+            mode = TakGnssSend.OFF,
+            notice = null,
+            lives = emptyList(),
+            lat = 40.0,
+            lon = -74.0,
+            now = 40_000L,
+            hold = TakGnssHold.UNTIL_DELETED,
+            hasMarks = true,
+        )
+        assertTrue(off.clearAll)
+        assertFalse(TakGnss.growing(TakGnssSend.ALERT, ended, emptyList()))
     }
 
     @Test
@@ -540,6 +651,45 @@ class TakPublishTest {
         assertTrue(xml.contains("uid=\"FIELDWATCH-BLE-AABBCCDDEE01\""))
         assertTrue(xml.contains("stale=\"1970-01-01T00:00:00.000Z\""))
         assertTrue(xml.contains("gone"))
+        val named = CotEvent.tombstoneXml(
+            "FIELDWATCH-BLE-AABBCCDDEE01",
+            37.5,
+            -122.2,
+            0L,
+            callsign = "Axon (here)",
+            remarks = "Axon (here)\nBLE",
+        )
+        assertTrue(named.contains("callsign=\"Axon (here)\""))
+        assertFalse(named.contains("Fieldwatch"))
+    }
+
+    @Test
+    fun departedRadioKeepsItsNameForTheHold() {
+        val cam = radio(fleetIds = setOf("fleet-axon"), lat = 37.5, lon = -122.2)
+        val xml = CotEvent.xml(
+            device = cam,
+            fleets = fleets,
+            watchlist = emptyList(),
+            lat = 37.5,
+            lon = -122.2,
+            advertised = false,
+            now = 0L,
+            staleMs = TakGnssHold.HOUR.staleMs(),
+        )
+        assertTrue(xml.contains("callsign=\"Axon (here)\""))
+        assertTrue(xml.contains("stale=\"1970-01-01T01:00:00.000Z\""))
+        assertFalse(xml.contains("Fieldwatch"))
+        val face = CotEvent.face(cam, fleets, emptyList(), advertised = false)
+        val again = CotEvent.render(
+            uid = CotEvent.uid(cam),
+            face = face,
+            lat = 37.5,
+            lon = -122.2,
+            now = 0L,
+            staleMs = TakGnssHold.HOURS_6.staleMs(),
+        )
+        assertTrue(again.contains("callsign=\"Axon (here)\""))
+        assertTrue(again.contains("stale=\"1970-01-01T06:00:00.000Z\""))
     }
 
     @Test

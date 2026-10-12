@@ -17,6 +17,32 @@ object Geo {
         return 2 * r * atan2(sqrt(a), sqrt(1 - a))
     }
 
+    /** Degrees clockwise from true north, from the first point to the second. */
+    fun bearingDegrees(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val p1 = Math.toRadians(lat1)
+        val p2 = Math.toRadians(lat2)
+        val dl = Math.toRadians(lon2 - lon1)
+        val y = sin(dl) * cos(p2)
+        val x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
+        val wrapped = Math.toDegrees(atan2(y, x)) % 360.0
+        return if (wrapped < 0.0) wrapped + 360.0 else wrapped
+    }
+
+    fun midpoint(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Pair<Double, Double> {
+        val p1 = Math.toRadians(lat1)
+        val l1 = Math.toRadians(lon1)
+        val p2 = Math.toRadians(lat2)
+        val dl = Math.toRadians(lon2 - lon1)
+        val bx = cos(p2) * cos(dl)
+        val by = cos(p2) * sin(dl)
+        val lat = atan2(
+            sin(p1) + sin(p2),
+            sqrt((cos(p1) + bx) * (cos(p1) + bx) + by * by),
+        )
+        val lon = l1 + atan2(by, cos(p1) + bx)
+        return Math.toDegrees(lat) to Math.toDegrees(lon)
+    }
+
     fun pathLengthM(samples: List<GpsSample>): Double {
         var sum = 0.0
         for (i in 1 until samples.size) {

@@ -4,6 +4,12 @@ Newest first. This is Fieldwatch (`app.fieldwatch`). Each build below is what Se
 
 Fieldwatch continues the Spectre 1.2.14 field build under a new name, application id, and the MIT License. It does not replace Spectre on a phone.
 
+## 1.1.25 — 11 October 2026
+
+- A GNSS hit can put a mark on the ATAK map where this phone was. A short hit is a pin. If the phone keeps moving while the hit lasts, the mark becomes an oval from where it started to where it was last heard, half as wide as it is long. The words also stay on this phone's Fieldwatch marker. The mark does not say where the cause is.
+- How long that mark stays is a setting: 1 hour, 6 hours, 24 hours, or until deleted. The default is 1 hour. Until deleted stays until GNSS on TAK is turned off.
+- A radio spot on TAK keeps its name after the radio leaves. How long a spot stays is 1 hour, 6 hours, 24 hours, or until deleted. The default is 1 hour. This phone's Fieldwatch marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. A short GNSS pin that grows into an oval does not leave a Fieldwatch spot behind.
+
 ## 1.1.24 — 10 October 2026
 
 - The icons in the top bar show whether Wi-Fi, Bluetooth, and signatures are healthy. Green means that part is working, including the wait between Wi-Fi scans and a planned Bluetooth rest. A signature count of 0 stays green. Gray means the scan is stopped. Dim gray means that radio is off. Red means Location is off while that scan is running, or Android is refusing it. The words after the icons stay in the secondary text color. Night mode folds the colors into the red display.

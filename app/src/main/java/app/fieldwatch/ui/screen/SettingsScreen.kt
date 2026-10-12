@@ -69,6 +69,7 @@ import app.fieldwatch.domain.ScanIntensity
 import app.fieldwatch.domain.TakDefaults
 import app.fieldwatch.domain.TakFeedStatus
 import app.fieldwatch.domain.TakFloodSend
+import app.fieldwatch.domain.TakGnssHold
 import app.fieldwatch.domain.TakGnssSend
 import app.fieldwatch.domain.TakPublish
 import app.fieldwatch.domain.TakUdpPreset
@@ -606,7 +607,7 @@ fun SettingsScreen(
                     "Radios you hear are pinned at this phone’s GPS, at the loudest point, and labeled (here). " +
                     "Walking away does not move the pin. A louder detection does. " +
                     "Remote ID aircraft use the coordinates in the advertisement, and a pilot location is a second pin. " +
-                    "A radio that leaves is removed. Tap a marker for the name, MAC, and signal. " +
+                    "A radio that leaves keeps its name for How long a spot stays. Tap a marker for the name, MAC, and signal. " +
                     "This is not direction finding. Privacy mode pauses the feed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1015,6 +1016,24 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
         style = MaterialTheme.typography.bodySmall,
         color = muted,
     )
+    Text("How long a spot stays", style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TakGnssHold.entries.forEach { item ->
+            FieldwatchFilterChip(
+                selected = settings.takRadioHold == item,
+                onClick = { vm.updateSettings { it.copy(takRadioHold = item) } },
+                enabled = !settings.demoMode,
+                label = { Text(item.label()) },
+            )
+        }
+    }
+    Text(
+        "After a radio leaves, the spot keeps its name for this long. The time starts when it leaves. " +
+            "Until deleted stays until the feed is turned off. " +
+            "This phone’s Fieldwatch marker stays for about 2 minutes.",
+        style = MaterialTheme.typography.bodySmall,
+        color = muted,
+    )
     Text("GNSS", style = MaterialTheme.typography.labelLarge)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TakGnssSend.entries.forEach { item ->
@@ -1027,10 +1046,29 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
         }
     }
     Text(
-        "One line on this phone’s Fieldwatch marker. Not its own pin, and it does not say where the interference is. " +
+        "A mark on the map where this phone was, and a line on this phone’s Fieldwatch marker. " +
+            "A short hit is a pin. A hit that continues while the phone moves becomes an oval from the start to the last place it was heard, half as wide as it is long. " +
+            "The mark does not say where the cause is. " +
             "Off sends nothing. While alerting sends during a hit at or above Alert from. " +
-            "Red line also sends for the 10 minutes after. Any hit also sends a Low detection that never shows the red line. " +
+            "Red line also keeps the line for the 10 minutes after. The oval stops growing when the hit ends. " +
+            "Any hit also sends a Low detection that never shows the red line. " +
             "This phone needs a GPS fix.",
+        style = MaterialTheme.typography.bodySmall,
+        color = muted,
+    )
+    Text("How long the mark stays", style = MaterialTheme.typography.labelLarge)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TakGnssHold.entries.forEach { item ->
+            FieldwatchFilterChip(
+                selected = settings.takGnssHold == item,
+                onClick = { vm.updateSettings { it.copy(takGnssHold = item) } },
+                enabled = !settings.demoMode && settings.takGnss != TakGnssSend.OFF,
+                label = { Text(item.label()) },
+            )
+        }
+    }
+    Text(
+        "The time starts at the last update. Until deleted stays until GNSS is set to Off.",
         style = MaterialTheme.typography.bodySmall,
         color = muted,
     )

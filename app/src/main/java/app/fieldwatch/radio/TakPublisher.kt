@@ -4,9 +4,13 @@ import android.util.Log
 import app.fieldwatch.domain.AppSettings
 import app.fieldwatch.domain.CotEvent
 import app.fieldwatch.domain.Fleet
+import app.fieldwatch.domain.GnssLive
+import app.fieldwatch.domain.GnssNotice
 import app.fieldwatch.domain.Sighting
 import app.fieldwatch.domain.TakDefaults
 import app.fieldwatch.domain.TakFeedStatus
+import app.fieldwatch.domain.TakGnss
+import app.fieldwatch.domain.TakGnssTrack
 import app.fieldwatch.domain.TakHeardHere
 import app.fieldwatch.domain.TakPublish
 import app.fieldwatch.domain.TakSent
@@ -27,6 +31,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class TakPublisher {
     private val last = ConcurrentHashMap<String, TakSent>()
+    /** Radios that left the feed and were resent once with the spot hold. */
+    private val parked = ConcurrentHashMap<String, TakSent>()
+    private val gnssMarks = LinkedHashMap<String, TakGnssTrack>()
     private val gate = Any()
     @Volatile private var multicast: MulticastSocket? = null
     @Volatile private var unicast: DatagramSocket? = null
@@ -41,15 +48,17 @@ class TakPublisher {
         now: Long = System.currentTimeMillis(),
         selfFix: Pair<Double, Double>? = null,
         gnssRemark: String? = null,
+        gnssNotice: GnssNotice? = null,
+        gnssLives: List<GnssLive> = emptyList(),
     ) {
-        if (!settings.takEnabled) {
-            last.clear()
-            _status.value = TakFeedStatus(detail = "Off")
-            return
-        }
-        if (settings.demoMode) {
-            last.clear()
-            _status.value = TakFeedStatus(paused = true, detail = "Privacy mode — feed paused")
+        if (!settings.takEnabled || settings.demoMode) {
+            retractRadios(settings, now)
+            if (last.isEmpty() && parked.isEmpty()) gnssMarks.clear()
+            _status.value = if (!settings.takEnabled) {
+                TakFeedStatus(detail = "Off")
+            } else {
+                TakFeedStatus(paused = true, detail = "Privacy mode — feed paused")
+            }
             return
         }
         val host = settings.takHost.trim().ifBlank { TakDefaults.HOST }
@@ -97,6 +106,75 @@ class TakPublisher {
             }
         }
 
+        val gnssFix = if (selfOk) selfFix else null
+        val gnssPlan = TakGnss.plan(
+            open = gnssMarks.values.firstOrNull { it.open },
+            mode = settings.takGnss,
+            notice = gnssNotice,
+            lives = gnssLives,
+            lat = gnssFix?.first,
+            lon = gnssFix?.second,
+            now = now,
+            hold = settings.takGnssHold,
+            hasMarks = gnssMarks.isNotEmpty(),
+        )
+        if (gnssPlan.clearAll) {
+            for (mark in gnssMarks.values) {
+                val xml = CotEvent.tombstoneXml(
+                    uid = mark.uid,
+                    lat = mark.startLat,
+                    lon = mark.startLon,
+                    now = now,
+                    callsign = TakGnss.CALLOUT,
+                    remarks = "Where this phone was. Not the source.",
+                )
+                if (sendAll(dests, xml.toByteArray(Charsets.UTF_8))) {
+                    gone++
+                } else {
+                    lastErr = "send failed"
+                }
+            }
+            if (lastErr == null) gnssMarks.clear()
+        } else {
+            var gnssOk = true
+            val drawn = gnssPlan.plot
+            val gnssUid = gnssPlan.track?.uid
+            if (gnssOk && gnssPlan.send && drawn != null && gnssUid != null) {
+                val xml = if (drawn.pin) {
+                    CotEvent.gnssPinXml(
+                        uid = gnssUid,
+                        lat = drawn.lat,
+                        lon = drawn.lon,
+                        now = now,
+                        staleMs = gnssPlan.staleMs,
+                        remarks = gnssPlan.remarks,
+                    )
+                } else {
+                    CotEvent.gnssOvalXml(
+                        uid = gnssUid,
+                        lat = drawn.lat,
+                        lon = drawn.lon,
+                        semiMajorM = drawn.semiMajorM,
+                        semiMinorM = drawn.semiMinorM,
+                        angleDeg = drawn.angleDeg,
+                        now = now,
+                        staleMs = gnssPlan.staleMs,
+                        remarks = gnssPlan.remarks,
+                    )
+                }
+                if (sendAll(dests, xml.toByteArray(Charsets.UTF_8))) {
+                    sent++
+                } else {
+                    gnssOk = false
+                    lastErr = "send failed"
+                }
+            }
+            if (gnssOk) {
+                val track = gnssPlan.track
+                if (track != null) gnssMarks[track.uid] = track
+            }
+        }
+
         val chosen = devices.asSequence()
             .filter { TakPublish.eligible(it, settings, fleets, watchlist) }
             .sortedWith(
@@ -137,21 +215,36 @@ class TakPublisher {
                         }
                     }
                 }
-                val xml = CotEvent.xml(
+                val face = CotEvent.face(
                     device = mark.device,
                     fleets = fleets,
                     watchlist = watchlist,
+                    advertised = mark.advertised,
+                    pilot = mark.pilot,
+                )
+                val xml = CotEvent.render(
+                    uid = mark.uid,
+                    face = face,
                     lat = lat,
                     lon = lon,
-                    advertised = mark.advertised,
                     now = now,
-                    pilot = mark.pilot,
+                    staleMs = TakDefaults.STALE_MS,
                 )
                 if (!sendAll(dests, xml.toByteArray(Charsets.UTF_8))) {
                     lastErr = "send failed"
                     continue
                 }
-                last[mark.uid] = TakSent(mark.uid, mark.deviceKey, now, lat, lon, peakRssi)
+                last[mark.uid] = TakSent(
+                    mark.uid,
+                    mark.deviceKey,
+                    now,
+                    lat,
+                    lon,
+                    peakRssi,
+                    face = face,
+                    staleMs = TakDefaults.STALE_MS,
+                )
+                parked.remove(mark.uid)
                 sent++
                 emitted++
             }
@@ -166,15 +259,43 @@ class TakPublisher {
             selfUid = SELF_UID,
             selfOk = selfOk,
         )
-        val dead = last.keys.filter { it !in keep }.take(TakDefaults.MAX_PER_TICK)
-        for (uid in dead) {
+        val holdMs = settings.takRadioHold.staleMs()
+        var holdBudget = TakDefaults.MAX_PER_TICK
+        for (uid in last.keys.filter { it !in keep }) {
             val prev = last[uid] ?: continue
-            val xml = CotEvent.tombstoneXml(uid, prev.lat, prev.lon, now)
+            val face = prev.face
+            if (uid == SELF_UID || face == null) {
+                last.remove(uid)
+                continue
+            }
+            if (holdBudget <= 0) break
+            val xml = CotEvent.render(uid, face, prev.lat, prev.lon, now, holdMs)
             if (sendAll(dests, xml.toByteArray(Charsets.UTF_8))) {
                 last.remove(uid)
-                gone++
+                parked[uid] = prev.copy(at = now, staleMs = holdMs)
+                sent++
+                holdBudget--
             } else {
                 lastErr = "send failed"
+                break
+            }
+        }
+        for (spot in parked.values.toList()) {
+            if (spot.uid in keep || spot.staleMs == holdMs) continue
+            val face = spot.face
+            if (face == null) {
+                parked.remove(spot.uid)
+                continue
+            }
+            if (holdBudget <= 0) break
+            val xml = CotEvent.render(spot.uid, face, spot.lat, spot.lon, now, holdMs)
+            if (sendAll(dests, xml.toByteArray(Charsets.UTF_8))) {
+                parked[spot.uid] = spot.copy(at = now, staleMs = holdMs)
+                sent++
+                holdBudget--
+            } else {
+                lastErr = "send failed"
+                break
             }
         }
 
@@ -209,7 +330,32 @@ class TakPublisher {
             unicast = null
         }
         last.clear()
+        parked.clear()
+        gnssMarks.clear()
         _status.value = TakFeedStatus(detail = "Off")
+    }
+
+    /** Feed off or Privacy. Drop radio spots under their own names. GNSS marks are left for ATAK. */
+    private fun retractRadios(settings: AppSettings, now: Long) {
+        if (last.isEmpty() && parked.isEmpty()) return
+        val host = settings.takHost.trim().ifBlank { TakDefaults.HOST }
+        val port = settings.takPort.coerceIn(1, 65_535)
+        val dests = destinations(host, port)
+        if (dests.isEmpty()) return
+        val spots = LinkedHashMap<String, TakSent>()
+        last.forEach { (uid, spot) -> spots[uid] = spot }
+        parked.forEach { (uid, spot) -> spots.putIfAbsent(uid, spot) }
+        for ((uid, spot) in spots) {
+            val face = spot.face
+            val xml = if (face != null) {
+                CotEvent.tombstoneXml(uid, spot.lat, spot.lon, now, face.callsign, face.remarks)
+            } else {
+                CotEvent.tombstoneXml(uid, spot.lat, spot.lon, now)
+            }
+            if (!sendAll(dests, xml.toByteArray(Charsets.UTF_8))) return
+            last.remove(uid)
+            parked.remove(uid)
+        }
     }
 
     private fun destinations(host: String, port: Int): List<Pair<InetAddress, Int>> {

@@ -479,8 +479,8 @@ def draw_cover(c, doc):
         y -= 16
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 9)
-    c.drawString(48, 108, "Version 1.1.24")
-    c.drawString(48, 94, "10 October 2026")
+    c.drawString(48, 108, "Version 1.1.25")
+    c.drawString(48, 94, "11 October 2026")
     c.drawString(48, 80, "Package  app.fieldwatch   ·   Android 10+ (API 29)   ·   Target API 35")
     c.setStrokeColor(colors.HexColor("#2A3340"))
     c.setLineWidth(0.6)
@@ -520,7 +520,7 @@ def draw_body(c, doc):
     c.line(48, 40, PAGE_W - 48, 40)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 8)
-    c.drawString(48, 28, "v1.1.24  ·  Off Grid Pete LLC")
+    c.drawString(48, 28, "v1.1.25  ·  Off Grid Pete LLC")
     draw_ig_mark(c, 148, 30, 5.2, MUTED)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 8)
@@ -2045,7 +2045,7 @@ def story():
             "<b>Watchlist</b> — Watchlist alerts is the master switch (off: no beep, voice, flash, jump, or shade card; bookmarking still works). Beep and Voice are independent: pip only, spoken phrase only, or pip then phrase. Voice (on by default) can say the class (finder tags, audio, …), the signature name (Apple AirTags, Axon, …), or both — Settings → What to say; default is Class + signature. Not Hunt; a second hit is skipped while a phrase is being spoken. Jump to new watched detection is on. Optional system notification (off by default). Test alert plays whatever is on. <b>Named radios (N)</b> opens the list of one-MAC names, Observer notes, and optional alerts: rename, notes, Alert on/off, remove one, or Clear all (signature watches stay on Signatures). Stock bookmarks watch Extra attention families (body-cam, camera glasses, recording wearables, pentest, public-safety vehicle APs, roadside / public camera + ALPR) and every built-in Drone-class row (DJI, Remote ID, Skydio, Autel, Parrot, HOVERAir, Tello, Potensic, Holy Stone, Hubsan, Yuneec, SwellPro, Crazyflie). Unbookmark a row on Signatures if you do not want that alert. Flock LiteOn / Espressif OUIs can be noisy. Field write-up: §10.1–10.2.1.",
             "<b>Tag detections with GPS</b> — On by default. Requests live GPS and network location updates while scanning, then stamps each hear (detail, Moving with you, Debrief, log lat/lon). Last-known older than 30 s is ignored. Path stays 0 until a live fix. High-accuracy Location. Needed for Debrief distance/following, Filters → Moving with you, and heard-here TAK pins. Advertised payload pins (Remote ID) do not need this. A Log export with tagging on contains operator coordinates.",
             "<b>GNSS interference</b> — Calibrate this phone once before the check will turn on. The result stays on this phone and is not part of Export settings. Full write-up: §5.9.",
-            "<b>TAK / CoT feed</b> — Off by default. UDP Cursor-on-Target to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — a TAK server’s TCP 8087 is not this feed. Heard-here pins sit at operator GPS at the loudest hear (closest approach) and are labeled (here). Advertised lat/lon (stock Remote ID) sit on the aircraft; sticky UAS ID keeps one moving marker; decoded pilot lat/lon is a second pin. Location heading and speed go in the ATAK track when present. Wi-Fi Remote ID (vendor IE FA:0B:BC) can pin the aircraft the same way as BLE FFFA on Android 11+. Gone radios are dropped. Settings shows last send. What to send chips: Extra attention (on), Payload location (on), Watchlist (off), All signatures (off). GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. Those two add a line to this phone’s marker and do not add a pin. §5.8.12. Privacy mode pauses the feed. Full configuration: §5.8. Sit: §12.15.",
+            "<b>TAK / CoT feed</b> — Off by default. UDP Cursor-on-Target to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — a TAK server’s TCP 8087 is not this feed. Heard-here pins sit at operator GPS at the loudest hear (closest approach) and are labeled (here). Advertised lat/lon (stock Remote ID) sit on the aircraft; sticky UAS ID keeps one moving marker; decoded pilot lat/lon is a second pin. Location heading and speed go in the ATAK track when present. Wi-Fi Remote ID (vendor IE FA:0B:BC) can pin the aircraft the same way as BLE FFFA on Android 11+. A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. Settings shows last send. What to send chips: Extra attention (on), Payload location (on), Watchlist (off), All signatures (off). GNSS is Off, While alerting, Red line, or Any hit. A GNSS hit also puts a pin or an oval on the map where this phone was. A short hit is a pin. A longer hit is an oval from the start to the last place it was heard, half as wide as it is long. How long that mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Floods is Off or On and only adds a line to this phone’s marker. The mark, the oval, and the hold are §5.8.13. Floods are §5.8.12. Privacy mode pauses the feed. Full configuration: §5.8. Sit: §12.15.",
             "<b>Online place names and maps</b> — On by default. One switch. Debrief and AI Export reverse-geocode GPS stamps (system geocoder). Reports → Path loads OpenStreetMap tiles under the trace (no Fieldwatch cloud, no API key). Offline, no geocoder, or no tiles: Debrief uses coordinates only and Path stays the north-up plot — no error dialog. Privacy mode does not hide that map. Turn off to keep streets and map tiles out of reports and Path together. Generate buttons are on Reports (§5.6, §5.6.1).",
             "<b>Logging</b> — Write to disk, rotate size, Stale after slider (when a radio is marked gone). Line/disk counts. The rotating file is JSON lines. Format (CSV, JSON lines, GPX, KML, WiGLE) and radios (Both / Wi-Fi / BLE) are on Reports → Log. Share, Save, and Reset / clear log are on Reports.",
             "<b>Allow background usage</b> — Switch. Opens Fieldwatch’s Battery page; turn on Allow background usage so the OS may run the scan when Fieldwatch is not in front. Follows that Android setting. Not Keep screen on.",
@@ -2098,8 +2098,9 @@ def story():
             "<b>It is</b> an overlay of radios Fieldwatch heard, at a coordinate Fieldwatch already has.",
             "<b>Heard here</b> means this phone’s GPS at the loudest hear so far (closest approach). The other radio is somewhere in earshot, not on that pin. Walking away does not drag it.",
             "<b>Advertised position</b> means the radio encoded WGS84 (stock Remote ID Location on BLE UUID FFFA or Wi-Fi vendor IE FA:0B:BC; any custom map whose field ids are <font face='Courier'>latitude</font> / <font face='Courier'>longitude</font>). That pin is what the gadget claimed, not a Fieldwatch DF fix.",
-            "<b>It is not</b> a Remote ID plugin, a drone tracker, direction-finding, pairing, GATT, or Wi-Fi monitor mode. It does not join the multicast group (send-only). When a radio leaves the feed, Fieldwatch sends a CoT with stale=now so ATAK drops it instead of waiting ~120 s. Privacy pause does not send those gone events (the feed just stops; ATAK stale-times out).",
+            "<b>It is not</b> a Remote ID plugin, a drone tracker, direction-finding, pairing, GATT, or Wi-Fi monitor mode. It does not join the multicast group (send-only). When a radio leaves the feed, the spot keeps its name for How long a spot stays (1 hour unless you change it). This phone’s Fieldwatch marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off ATAK. A GNSS mark is left in place by those two. §5.8.8.",
             "<b>It is not</b> the Live display. Filters do not shrink the feed. A radio you hid on the Live display still publishes if it matches What to send and has a pin.",
+            "<b>A GNSS mark</b> is where this phone was during a hit. It stays on the map when the Fieldwatch callsign moves on. It does not say where the cause is. §5.8.13.",
         ]),
         P("5.8.2 Two kinds of pin", "h3"),
         P(
@@ -2265,21 +2266,47 @@ def story():
             "attention and payload pins first, then louder RSSI."
         ),
         P(
+            "How long a spot stays sits under those chips. After a radio leaves, ATAK keeps that spot, "
+            "under the same name, for 1 hour, 6 hours, 24 hours, or until deleted. 1 hour is the start. "
+            "The time starts when the radio leaves. Until deleted stays until the feed is turned off. "
+            "This phone’s own Fieldwatch marker is not on that clock. It refreshes about every 2 minutes, "
+            "and it is the only spot named Fieldwatch."
+        ),
+        table(
+            ["How long a spot stays", "What happens"],
+            [
+                ["1 hour", "The start. After the radio leaves, ATAK keeps that spot, under the same name, for about an hour."],
+                ["6 hours", "About six hours after the radio leaves."],
+                ["24 hours", "About a day after the radio leaves."],
+                ["Until deleted", "Stays until the feed is turned off, or Privacy mode is turned on, or you delete the spot in ATAK. Fieldwatch does not keep its own copy."],
+            ],
+            [1.7 * inch, 4.8 * inch],
+        ),
+        P(
+            "While the radio is still in range, the spot refreshes on a short clock, about 2 minutes, "
+            "so a radio you have already walked past does not stay bright. "
+            "The hold starts when it leaves. "
+            "ATAK prints the callsign on the map. The MAC, the strength, and the channel are in the card you open."
+        ),
+        P(
             "GNSS and Floods sit under those four chips. They do not pick radios. "
-            "Each one adds a line to this phone’s Fieldwatch marker. "
-            "Neither one makes its own pin, and neither one says where the cause is. "
+            "Floods adds a line to this phone’s Fieldwatch marker and does not make its own pin. "
+            "GNSS adds that same line, and a mark where this phone was. A short hit is a pin. "
+            "A hit that continues while the phone moves is an oval from the start to the last place it was heard, half as wide as it is long. "
+            "The mark does not say where the cause is. How long it stays is 1 hour, 6 hours, 24 hours, or until deleted. "
             "GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. "
-            "This phone needs a GPS fix. Privacy mode pauses the feed. §5.8.12."
+            "This phone needs a GPS fix. Privacy mode pauses the feed. The mark is §5.8.13."
         ),
         P("5.8.8 Privacy, GPS tagging, and when nothing is sent", "h3"),
         bullets([
             "<b>Master off</b> (default) — no datagrams.",
             "<b>Privacy mode on</b> — the feed pauses even if the master is on. Settings shows a line under the switch. Fieldwatch will not send masked MACs or masked coordinates. Turn Privacy mode off to publish; the screen can stay on Privacy for screenshots while you are not feeding TAK.",
             "<b>GPS tagging off</b> — heard-here pins stop. Advertised payload pins (Remote ID) still publish.",
-            "<b>No live GPS</b> — same as tagging off for heard-here. Path 0 m on the Live display is the hint. High-accuracy Location, scanning running, wait for a fix.",
+            "<b>No live GPS</b> — same as tagging off for heard-here. The GNSS line and the GNSS mark use that same fix, so they wait too. Path 0 m on the Live display is the hint. High-accuracy Location, scanning running, wait for a fix. A fix coarser than about 75 m, or older than about 30 seconds, is not used.",
+            "<b>GNSS Off</b> — no GNSS line and no GNSS mark. Marks this phone still knows are removed from ATAK. A pause (GNSS paused by the phone) is not a hit. §5.8.13.",
             "<b>No matching chip</b> — a Ruuvi, a phone, an unmatched AP does not go unless you turn All signatures or Watchlist (and bookmark it).",
             "<b>Invalid advertised coords</b> — 0,0, NaN, or out of range are ignored. A previous good Location pair on that radio stays.",
-            "<b>Scanning stopped</b> — Stop on the scan notification ends the loop. Markers already on ATAK stale out in ~120 s.",
+            "<b>Scanning stopped</b> — Stop on the scan notification ends the loop. A radio that was still being sent goes stale in about 2 minutes. A spot that had already left keeps How long a spot stays.",
         ]),
         P(
             "Advertised aircraft, pilot, and this-phone markers are sent when they first qualify, "
@@ -2288,19 +2315,23 @@ def story():
             "still refresh the same lat/lon after about 10 s so ATAK does not stale-drop. Peak RSSI "
             "is kept across those keep-alives so a later louder hear still moves the pin. Sitting on "
             "one corner does not spam ATAK. When a radio leaves the feed (gone, or no longer selected), "
-            "Fieldwatch sends a CoT with <font face='Courier'>stale</font> equal to now so ATAK drops it. "
-            "Missing the 24-per-tick cap or a GPS blip does not count as gone. Privacy pause does not "
-            "send those events."
+            "Fieldwatch sends that same spot once more, same name and same place, with the stale time "
+            "set from How long a spot stays. It does not rename the spot to Fieldwatch. "
+            "Changing the hold sends that spot again, and the time starts over from that send. "
+            "Missing the 24-per-tick cap or a GPS blip does not count as leaving. "
+            "Turning the feed off, or turning Privacy mode on, tells ATAK to drop the radio spots this phone still knows. "
+            "Each of those last events keeps the radio’s name. The GNSS mark is not removed by either one."
         ),
         P("5.8.9 What ATAK shows", "h3"),
         bullets([
             "<b>uid</b> — Remote ID with a sticky UAS ID is <font face='Courier'>FIELDWATCH-RID-</font> plus that id (one aircraft, one moving marker). Otherwise <font face='Courier'>FIELDWATCH-BLE-</font> or <font face='Courier'>FIELDWATCH-WIFI-</font> plus the MAC without colons. Pilot pin is <font face='Courier'>FIELDWATCH-PILOT-</font> plus the same id. A rotated BLE address without a UAS ID is still a new marker.",
             "<b>type</b> — advertised drone-class (Remote ID / DJI class) is <font face='Courier'>a-u-A-M-H-Q</font> (unknown UAV, Yellow). Heard-here Extra attention is <font face='Courier'>a-u-G</font> (Maroon). Pilot is <font face='Courier'>a-u-G</font> (Orange). Other ground is Cyan. Not friendly/hostile affiliation.",
-            "<b>callsign</b> — Named radio label if that MAC is named; else advertised Self ID / UAS ID; else an Extra attention signature name; else the first matching signature; else the advertised name; else the MAC tail. Heard-here callsigns end in (here).",
+            "<b>callsign</b> — Named radio label if that MAC is named; else advertised Self ID / UAS ID; else an Extra attention signature name; else the first matching signature; else the advertised name; else the MAC tail. Heard-here callsigns end in (here). After the radio leaves, that same callsign stays for How long a spot stays. §5.8.7.",
             "<b>point</b> — lat/lon as above. <font face='Courier'>hae</font> is advertised altitude when known, else the CoT unknown (9999999). ce/le are unknown.",
             "<b>track</b> — advertised aircraft only. <font face='Courier'>course</font> is heading degrees, <font face='Courier'>speed</font> is m/s, when Location had them. Pilot and heard-here pins omit track. Omitted if neither course nor speed.",
             "<b>remarks</b> — A short card (newlines) when you inspect the marker: callsign, Wi-Fi or BLE, full MAC, RSSI dBm, Wi-Fi channel when known, advertised position / heard here (operator GPS) / operator (pilot) position, UAS ID, advertised name if it is not already the callsign, up to three signature names, Extra attention text. Cap about 800 characters. Map label is still the 32-character callsign. Privacy mode pauses the feed, so remarks are not sent while it is on.",
             "<b>how</b> — <font face='Courier'>m-g</font> (machine / GPS). Time/start/stale are UTC.",
+            "<b>GNSS mark</b> — Separate from the radios and from this phone’s Cyan marker. Callsign Possible GNSS interference, group Magenta. A short hit is a pin (<font face='Courier'>b-m-p-s-m</font>) at the start. A longer hit is one oval (<font face='Courier'>u-d-c-e</font>). §5.8.13.",
         ]),
         P(
             "This is not a TAK data package, not a KML, and not a GeoJSON share. If the map "
@@ -2319,19 +2350,182 @@ def story():
         ]),
         P("5.8.11 Field checklist", "h3"),
         P(
-            "Feed status under the host fields shows pins on the feed (what Fieldwatch is keeping on ATAK), sends this tick, dest, error, and time. A send count that flashes and returns to 0 is the keep-alive hold (about 10 s, or 30 m for advertised / this-phone) — the on-the-feed number should stay. A drone sit with ATAK open is §12.15. Extra attention overlay (body-cam / glasses / "
+            "Feed status under the host fields shows radios on the feed, sends this tick, dest, error, and time. The GNSS mark is not in that on-the-feed count (§5.8.15). A send count that flashes and returns to 0 is the keep-alive hold (about 10 s, or 30 m for advertised / this-phone) — the on-the-feed number should stay. A drone sit with ATAK open is §12.15. Extra attention overlay (body-cam / glasses / "
             "pentest) is the same switch with Payload location optional. For decode-map ids, §9.6."
         ),
-        P("5.8.12 GNSS and floods on this phone’s marker", "h3"),
+        P("5.8.12 GNSS and floods", "h3"),
         P(
-            "Under What to send, two more controls add a line to <b>this phone’s</b> Fieldwatch marker. "
-            "Neither one makes its own pin, and neither one says where the cause is. This phone needs a GPS fix. "
-            "Privacy mode pauses the feed, so these lines are not sent while it is on."
+            "Under What to send, GNSS and Floods do not pick radios. "
+            "Both can add a line to <b>this phone’s</b> Fieldwatch marker, the Cyan one that moves with you. "
+            "Floods stop there. GNSS can also leave its own mark on the map, where this phone was. "
+            "That mark is §5.8.13. The check itself, the popup, and the red line on Live are §5.9. "
+            "This phone needs a GPS fix. Privacy mode pauses the feed, so none of this is sent while it is on."
         ),
         bullets([
-            "<b>GNSS.</b> Off sends nothing. While alerting sends during a hit at or above Alert from. Red line also sends for the about 10 minutes after the hit ends. Any hit also sends a Low detection that never shows the red line on Live. The line does not say where the interference is. §5.9.",
-            "<b>Floods.</b> On adds a note from the detection until the notice ends, including while the popup is up. Off sends nothing. This does not change the red line on Live. The note does not say it was one radio, and it does not name a tool.",
+            "<b>Floods.</b> On adds a note from the detection until the notice ends, including while the popup is up. Off sends nothing. This does not change the red line on Live. The note does not say it was one radio, and it does not name a tool. There is no flood pin.",
         ]),
+        P("5.8.13 The GNSS mark", "h3"),
+        P(
+            "The Fieldwatch marker moves with this phone. Its callsign is Fieldwatch, and its color is Cyan. "
+            "A GNSS line on that marker is the hit while it is happening. When you drive on, the line goes with you, "
+            "and the place you were is gone from the map. The mark is that place. "
+            "It stays where this phone was. It does not ride the callsign."
+        ),
+        P(
+            "The mark is where the phone was during the hit. "
+            "It does not say a jammer was found, and it does not say a spoofer was found. "
+            "It does not say where the cause is, and it does not give a distance. "
+            "The card on the mark says where this phone was, and that this is not the source. "
+            "A router, a charger, or another phone against this one can cause the same hit. §5.9."
+        ),
+        P(
+            "The GNSS chips decide both the line and the mark. "
+            "Off, While alerting, Red line, and Any hit are one choice for both. "
+            "Off sends neither. "
+            "How long a mark stays is the next control, <b>How long the mark stays</b>. §5.8.16."
+        ),
+        table(
+            ["GNSS", "What is sent"],
+            [
+                ["Off", "Nothing. No line and no mark. Marks this phone still knows are taken off ATAK."],
+                ["While alerting", "During a hit at or above Alert from. That is the same window as the popup, the beep, and the voice."],
+                ["Red line", "While the hit is on. The line on the Cyan marker also stays for about 10 minutes after the hit ends. The mark stops growing when the hit ends. Those 10 minutes do not stretch it."],
+                ["Any hit", "While alerting, and also a Low detection that never shows the red line on Live. A hit below Alert from is still in Debrief either way. It reaches the map only on this chip."],
+            ],
+            [1.35 * inch, 5.15 * inch],
+        ),
+        P(
+            "A pause is not a hit. Live can say <b>GNSS paused by the phone</b>. "
+            "That sentence is not sent, and it does not open a mark. "
+            "A phone graded Poor keeps the popup off, and an interference hit on that phone is not sent. "
+            "Path tagging still works. §5.9.1. "
+            "The check runs only while Fieldwatch is scanning. The first minute after it starts is settling, and the next is the baseline. "
+            "A mark is not sent until the check is armed and a hit qualifies. §5.9.2."
+        ),
+        P("5.8.14 Pin, then an oval", "h3"),
+        P(
+            "The first report of a hit is always a pin. The start and the latest place are the same point, "
+            "so the pin sits on that start fix. A few more steps do not slide it forward."
+        ),
+        P(
+            "It stays a pin while the straight-line distance from that start to where the phone is now is under about 100 m. "
+            "Parked in a lot, or a short walk, is one pin at the start."
+        ),
+        P(
+            "At about 100 m that pin becomes one oval, under the same name, Possible GNSS interference. "
+            "Fieldwatch does not drop a second spot named Fieldwatch at the start."
+        ),
+        bullets([
+            "<b>Tips.</b> One tip is the fix where the hit opened. The other tip is the latest fix while the hit is still on.",
+            "<b>Center.</b> Halfway between those two fixes. A TAK app that only plots points, and does not draw shapes, shows this center. It does not show the two tips.",
+            "<b>Length.</b> The straight distance from the start to the latest fix. The long axis of the oval is that full distance.",
+            "<b>Width.</b> Half the length. A stretch of about 2 km is an oval about 2 km long and about 1 km wide. ATAK prints those on the shape as W and L. W is the full width. L is the full length. A stretch of about 5 km reads about W 2.5 km and L 5 km. The width follows that distance. It does not grow with the minutes on the clock. An hour parked in one spot is still a pin.",
+            "<b>Direction.</b> The long axis points from the start fix to the latest fix.",
+            "<b>A bend.</b> The oval is a straight span. A curve in the road is cut across. The shape does not trace every turn.",
+        ]),
+        P(
+            "The oval grows only while the hit is still on. When the hit ends, one last update freezes the shape. "
+            "After that it does not follow the phone. "
+            "The quieter ended line on Live lasts about 10 minutes. "
+            "If GNSS is Red line, those words also stay on the moving Cyan marker for those 10 minutes. "
+            "They do not lengthen the oval, and they do not move its tips."
+        ),
+        P(
+            "A later hit is another mark. The one that already ended stays where it froze, until its time runs out (§5.8.16). "
+            "Two hits along one drive are two shapes, not one oval that jumps backward."
+        ),
+        P(
+            "While the hit is open, the map is refreshed about every 10 seconds. "
+            "It is also refreshed when the phone has moved about 30 m since the last send, and at the moment the pin becomes an oval. "
+            "Between those updates ATAK shows the last shape it was sent. Sitting still does not send a new shape every second."
+        ),
+        P("5.8.15 What ATAK shows", "h3"),
+        figure(
+            "fig-atak-gnss.png",
+            "Fig. 26 — A GNSS mark on ATAK. The oval is Possible GNSS interference. W is the full width and L is the full length. The Cyan Fieldwatch marker is this phone.",
+            6.9 * inch,
+        ),
+        P(
+            "The mark is Magenta, so you can tell it from the other Fieldwatch icons (Fig. 26). "
+            "The moving phone is Cyan. A pilot pin is Orange. An advertised aircraft is Yellow. Extra attention heard here is Maroon."
+        ),
+        table(
+            ["On the mark", "What you get"],
+            [
+                ["Callsign", "Possible GNSS interference. The name fits ATAK’s map label, so it is not cut off."],
+                ["Color", "Magenta. Outline in magenta, with a light magenta fill so the map still shows through the oval."],
+                ["Pin", "A spot, not a unit icon. CoT type b-m-p-s-m. It sits on the start fix."],
+                ["Oval", "One ellipse. CoT type u-d-c-e. The event point is the center. The two radii run from that center to the tip and to the side."],
+                ["Name on the wire", "FIELDWATCH-GNSS- and then the time the hit opened. One hit keeps one name. The next hit gets another."],
+                ["Card", "The same words as the Live line, then: Where this phone was. Not the source. The coordinate is the point. It is not printed in the card."],
+                ["How", "m-g, the same machine / GPS mark as the other Fieldwatch events. Altitude is unknown. Time is UTC."],
+            ],
+            [1.35 * inch, 5.15 * inch],
+        ),
+        P(
+            "The moving marker is a different event. Its name on the wire is FIELDWATCH-SELF, its callsign is Fieldwatch, "
+            "and its color is Cyan. The GNSS line is added under “Fieldwatch TAK heartbeat (this phone).” "
+            "That marker still moves with you. The line leaves when the GNSS chip says the window is over. "
+            "The Magenta mark does not move with it."
+        ),
+        P(
+            "A flood line can share that Cyan marker with the GNSS line. A flood does not get a pin or an oval. "
+            "The four radio chips do not gate this mark. Extra attention can be off and the mark still goes. "
+            "Unmatched radios are still never sent."
+        ),
+        P(
+            "Feed status, under the host fields, counts radio markers in “on the feed.” "
+            "The GNSS mark is not in that number. "
+            "“Sent” can still tick when the mark refreshes, even if no radio changed. "
+            "A radio that leaves is not counted as gone. The spot stays, under its own name, for How long a spot stays."
+        ),
+        P("5.8.16 How long the mark stays", "h3"),
+        P(
+            "Settings → TAK / CoT feed → <b>How long the mark stays</b>. "
+            "The chips sit under GNSS. They are dim while GNSS is Off, and while Privacy mode is on. "
+            "A new install uses 1 hour. A settings file from an older Fieldwatch, with no line for this choice, also loads as 1 hour."
+        ),
+        table(
+            ["Choice", "What happens"],
+            [
+                ["1 hour", "The start. ATAK drops the mark about an hour after its last update."],
+                ["6 hours", "About six hours after the last update."],
+                ["24 hours", "About a day after the last update."],
+                ["Until deleted", "Stays until GNSS is set to Off, or you delete the shape in ATAK. ATAK is told to keep it for a very long time, on the order of years. Fieldwatch does not store it as its own record."],
+            ],
+            [1.35 * inch, 5.15 * inch],
+        ),
+        P(
+            "The time starts at the last update. The caption under the chips says the same thing. "
+            "Each refresh while the hit is open starts the clock again, so a long drive does not expire in the middle. "
+            "When the hit ends, the last update starts the clock, and Fieldwatch leaves the shape alone. "
+            "It does not send a second remove when the hour is up. The time you picked is how long ATAK was told to keep it."
+        ),
+        P(
+            "Changing 1 hour to 24 hours during a hit applies on the next update. "
+            "A mark that has already frozen keeps the time from the update that froze it."
+        ),
+        bullets([
+            "<b>GNSS set to Off</b>, with the feed still on, tells ATAK to drop every GNSS mark this phone still knows. That includes a hit that already ended and is waiting out its hour. This is the clear.",
+            "<b>TAK / CoT feed off</b> stops sending. It does not tell ATAK to drop the marks. They stay until the time you picked runs out, or until you delete them in ATAK.",
+            "<b>Privacy mode on</b> does the same. The feed pauses, and Fieldwatch forgets the marks it was updating. Shapes already on ATAK stay until their time runs out. If the hit is still on when you turn Privacy off, a new mark starts where the phone is then. It does not resume the old oval.",
+            "<b>Restore default signatures &amp; presets</b> turns the feed off, sets GNSS to Off, and puts both holds back to 1 hour.",
+            "<b>Export settings</b> saves the GNSS chip, How long the mark stays, and How long a spot stays. <b>Import settings</b> brings them back. The signature pack does not include them.",
+        ]),
+        P("5.8.17 Before a mark will appear", "h3"),
+        numbered([
+            "The GNSS interference check is on. Calibrate this phone first, outside, held still. §5.9. The check runs only while Fieldwatch is scanning.",
+            "TAK / CoT feed is On. Privacy mode is Off. Destination is This phone, LAN multicast, or a Custom host that ATAK is actually listening on. §5.8.6.",
+            "GNSS is While alerting, Red line, or Any hit. Off sends nothing.",
+            "How long the mark stays is 1 hour unless you change it. §5.8.16.",
+            "Tag detections with GPS is On, Location is on, and this phone has a fix. That is the same fix as the Cyan Fieldwatch marker. A fix coarser than about 75 m, or older than about 30 seconds, is not used.",
+            "The hit qualifies for the chip you picked. While alerting follows Alert from. Any hit also sends a Low that never paints the red line.",
+        ]),
+        P(
+            "If the fix drops out in the middle of a hit, the mark stays as last sent. "
+            "It grows again only when a usable fix returns, and only if the hit is still on. "
+            "The red diamond on Reports → Path is a different picture. That diamond is in the sit, on this phone. It is not the ATAK mark. §5.6.1, §5.9."
+        ),
         P("5.9 GNSS interference", "h2"),
         P(
             "Settings → GNSS interference watches this phone’s own GPS receiver. "
@@ -2495,7 +2689,9 @@ def story():
             "A hit below Alert from can be in that report without a popup. "
             "Diagnostics shows settling, then learning, then armed, plus the calibration grade. "
             "It does not show coordinates. "
-            "On TAK, the GNSS choices in §5.8.12 add one line to this phone’s marker. They do not drop a pin on the interference."
+            "On TAK, those same choices add a line to this phone’s Cyan Fieldwatch marker, and they can leave a Magenta pin or oval where this phone was. "
+            "A short hit is a pin at the start. A hit that continues while the phone moves is an oval from that start to the last place, half as wide as it is long. "
+            "The mark does not say where the cause is. Which hits send it, and how long it stays, are §5.8.13."
         ),
     ]
 
@@ -4790,7 +4986,7 @@ def story():
             "Phone and ATAK (or WinTAK / iTAK) on the same Wi-Fi. Confirm the AP does not isolate clients. If multicast never arrives, you will switch Host to the ATAK device’s IPv4.",
             "ATAK already listens to UDP 239.2.3.1:6969 for SA. No Fieldwatch plugin. This feed is UDP; it does not log into a TAK server.",
             "Fieldwatch → Settings → Privacy mode Off. Tag detections with GPS On (high-accuracy Location) if you want heard-here pins; Remote ID advertised position does not need it.",
-            "Settings → TAK / CoT feed On. Destination: This phone when ATAK CIV is on the same phone, or LAN multicast for other ATAKs on this Wi-Fi. Extra attention On, Payload location On, Watchlist Off, All signatures Off. GNSS and Floods stay off until you set them. GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. Either one adds a line on this phone’s Fieldwatch marker and does not add a pin. Confirm Feed status under the host fields shows a send, not an error. §5.8.12.",
+            "Settings → TAK / CoT feed On. Destination: This phone when ATAK CIV is on the same phone, or LAN multicast for other ATAKs on this Wi-Fi. Extra attention On, Payload location On, Watchlist Off, All signatures Off. How long a spot stays is 1 hour unless you change it. A radio that leaves keeps its name for that long. GNSS and Floods stay off until you set them. GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. Floods adds a line on this phone’s Fieldwatch marker and does not add a pin. GNSS adds that line and a pin or oval where this phone was. A short hit is a pin. A longer hit is an oval half as wide as the stretch. How long the mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Confirm Feed status under the host fields shows a send, not an error. §5.8.7, §5.8.12.",
             "Live display: All traffic, High performance. Do not filter to Drones only if you also want body-cam / glasses — the feed ignores Live display filters, but you still need those radios to match.",
         ]),
         P(
@@ -4803,9 +4999,10 @@ def story():
             "Heading and speed from Location go in the ATAK track so the icon can point. "
             "A decoded pilot location is a second Orange pin. Heard-here callsigns end in (here). "
             "Tap a marker for remarks (name, MAC, RSSI, signatures). "
-            "A radio that leaves is dropped on ATAK instead of sitting two minutes. "
-            "With GNSS or Floods on, that note is a line on this phone’s Fieldwatch marker. "
-            "There is no separate pin for the interference or the flood.",
+            "A radio that leaves keeps its name for How long a spot stays. 1 hour is the start. "
+            "This phone’s Fieldwatch marker is the one that refreshes about every 2 minutes. "
+            "With Floods on, that note is a line on this phone’s Fieldwatch marker. There is no separate pin for a flood. "
+            "With GNSS on, the line is there too, and a Magenta mark stays where this phone was: a pin if the stretch is under about 100 m, an oval if the phone kept moving. §5.8.13.",
             "body_left",
         ),
         table(
@@ -4816,8 +5013,15 @@ def story():
                 ["Heard-here pin stayed where I was louder", "Expected. Heard-here holds closest approach (louder RSSI), not the last hear. A keep-alive every ~10 s refreshes the same lat/lon. This is not DF."],
                 ["Drone pin is kilometers away", "Expected for advertised position. Fieldwatch did not DF it. The aircraft encoded that WGS84."],
                 ["Café APs filled the map", "All signatures is on. Turn it off. Extra attention + Payload location is the field default."],
-                ["GNSS or a flood did not drop a pin", "Expected. The note goes on this phone’s Fieldwatch marker. GNSS Off and Floods Off send nothing. The phone needs a GPS fix. Privacy mode pauses the feed. §5.8.12."],
-                ["Marker vanished after ~2 min", "The radio left earshot, scanning stopped, or Fieldwatch sent a gone event. Start scanning again if you still want it."],
+                ["A flood did not drop a pin", "Expected. The note is a line on this phone’s Fieldwatch marker. Floods Off sends nothing. The phone needs a GPS fix. Privacy mode pauses the feed. §5.8.12."],
+                ["No Magenta GNSS mark", "GNSS is Off, the feed is off, Privacy mode is on, the check is not armed, this phone graded Poor, or there is no usable GPS fix. Under about 100 m the mark is a pin at the start, not an oval ahead of you. Set GNSS to While alerting, Red line, or Any hit. Look for Possible GNSS interference in Magenta. §5.8.13."],
+                ["The oval cuts the corner", "Expected. The oval is a straight span from the first fix to the latest. It does not follow every bend in the road. §5.8.14."],
+                ["I only see a dot in the middle", "That TAK app plotted the center and did not draw the ellipse. ATAK that draws shapes shows the oval, tips on the start and the latest fix. §5.8.14."],
+                ["The mark is following my callsign", "That line is on the Cyan Fieldwatch marker, which moves with you. The Magenta mark stays where the phone was. §5.8.15."],
+                ["The mark vanished after about 2 minutes", "This phone’s Fieldwatch marker does that. A radio spot uses How long a spot stays. A GNSS mark uses How long the mark stays. 1 hour is the start for both. §5.8.8, §5.8.16."],
+                ["Old GNSS marks are still up", "The hold has not run out, or Until deleted is set. Set GNSS to Off, with the feed still on, to remove the marks this phone still knows. Or delete them in ATAK. Turning the feed off does not remove them. §5.8.16."],
+                ["Marker vanished after ~2 min", "That was this phone’s Fieldwatch marker, or a radio spot whose hold had run out. A radio that leaves keeps its name for How long a spot stays. 1 hour is the start. §5.8.8."],
+                ["Every spot says Fieldwatch", "That name is this phone’s marker. A radio keeps its own name, with (here) when the point is where this phone was. Open the card for the MAC and the strength. A spot left by an older build can still say Fieldwatch until that one times out. §5.8.7."],
                 ["I want one bag tag on the map", "Watchlist On, bookmark that MAC (Alert on). Extra attention can stay on. Do not use All signatures."],
                 ["Custom sensor with lat/lon in the ad", "Decode fields: ids latitude and longitude (scale as the spec). Payload location On. No TAK checkbox. §5.8.4, §9.6."],
             ],
@@ -5048,10 +5252,11 @@ def story():
             ["Mine", "Switch on a radio you can already name. Live shows a Mine chip. No beep, voice, flash, or card for that radio while it is on. Other radios of a bookmarked signature still alert. Debrief and Compare list it under Marked mine and leave it out of the co-travel callouts. A blank name is filled. Filters → Hide my radios takes those rows off Live. Settings backup includes the mark. §5.5, §5.6, §8.1."],
             ["Flood", "A burst of new Bluetooth addresses in a few seconds, or many new Wi-Fi names in one scan at about the same loudness, gone by the next scan. A name flood counts randomized addresses. A factory address with a stable name stays out of that count. The first Wi-Fi scan of a session stays quiet. A repeated name, a mesh, an extender, or a guest network is not counted. One dialog, then a red line: Pairing flood, Name flood, or Wi-Fi beacon flood. A pairing or name dialog says this can be many radios already advertising, such as in a store, or one radio changing its address. A Flipper Zero, or an ESP32 running Marauder or Bruce, can do the second. The advertisement does not name the tool. Hide these turns Hide this burst on and takes this burst, and later bursts in the hold, off Live. Continue leaves the radios up. During a sit, that answer holds until the sit ends. Later bursts keep the red line and do not open the dialog. Ending the sit asks again. With no sit open, the choice holds for about 15 minutes from the tap and does not slide. A later burst in that time keeps the red line. After 15 minutes the next burst asks again. Starting a sit while those 15 minutes are still running keeps the answer until the sit ends. Turning Hide this burst off brings the open burst back and leaves later bursts in that hold on Live. Hide this burst takes those addresses off the Live display until they would have left on their own. After the red line clears, Hiding N flood radios stays until they leave or that switch is turned off. The sit file and the log still keep those packets. Alerts stay quiet for those addresses. Debrief and Compare print one line per burst and leave those addresses out of the radio counts and lists. The line says how many were set aside. Compare names the sit. A sit saved before those addresses were stored still counts them with the other radios. §5.1, §5.6."],
             ["Privacy mode", "Settings switch, off by default. Masks the last three octets of MACs on the screen and in Debrief / AI Export / detail Share (AA:BB:CC:**:**:**). GPS last-fix and sit-report coordinates show as masked; street names omitted. A Remote ID UAS id in Debrief, Compare, and AI Export, including the path key under the map, is masked. Reports → Path still loads map tiles when Online place names and maps is on, and an aircraft card titled with a UAS id reads Aircraft. Logs, matching, filters, Hunt math, Moving with you, and saved signatures stay full. Pauses a TAK / CoT feed so full MACs and coordinates are not sent. §5.7, §5.8."],
-            ["TAK / CoT feed", "Settings switch, off by default. UDP Cursor-on-Target markers to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — not a TAK server TCP client. Heard-here Extra attention at operator GPS at the loudest hear (callsign ends in (here)); advertised lat/lon on the aircraft (Remote ID BLE FFFA or Wi-Fi FA:0B:BC keeps one moving marker via sticky UAS ID, plus a pilot pin when op_lat/op_lon decoded; Location heading/speed go in track). Gone radios are dropped. What to send: Extra attention, Payload location, Watchlist, All signatures. GNSS (Off, While alerting, Red line, Any hit) and Floods (Off or On) add a line on this phone’s marker and do not add a pin. Settings shows last send. Privacy mode pauses it. Not DF, not a Remote ID plugin, not the Live display. §5.8, §5.8.12, §12.15, §12.16."],
+            ["TAK / CoT feed", "Settings switch, off by default. UDP Cursor-on-Target markers to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — not a TAK server TCP client. Heard-here Extra attention at operator GPS at the loudest hear (callsign ends in (here)); advertised lat/lon on the aircraft (Remote ID BLE FFFA or Wi-Fi FA:0B:BC keeps one moving marker via sticky UAS ID, plus a pilot pin when op_lat/op_lon decoded; Location heading/speed go in track). A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. What to send: Extra attention, Payload location, Watchlist, All signatures. GNSS (Off, While alerting, Red line, Any hit) adds a line on this phone’s marker and a pin or oval where the phone was. A short hit is a pin. A longer hit is an oval half as wide as the stretch, kept 1 hour, 6 hours, 24 hours, or until deleted. Floods (Off or On) adds a line and does not add a pin. Settings shows last send. Privacy mode pauses it. Not DF, not a Remote ID plugin, not the Live display. The GNSS mark is §5.8.13. §5.8, §5.8.12, §12.15, §12.16."],
             ["Night mode", "Settings → Appearance, off by default. Red-on-black field display: text, chips, RSSI, Hunt, Extra attention, and the top-bar icons. Green and red become shades of red, so read the words beside the icons. Phone brightness is unchanged. Fig. 9, §5.1, §5.7."],
             ["Diagnostics", "Settings, under Show Live tour. What to check names a switch that is off and needs to be on. It does not name Wi-Fi scanning or Bluetooth scanning while that radio is already on. The rest of the page is the phone, Android version, catalog, whether Wi-Fi, Bluetooth, and Location are scanning, and the Faster Wi-Fi, background usage, and Unrestricted battery switches. When the GNSS check is on, it also shows settling or the monitor state, and the calibration grade. Copy pastes that into an issue. No network names, addresses, or GPS coordinates. An empty Live list points here when a scan is blocked. When Location is off, Live also shows a banner. §5.7, §5.9."],
-            ["GNSS interference", "A change in this phone’s own GPS that can mean interference, or, with spoofing checks on, a pattern that can mean spoofing. Not a located radio, and not a named jammer or spoofer. Calibrate once outside before the check will turn on. The first minute is not the baseline. A warning can come after about two minutes. A cradle, a router, or another phone against this phone can cause a hit. Popup, then a red line on Live. The top-bar GPS mark is red for that same stretch, gray while the check is warming up, paused, graded Poor, or the scan is stopped, and green once armed and quiet. Debrief lists the hit. The Path map marks where this phone was. That spot is not the source. §5.1, §5.9."],
+            ["GNSS interference", "A change in this phone’s own GPS that can mean interference, or, with spoofing checks on, a pattern that can mean spoofing. Not a located radio, and not a named jammer or spoofer. Calibrate once outside before the check will turn on. The first minute is not the baseline. A warning can come after about two minutes. A cradle, a router, or another phone against this phone can cause a hit. Popup, then a red line on Live. The top-bar GPS mark is red for that same stretch, gray while the check is warming up, paused, graded Poor, or the scan is stopped, and green once armed and quiet. Debrief lists the hit. The Path map marks where this phone was. That spot is not the source. On TAK, the same hit can leave a Magenta pin or oval where this phone was. §5.1, §5.8.13, §5.9."],
+            ["GNSS mark (TAK)", "A Magenta map mark for a GNSS hit, separate from the Cyan Fieldwatch marker. Settings → TAK / CoT feed → GNSS: Off, While alerting, Red line, or Any hit. Off sends nothing. A stretch under about 100 m is a pin at the start fix. A longer hit is one oval from that start to the latest fix, half as wide as it is long. The oval stops growing when the hit ends. The 10-minute ended line does not stretch it. Callsign Possible GNSS interference. The card says where this phone was, and that this is not the source. How long the mark stays: 1 hour (the start), 6 hours, 24 hours, or Until deleted. The time starts at the last update. Until deleted stays until GNSS is set to Off. Needs the feed on, Privacy mode off, the check armed, and a GPS fix. A pause is not a hit. §5.8.13."],
             ["Heard here (TAK)", "CoT pin at this phone’s GPS at the loudest hear so far. The other radio is in earshot, not on that point. Walking away does not drag it. Callsign ends in (here); Extra attention is Maroon. Needs GPS tagging and a live fix. Extra attention uses this unless a payload lat/lon exists. Not DF."],
             ["Advertised position (TAK)", "CoT pin from decode field ids latitude / longitude (optional alt_geo). Stock Remote ID fills them from the same Decode fields map on BLE FFFA and Wi-Fi FA:0B:BC. Sticky across ASTM message types. UAS ID is the TAK uid so one aircraft moves instead of leaving MAC dots. op_lat / op_lon are a second (pilot) pin. Heading/speed go in track. GPS tagging can be off. §5.8.3."],
             ["Remote ID", "ASTM F3411 / OpenDroneID digital license plate. Stock Drones-class row. Works on BLE UUID FFFA and on Wi-Fi vendor IE FA:0B:BC type 0x0D (same Decode fields map). Protocol 0–2 Location / Basic ID / System / Self ID. A Location message puts Undeclared, Ground, Airborne, Emergency, or RID failure on the list. Emergency is the heavier chip. TAK Payload location pins advertised aircraft; track course/speed when present. A sit can keep a short advertised track. Reports → Path and the sit report both draw it (§5.4.1, §5.6.1). Android 11+ for Wi-Fi IEs. NAN still misses. Not a tail number, not DF. §5.8.3, §9.6.6, §12.16."],
@@ -5526,10 +5731,15 @@ def story():
             ["TAK heard-here pin did not follow me when I walked away", "Heard-here holds the loudest hear.", "Expected. Walk closer to move it. Keep-alives stay on the same lat/lon. Not DF. §5.8.8."],
             ["Debrief is still last 15 minutes", "No named sit is running or selected.", "Expected. Reports → Start sit. While a sit is open, or you pick a saved sit in the radio list, Debrief follows that window. §5.6."],
             ["ATAK filled with café APs", "All signatures is on.", "Turn All signatures off. Field default is Extra attention + Payload location."],
-            ["TAK marker vanished", "The radio left the feed, scanning stopped, or Privacy mode paused it.", "Expected. Fieldwatch sends a gone event (stale=now) when a radio leaves. Privacy pause does not; ATAK then stale-times out ~120 s. A rotated BLE MAC without a sticky UAS ID is a new uid."],
+            ["TAK marker vanished", "The hold ran out, the feed was turned off, or Privacy mode was turned on.", "A radio that leaves keeps its name for How long a spot stays. 1 hour is the start. Feed off and Privacy on take those spots off. This phone’s Fieldwatch marker still refreshes about every 2 minutes. A rotated BLE MAC without a sticky UAS ID is a new uid. §5.8.8."],
+            ["Every TAK spot says Fieldwatch", "That name is this phone’s marker. A radio keeps its own name.", "Heard-here names end in (here). Open the card for the MAC and the strength. A spot from an older build can still say Fieldwatch until it times out. §5.8.7."],
             ["Remote ID is a cloud of dots on ATAK", "UID was the BLE MAC, which Remote ID rotates.", "1.0.3 keys the aircraft on sticky UAS ID. One marker should move. Until the first Basic ID packet, it still keys on MAC, then jumps once."],
             ["Path on Reports is not growing while I drive", "Reports is not in front, GPS tagging is off, or you picked a saved sit.", "Stay on Reports. The plot redraws about every 3 s while that tab is open. Last 15 minutes or an open sit are live (head labeled Now). A saved sit is a still (End). Tag detections with GPS on, high-accuracy Location, scanning running. §5.6.1."],
             ["GPS path stays 0 m while I drive / Moving with you says keep moving", "The phone is not giving a live fix.", "Turn on Tag detections with GPS and high-accuracy Location. Scanning must be running. Wait until the path meter is not 0, then walk or drive."],
+            ["No Magenta GNSS mark on ATAK", "GNSS is Off, the feed is off, Privacy mode is on, the check is still settling or off, this phone graded Poor, or there is no usable GPS fix.", "TAK / CoT feed On. Privacy Off. GNSS: While alerting, Red line, or Any hit. Tag detections with GPS On. Wait until Diagnostics says armed. Under about 100 m the mark is a pin at the start. §5.8.13, §5.8.17."],
+            ["GNSS oval cuts across a bend", "The oval is a straight span from the first fix to the latest.", "Expected. It does not trace the road. Width is half the length. A TAK app that only plots points shows the center. §5.8.14."],
+            ["GNSS mark disappeared, or it will not leave", "A GNSS mark uses How long the mark stays. Feed off and Privacy on do not remove it. A radio spot uses How long a spot stays, and those two do take radio spots off.", "1 hour is the start. The clock starts at the last update. Set GNSS to Off, feed still on, to remove marks this phone still knows. Until deleted stays until that Off, or until you delete it in ATAK. §5.8.16."],
+            ["The GNSS words are moving with my callsign", "That is the line on the Cyan Fieldwatch marker.", "Expected while the hit matches the GNSS chip. The Magenta mark stays where the phone was. §5.8.15."],
             ["GNSS interference check will not turn on", "This phone has no saved calibration.", "Settings → Calibrate this phone. Outside, hold still, away from radios and Wi-Fi, about a minute. §5.9."],
             ["No GNSS warning right after I open the app", "The first minute is settling. The next minute is the baseline.", "Expected. Diagnostics says settling, then learning, then armed. A real detection is not until at least two minutes after the check starts. Starting the scan again starts that wait over. §5.9.2."],
             ["GNSS hits in a cradle, or next to another phone", "The receiver’s view of the sky changed, or another radio is against this phone.", "Put the phone where it can see sky, and not against a charger, a router, or a second phone. A weaker GPS is more likely to call that a hit. §5.9.3."],
@@ -5561,9 +5771,9 @@ def story():
                 ["X", "@OGridPete"],
                 ["Document", "User Manual and Technical Documentation"],
                 ["Application ID", "app.fieldwatch"],
-                ["Software version", "1.1.24 (versionCode 34), field build of 10 October 2026"],
-                ["Document version", "1.1.24"],
-                ["Document date", "10 October 2026"],
+                ["Software version", "1.1.25 (versionCode 35), field build of 11 October 2026"],
+                ["Document version", "1.1.25"],
+                ["Document date", "11 October 2026"],
                 ["License", "MIT License (see LICENSE); third-party: NOTICE"],
                 ["Platform", "Android 10+ (minSdk 29), targetSdk 35"],
                 ["Classification", "Unclassified. Operationally sensitive if filled with site logs."],

@@ -634,8 +634,15 @@ data class AppSettings(
     val takWatchlist: Boolean = false,
     /** Every labeled signature. Noisy. Off by default. */
     val takAllSignatures: Boolean = false,
-    /** GNSS line on this phone's TAK marker. Off until chosen. */
+    /** GNSS line on this phone's TAK marker, plus a pin or oval where the phone was. Off until chosen. */
     val takGnss: TakGnssSend = TakGnssSend.OFF,
+    /** How long that GNSS mark stays on the map. Missing JSON is 1 hour. */
+    val takGnssHold: TakGnssHold = TakGnssHold.HOUR,
+    /**
+     * How long a radio spot keeps its name after it leaves the feed.
+     * Missing JSON is 1 hour. The phone marker stays on the 2-minute refresh.
+     */
+    val takRadioHold: TakGnssHold = TakGnssHold.HOUR,
     /** Flood line on this phone's TAK marker while a flood is detected. */
     val takFlood: TakFloodSend = TakFloodSend.OFF,
     /**
