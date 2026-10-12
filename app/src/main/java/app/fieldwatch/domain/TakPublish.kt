@@ -474,9 +474,10 @@ object TakPublish {
     }
 
     fun pilotCallsign(device: Sighting): String {
+        val label = OperatorLoc.label(device.payloadOpKind)
         val id = device.payloadUasId?.trim()?.takeIf { it.isNotEmpty() }
             ?: device.payloadSelfId?.trim()?.takeIf { it.isNotEmpty() }
-        return if (id != null) "Pilot · ${id.take(20)}".take(32) else "Pilot".take(32)
+        return if (id != null) "$label · ${id.take(20)}".take(32) else label.take(32)
     }
 
     fun markers(
@@ -665,7 +666,7 @@ object CotEvent {
             remarks = remarks(device, fleets, advertised, pilot, watchlist),
             cotType = type(device, fleets, advertised, pilot),
             group = group(device, fleets, advertised, pilot),
-            hae = if (pilot) 9999999.0 else device.payloadAlt?.takeIf { it.isFinite() } ?: 9999999.0,
+            hae = if (pilot) OperatorLoc.hae(device.payloadOpAlt) else device.payloadAlt?.takeIf { it.isFinite() } ?: 9999999.0,
             course = if (advertised && !pilot) device.payloadHeading?.takeIf { it.isFinite() } else null,
             speed = if (advertised && !pilot) device.payloadSpeed?.takeIf { it.isFinite() && it >= 0 } else null,
             linkUid = linkUid,
@@ -847,7 +848,7 @@ object CotEvent {
         val names = fleets.filter { it.id in device.fleetIds }.map { it.name }.distinct()
         val kind = if (device.kind == RadioKind.WIFI) "Wi-Fi" else "BLE"
         val where = when {
-            pilot -> "operator (pilot) position"
+            pilot -> OperatorLoc.where(device.payloadOpKind)
             advertised -> "advertised position"
             else -> "heard here (operator GPS)"
         }

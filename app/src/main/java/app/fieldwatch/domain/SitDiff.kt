@@ -27,6 +27,8 @@ object SitDiff {
         val payloadSpeed: Double? = null,
         val payloadOpLat: Double? = null,
         val payloadOpLon: Double? = null,
+        val payloadOpKind: Int? = null,
+        val payloadOpAlt: Double? = null,
         val payloadUasId: String = "",
         val payloadTrail: List<PayloadFix> = emptyList(),
         val payloadAircraft: String = "",
@@ -96,6 +98,8 @@ object SitDiff {
         payloadSpeed = device.payloadSpeed,
         payloadOpLat = device.payloadOpLat,
         payloadOpLon = device.payloadOpLon,
+        payloadOpKind = device.payloadOpKind,
+        payloadOpAlt = device.payloadOpAlt,
         payloadUasId = device.payloadUasId?.trim().orEmpty(),
         payloadTrail = device.payloadTrail,
         payloadAircraft = device.payloadAircraft?.trim().orEmpty(),
@@ -134,6 +138,8 @@ object SitDiff {
         payloadSpeed = row.payloadSpeed,
         payloadOpLat = row.payloadOpLat,
         payloadOpLon = row.payloadOpLon,
+        payloadOpKind = row.payloadOpKind,
+        payloadOpAlt = row.payloadOpAlt,
         payloadUasId = row.payloadUasId?.trim().orEmpty(),
         payloadTrail = row.payloadTrail,
         payloadAircraft = row.payloadAircraft?.trim().orEmpty(),
@@ -319,6 +325,7 @@ object SitDiff {
                             pilotLat = r.payloadOpLat,
                             pilotLon = r.payloadOpLon,
                             aircraft = r.payloadAircraft,
+                            opKind = r.payloadOpKind,
                         )
                     } else {
                         ""
@@ -377,6 +384,7 @@ object SitDiff {
             speed = last.speed ?: payloadSpeed,
             pilotLat = payloadOpLat,
             pilotLon = payloadOpLon,
+            opKind = payloadOpKind,
             key = key,
             mac = mac,
             aircraft = payloadAircraft,

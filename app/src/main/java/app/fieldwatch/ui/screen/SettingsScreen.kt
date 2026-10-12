@@ -606,7 +606,7 @@ fun SettingsScreen(
                 "Sends map markers to ATAK, WinTAK, or iTAK. " +
                     "Radios you hear are pinned at this phone’s GPS, at the loudest point, and labeled (here). " +
                     "Walking away does not move the pin. A louder detection does. " +
-                    "Remote ID aircraft use the coordinates in the advertisement, and a pilot location is a second pin. " +
+                    "Remote ID aircraft use the coordinates in the advertisement. An operator location is a second pin: the takeoff spot, the pilot, or a fixed point. " +
                     "A radio that leaves keeps its name for How long a spot stays. Tap a marker for the name, MAC, and signal. " +
                     "This is not direction finding. Privacy mode pauses the feed.",
                 style = MaterialTheme.typography.bodySmall,
@@ -1047,10 +1047,10 @@ private fun TakFeedSettings(settings: AppSettings, vm: FieldwatchViewModel, stat
     }
     Text(
         "A mark on the map where this phone was, and a line on this phone’s Fieldwatch marker. " +
-            "A short hit is a pin. A hit that continues while the phone moves becomes an oval from the start to the last place it was heard, half as wide as it is long. " +
+            "A short hit is a pin. A hit that continues while the phone moves becomes an ellipse from the start to the last place it was heard, half as wide as it is long. " +
             "The mark does not say where the cause is. " +
             "Off sends nothing. While alerting sends during a hit at or above Alert from. " +
-            "Red line also keeps the line for the 10 minutes after. The oval stops growing when the hit ends. " +
+            "Red line also keeps the line for the 10 minutes after. The ellipse stops growing when the hit ends. " +
             "Any hit also sends a Low detection that never shows the red line. " +
             "This phone needs a GPS fix.",
         style = MaterialTheme.typography.bodySmall,

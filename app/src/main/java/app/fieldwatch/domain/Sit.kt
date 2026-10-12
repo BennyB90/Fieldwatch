@@ -122,6 +122,13 @@ data class SitRadio(
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val payloadOpLon: Double? = null,
+    /** 0 takeoff, 1 live GPS, 2 fixed. Null on a sit saved before the type was stored. */
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val payloadOpKind: Int? = null,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val payloadOpAlt: Double? = null,
     @OptIn(ExperimentalSerializationApi::class)
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val payloadTrail: List<PayloadFix> = emptyList(),
@@ -164,6 +171,8 @@ data class SitRadio(
         payloadSpeed = payloadSpeed,
         payloadOpLat = payloadOpLat,
         payloadOpLon = payloadOpLon,
+        payloadOpKind = payloadOpKind,
+        payloadOpAlt = payloadOpAlt,
         payloadTrail = payloadTrail,
         liveDecode = liveDecode,
     )
@@ -196,6 +205,8 @@ data class SitRadio(
             payloadSpeed = device.payloadSpeed,
             payloadOpLat = device.payloadOpLat,
             payloadOpLon = device.payloadOpLon,
+            payloadOpKind = device.payloadOpKind,
+            payloadOpAlt = device.payloadOpAlt,
             payloadTrail = AircraftTrail.append(emptyList(), device),
             gpsTrail = trailSample(device),
             liveDecode = device.liveDecode,
@@ -510,6 +521,8 @@ class SitSession(
             payloadSpeed = next.payloadSpeed ?: old.payloadSpeed,
             payloadOpLat = next.payloadOpLat ?: old.payloadOpLat,
             payloadOpLon = next.payloadOpLon ?: old.payloadOpLon,
+            payloadOpKind = next.payloadOpKind ?: old.payloadOpKind,
+            payloadOpAlt = next.payloadOpAlt ?: old.payloadOpAlt,
             payloadTrail = AircraftTrail.append(old.payloadTrail, next),
             gpsTrail = trail,
             liveDecode = next.liveDecode.ifEmpty { old.liveDecode },

@@ -1153,6 +1153,14 @@ class ConfigStore(context: Context) {
             if (extras.isNotEmpty()) fleets = (fleets + extras).sortedBy { it.name.lowercase() }
             version = CATALOG_V94
         }
+        if (version < CATALOG_V95) {
+            fleets = fleets.map { fleet ->
+                if (!fleet.builtIn || fleet.id != "fleet-remote-id") return@map fleet
+                val stock = catalog[fleet.id] ?: return@map fleet
+                fleet.copy(decode = stock.decode, notes = stock.notes)
+            }
+            version = CATALOG_V95
+        }
         if (!settings.darkTheme) settings = settings.copy(darkTheme = true)
         if (settings.scanControlsExpanded) settings = settings.copy(scanControlsExpanded = false)
         presets = presets.filterNot { it.isBuiltIn() && it.id in hiddenPresetIds }
@@ -1197,7 +1205,7 @@ class ConfigStore(context: Context) {
 
     companion object {
         /** Stock catalog generation. Settings footer and the GitHub pack use this. */
-        const val CATALOG_VERSION = 94
+        const val CATALOG_VERSION = 95
         private const val CATALOG_V2 = 2
         private const val CATALOG_V3 = 3
         private const val CATALOG_V4 = 4
@@ -1290,7 +1298,8 @@ class ConfigStore(context: Context) {
         private const val CATALOG_V91 = 91
         private const val CATALOG_V92 = 92
         private const val CATALOG_V93 = 93
-        private const val CATALOG_V94 = CATALOG_VERSION
+        private const val CATALOG_V94 = 94
+        private const val CATALOG_V95 = CATALOG_VERSION
         private val GENERIC_GATT_UUIDS = setOf("180A", "180D", "180F")
         private val POLICY_FLEET_IDS = setOf(
             "fleet-flock-cameras",

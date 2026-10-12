@@ -98,6 +98,7 @@ object AircraftTrail {
             speed = latest.speed,
             pilotLat = pilot?.pilotLat,
             pilotLon = pilot?.pilotLon,
+            opKind = pilot?.opKind,
             pilotOnMap = pilotNear,
             onWalk = near && fixes.isNotEmpty(),
             ownFigure = uasId.isNotBlank() && !near && fixes.isNotEmpty(),
@@ -136,6 +137,7 @@ object AircraftTrail {
             speed = last.speed ?: device.payloadSpeed,
             pilotLat = device.payloadOpLat,
             pilotLon = device.payloadOpLon,
+            opKind = device.payloadOpKind,
             key = device.key,
             mac = device.mac,
             aircraft = device.payloadAircraft?.trim().orEmpty(),
@@ -163,7 +165,7 @@ object AircraftTrail {
                 val shape = if (count == 1) "1 advertised fix" else "$count advertised fixes, ${fmtDist(length)}"
                 appendLine("  $shape")
                 if (pic.pilotLat != null && pic.pilotLon != null) {
-                    appendLine("  Pilot ${fmtCoord(pic.pilotLat, pic.pilotLon)}")
+                    appendLine("  ${OperatorLoc.label(pic.opKind)} ${fmtCoord(pic.pilotLat, pic.pilotLon)}")
                 }
             }
             val hidden = (pictures.count { it.ownFigure } - MAX_OWN_FIGURES).coerceAtLeast(0)
@@ -209,7 +211,7 @@ object AircraftTrail {
 
     fun pilotMark(pic: Picture): SitPathPlot.Mark? {
         if (!pic.pilotOnMap || pic.pilotLat == null || pic.pilotLon == null) return null
-        return SitPathPlot.Mark(pic.pilotLat, pic.pilotLon, "Pilot")
+        return SitPathPlot.Mark(pic.pilotLat, pic.pilotLon, OperatorLoc.label(pic.opKind))
     }
 
     fun applyWalk(base: SitPathPlot.Figure?, pictures: List<Picture>, secondary: Boolean): SitPathPlot.Figure? {
@@ -382,6 +384,7 @@ object AircraftTrail {
         pilotLat: Double?,
         pilotLon: Double?,
         aircraft: String = "",
+        opKind: Int? = null,
     ): String {
         val bits = ArrayList<String>()
         val craft = aircraft.trim()
@@ -395,7 +398,7 @@ object AircraftTrail {
         heading?.let { bits += "course ${fmtNum(it)}°" }
         speed?.let { bits += "${fmtNum(it)} m/s" }
         if (PayloadLocation.validCoord(pilotLat, pilotLon)) {
-            bits += "pilot ${fmtCoord(pilotLat!!, pilotLon!!)}"
+            bits += "${OperatorLoc.label(opKind)} ${fmtCoord(pilotLat!!, pilotLon!!)}"
         }
         return bits.joinToString(" · ")
     }
@@ -422,6 +425,7 @@ object AircraftTrail {
             pilotLat = pic.pilotLat,
             pilotLon = pic.pilotLon,
             aircraft = pic.aircraft,
+            opKind = pic.opKind,
         )
         return "$head — $note"
     }
@@ -470,6 +474,7 @@ object AircraftTrail {
         val speed: Double?,
         val pilotLat: Double?,
         val pilotLon: Double?,
+        val opKind: Int? = null,
         /** Device key of the radio that sent these fixes. Empty for a report-only source. */
         val key: String = "",
         val mac: String = "",
@@ -486,6 +491,7 @@ object AircraftTrail {
         val speed: Double?,
         val pilotLat: Double?,
         val pilotLon: Double?,
+        val opKind: Int? = null,
         val pilotOnMap: Boolean,
         val onWalk: Boolean,
         val ownFigure: Boolean,

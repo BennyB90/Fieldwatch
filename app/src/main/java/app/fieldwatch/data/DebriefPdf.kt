@@ -696,7 +696,7 @@ object DebriefPdf {
         if (fig.dots.any { it.extraAttention }) out += LegendSwatch("Extra attention", MARK_RED)
         if (fig.dots.any { it.named }) out += LegendSwatch("MAC alert", MARK_BLUE)
         if (fig.dots.any { !it.extraAttention && !it.named }) out += LegendSwatch("Signature alert", MARK_ALERT)
-        if (fig.pilots.isNotEmpty()) out += LegendSwatch("Pilot", MARK_PILOT)
+        if (fig.pilots.isNotEmpty()) out += LegendSwatch("Operator", MARK_PILOT)
         if (fig.gnss.any { !it.secondary }) out += LegendSwatch("GNSS", MARK_GNSS)
         if (fig.gnss.any { it.secondary }) out += LegendSwatch("Second GNSS", MARK_GNSS_2)
         return out

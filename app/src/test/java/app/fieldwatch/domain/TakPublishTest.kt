@@ -317,8 +317,9 @@ class TakPublishTest {
         assertTrue(lines[2].contains("UAS ID TESTSERIAL1234567890"))
         assertTrue(text.contains("Remote ID"))
         val pilot = CotEvent.remarks(drone, fleets, advertised = true, pilot = true)
-        assertEquals("Pilot · TESTSERIAL1234567890", pilot.lineSequence().first())
-        assertTrue(pilot.contains("operator (pilot) position"))
+        assertEquals("Operator · TESTSERIAL1234567890", pilot.lineSequence().first())
+        assertTrue(pilot.contains("operator position"))
+        assertFalse(pilot.contains("operator (pilot) position"))
     }
 
     @Test
@@ -418,11 +419,44 @@ class TakPublishTest {
             pilot = true,
         )
         assertTrue(pilot.contains("uid=\"FIELDWATCH-PILOT-TESTSERIAL1234567890\""))
-        assertTrue(pilot.contains("callsign=\"Pilot · TESTSERIAL1234567890\""))
+        assertTrue(pilot.contains("callsign=\"Operator · TESTSERIAL1234567890\""))
         assertTrue(pilot.contains("__group name=\"Orange\""))
-        assertTrue(pilot.contains("operator (pilot) position"))
+        assertTrue(pilot.contains("operator position"))
+        assertFalse(pilot.contains("operator (pilot) position"))
+        assertTrue(pilot.contains("hae=\"9999999\""))
         assertTrue(pilot.contains("link uid=\"FIELDWATCH-RID-TESTSERIAL1234567890\""))
         assertFalse(pilot.contains(" (here)"))
+    }
+
+    @Test
+    fun operatorPinFollowsLocationType() {
+        val live = radio(
+            fleetIds = setOf("fleet-remote-id"),
+            payloadLat = 40.0,
+            payloadLon = -74.0,
+            payloadOpLat = 40.1,
+            payloadOpLon = -74.1,
+            payloadOpKind = OperatorLoc.LIVE,
+            payloadOpAlt = 50.0,
+            payloadUasId = "TESTSERIAL1234567890",
+        )
+        val liveXml = pilotXml(live)
+        assertTrue(liveXml.contains("callsign=\"Pilot · TESTSERIAL1234567890\""))
+        assertTrue(liveXml.contains("operator (pilot) position"))
+        assertTrue(liveXml.contains("hae=\"50\""))
+        val takeoff = live.copy(payloadOpKind = OperatorLoc.TAKEOFF, payloadOpAlt = null)
+        val takeoffXml = pilotXml(takeoff)
+        assertTrue(takeoffXml.contains("callsign=\"Takeoff · TESTSERIAL1234567890\""))
+        assertTrue(takeoffXml.contains("takeoff position"))
+        assertFalse(takeoffXml.contains("operator (pilot) position"))
+        assertTrue(takeoffXml.contains("hae=\"9999999\""))
+        val fixed = live.copy(payloadOpKind = OperatorLoc.FIXED, payloadOpAlt = -674.5)
+        val fixedXml = pilotXml(fixed)
+        assertTrue(fixedXml.contains("callsign=\"Fixed · TESTSERIAL1234567890\""))
+        assertTrue(fixedXml.contains("fixed operator position"))
+        assertTrue(fixedXml.contains("hae=\"-674.5\""))
+        val unknownAlt = live.copy(payloadOpAlt = -1000.0)
+        assertTrue(pilotXml(unknownAlt).contains("hae=\"9999999\""))
     }
 
     @Test
@@ -725,6 +759,17 @@ class TakPublishTest {
         number = n,
     )
 
+    private fun pilotXml(device: Sighting): String = CotEvent.xml(
+        device = device,
+        fleets = fleets,
+        watchlist = emptyList(),
+        lat = device.payloadOpLat ?: 0.0,
+        lon = device.payloadOpLon ?: 0.0,
+        advertised = true,
+        now = 0L,
+        pilot = true,
+    )
+
     private fun radio(
         fleetIds: Set<String>,
         payloadLat: Double? = null,
@@ -732,6 +777,8 @@ class TakPublishTest {
         payloadAlt: Double? = null,
         payloadOpLat: Double? = null,
         payloadOpLon: Double? = null,
+        payloadOpKind: Int? = null,
+        payloadOpAlt: Double? = null,
         payloadUasId: String? = null,
         payloadSelfId: String? = null,
         payloadHeading: Double? = null,
@@ -770,6 +817,8 @@ class TakPublishTest {
         payloadAlt = payloadAlt,
         payloadOpLat = payloadOpLat,
         payloadOpLon = payloadOpLon,
+        payloadOpKind = payloadOpKind,
+        payloadOpAlt = payloadOpAlt,
         payloadUasId = payloadUasId,
         payloadSelfId = payloadSelfId,
         payloadHeading = payloadHeading,

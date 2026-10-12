@@ -3,7 +3,7 @@
     "formatVersion": 1,
     "exportedAt": "",
     "appVersion": "stock",
-    "catalogVersion": 94,
+    "catalogVersion": 95,
     "fleets": [
         {
             "id": "fleet-actiontec",
@@ -50690,7 +50690,7 @@
             "peerWindowSec": 60,
             "clusterByOui": false,
             "sequentialMac": false,
-            "notes": "In-flight drone digital license plate (ASTM / FAA Remote ID). Decoded fields can show ID, position, heading, and operator. The French Direct Remote ID vendor IE labels this row too. That plate does not fill position or pilot. Pattern match, not a tail number. Wi-Fi Remote ID often misses on stock Android.",
+            "notes": "In-flight drone digital license plate (ASTM / FAA Remote ID). Decoded fields can show ID, position, heading, and operator location (takeoff, live GPS, or a fixed point). EU class shows only when the plate says EU. The French Direct Remote ID vendor IE labels this row too. That plate does not fill position or the operator pin. Pattern match, not a tail number. Wi-Fi Remote ID often misses on stock Android.",
             "attentionNote": "",
             "builtIn": true,
             "kind": "DRONE",
@@ -51297,6 +51297,30 @@
                         }
                     },
                     {
+                        "id": "height_ref",
+                        "label": "Height from",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 2,
+                        "bitWidth": 1,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Over ground"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "10"
+                        }
+                    },
+                    {
                         "id": "status",
                         "label": "Status",
                         "offset": 3,
@@ -51586,6 +51610,30 @@
                         }
                     },
                     {
+                        "id": "height_ref",
+                        "label": "Height from",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 2,
+                        "bitWidth": 1,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Over ground"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "11"
+                        }
+                    },
+                    {
                         "id": "status",
                         "label": "Status",
                         "offset": 3,
@@ -51867,6 +51915,30 @@
                         "modulo": null,
                         "unit": "m",
                         "enum": null,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "12"
+                        }
+                    },
+                    {
+                        "id": "height_ref",
+                        "label": "Height from",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 2,
+                        "bitWidth": 1,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Over ground"
+                        },
                         "when": {
                             "offset": 2,
                             "length": 1,
@@ -51938,6 +52010,32 @@
                         }
                     },
                     {
+                        "id": "op_loc_type",
+                        "label": "Operator location",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 2,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Live GPS",
+                            "2": "Fixed"
+                        },
+                        "live": true,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "40"
+                        }
+                    },
+                    {
                         "id": "op_lat",
                         "label": "Operator lat",
                         "offset": 4,
@@ -51977,6 +52075,139 @@
                             "length": 1,
                             "op": "eq",
                             "valueHex": "40"
+                        }
+                    },
+                    {
+                        "id": "eu_category",
+                        "label": "EU category",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 4,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "Open",
+                            "2": "Specific",
+                            "3": "Certified"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "40",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "eu_class",
+                        "label": "EU class",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "C0",
+                            "2": "C1",
+                            "3": "C2",
+                            "4": "C3",
+                            "5": "C4",
+                            "6": "C5",
+                            "7": "C6"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "40",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "op_alt",
+                        "label": "Operator altitude",
+                        "offset": 20,
+                        "length": null,
+                        "type": "u16",
+                        "endian": "le",
+                        "bitOffset": null,
+                        "bitWidth": null,
+                        "scale": 0.5,
+                        "offsetAdd": -1000.0,
+                        "modulo": null,
+                        "unit": "m",
+                        "enum": null,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "40",
+                            "and": {
+                                "offset": 20,
+                                "length": 2,
+                                "op": "neq",
+                                "valueHex": "0000"
+                            }
+                        }
+                    },
+                    {
+                        "id": "op_loc_type",
+                        "label": "Operator location",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 2,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Live GPS",
+                            "2": "Fixed"
+                        },
+                        "live": true,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "41"
                         }
                     },
                     {
@@ -52022,6 +52253,139 @@
                         }
                     },
                     {
+                        "id": "eu_category",
+                        "label": "EU category",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 4,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "Open",
+                            "2": "Specific",
+                            "3": "Certified"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "41",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "eu_class",
+                        "label": "EU class",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "C0",
+                            "2": "C1",
+                            "3": "C2",
+                            "4": "C3",
+                            "5": "C4",
+                            "6": "C5",
+                            "7": "C6"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "41",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "op_alt",
+                        "label": "Operator altitude",
+                        "offset": 20,
+                        "length": null,
+                        "type": "u16",
+                        "endian": "le",
+                        "bitOffset": null,
+                        "bitWidth": null,
+                        "scale": 0.5,
+                        "offsetAdd": -1000.0,
+                        "modulo": null,
+                        "unit": "m",
+                        "enum": null,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "41",
+                            "and": {
+                                "offset": 20,
+                                "length": 2,
+                                "op": "neq",
+                                "valueHex": "0000"
+                            }
+                        }
+                    },
+                    {
+                        "id": "op_loc_type",
+                        "label": "Operator location",
+                        "offset": 3,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 2,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Takeoff",
+                            "1": "Live GPS",
+                            "2": "Fixed"
+                        },
+                        "live": true,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "42"
+                        }
+                    },
+                    {
                         "id": "op_lat",
                         "label": "Operator lat",
                         "offset": 4,
@@ -52061,6 +52425,113 @@
                             "length": 1,
                             "op": "eq",
                             "valueHex": "42"
+                        }
+                    },
+                    {
+                        "id": "eu_category",
+                        "label": "EU category",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 4,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "Open",
+                            "2": "Specific",
+                            "3": "Certified"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "42",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "eu_class",
+                        "label": "EU class",
+                        "offset": 19,
+                        "length": null,
+                        "type": "bits",
+                        "endian": "le",
+                        "bitOffset": 0,
+                        "bitWidth": 4,
+                        "scale": null,
+                        "offsetAdd": null,
+                        "modulo": null,
+                        "unit": null,
+                        "enum": {
+                            "0": "Undeclared",
+                            "1": "C0",
+                            "2": "C1",
+                            "3": "C2",
+                            "4": "C3",
+                            "5": "C4",
+                            "6": "C5",
+                            "7": "C6"
+                        },
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "42",
+                            "and": {
+                                "offset": 3,
+                                "length": 1,
+                                "op": "mask",
+                                "valueHex": "04",
+                                "and": {
+                                    "offset": 3,
+                                    "length": 1,
+                                    "op": "nmask",
+                                    "valueHex": "18"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "id": "op_alt",
+                        "label": "Operator altitude",
+                        "offset": 20,
+                        "length": null,
+                        "type": "u16",
+                        "endian": "le",
+                        "bitOffset": null,
+                        "bitWidth": null,
+                        "scale": 0.5,
+                        "offsetAdd": -1000.0,
+                        "modulo": null,
+                        "unit": "m",
+                        "enum": null,
+                        "when": {
+                            "offset": 2,
+                            "length": 1,
+                            "op": "eq",
+                            "valueHex": "42",
+                            "and": {
+                                "offset": 20,
+                                "length": 2,
+                                "op": "neq",
+                                "valueHex": "0000"
+                            }
                         }
                     },
                     {

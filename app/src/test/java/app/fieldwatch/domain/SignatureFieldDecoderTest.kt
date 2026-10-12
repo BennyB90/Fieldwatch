@@ -389,6 +389,7 @@ class SignatureFieldDecoderTest {
         assertEquals("-74 °", rows.display("longitude"))
         assertEquals("100 m", rows.display("alt_geo"))
         assertEquals("50 m", rows.display("height"))
+        assertEquals("Takeoff", rows.display("height_ref"))
         assertEquals("0 °", rows.display("heading"))
         assertEquals("0 m/s", rows.display("hspeed"))
         assertEquals(40.0, rows.number("latitude")!!, 1e-6)
@@ -414,6 +415,48 @@ class SignatureFieldDecoderTest {
         assertEquals(2.5, rows.number("hspeed")!!, 1e-6)
         assertEquals(28.7827062, rows.number("op_lat")!!, 1e-6)
         assertEquals(-81.3563979, rows.number("op_lon")!!, 1e-6)
+        assertEquals("Live GPS", rows.display("op_loc_type"))
+        assertEquals("Takeoff", rows.display("height_ref"))
+        assertEquals(26.5, rows.number("op_alt")!!, 1e-6)
+        assertTrue(rows.none { it.id == "eu_class" || it.id == "eu_category" })
+    }
+
+    @Test
+    fun catalogRemoteIdSystemTakeoffEuAndUnknownAltitude() {
+        val fleet = DefaultCatalog.fleets().single { it.id == "fleet-remote-id" }
+        // Takeoff, EU classification, category Open, class C0, operator altitude 50 m.
+        val eu = "0D00" + "4204" + "00".repeat(15) + "113408" + "00".repeat(5)
+        val rows = SignatureFieldDecoder.decodeSighting(bleService("FFFA", eu, fleet.id), listOf(fleet))
+        assertEquals("Takeoff", rows.display("op_loc_type"))
+        assertEquals("Open", rows.display("eu_category"))
+        assertEquals("C0", rows.display("eu_class"))
+        assertEquals(50.0, rows.number("op_alt")!!, 1e-6)
+        val chips = SignatureFieldDecoder.liveChips(bleService("FFFA", eu, fleet.id), listOf(fleet))
+        assertEquals("Takeoff", chips.single().text)
+        assertFalse(chips.single().emphasis)
+        // Live GPS, classification not EU, altitude encoded 0 (unknown).
+        val unknown = "0D00" + "4201" + "00".repeat(23)
+        val quiet = SignatureFieldDecoder.decodeSighting(bleService("FFFA", unknown, fleet.id), listOf(fleet))
+        assertEquals("Live GPS", quiet.display("op_loc_type"))
+        assertTrue(quiet.none { it.id == "eu_class" || it.id == "eu_category" || it.id == "op_alt" })
+        // Classification type 3 is not EU, so class and category stay off.
+        val notEu = "0D00" + "420C" + "00".repeat(15) + "113408" + "00".repeat(5)
+        val hidden = SignatureFieldDecoder.decodeSighting(bleService("FFFA", notEu, fleet.id), listOf(fleet))
+        assertTrue(hidden.none { it.id == "eu_class" || it.id == "eu_category" })
+        assertEquals(50.0, hidden.number("op_alt")!!, 1e-6)
+    }
+
+    @Test
+    fun catalogRemoteIdHeightOverGround() {
+        val fleet = DefaultCatalog.fleets().single { it.id == "fleet-remote-id" }
+        val payload = "0D0012240000000084D717007FE4D3000098083408000000000000"
+        val rows = SignatureFieldDecoder.decodeSighting(bleService("FFFA", payload, fleet.id), listOf(fleet))
+        assertEquals("Over ground", rows.display("height_ref"))
+        assertEquals("Airborne", rows.display("status"))
+        assertEquals(listOf("Airborne"), SignatureFieldDecoder.liveChips(
+            bleService("FFFA", payload, fleet.id),
+            listOf(fleet),
+        ).map { it.text })
     }
 
     @Test

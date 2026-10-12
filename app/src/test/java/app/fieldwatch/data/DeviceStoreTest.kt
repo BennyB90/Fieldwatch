@@ -2,6 +2,7 @@ package app.fieldwatch.data
 
 import app.fieldwatch.domain.DefaultCatalog
 import app.fieldwatch.domain.Observation
+import app.fieldwatch.domain.OperatorLoc
 import app.fieldwatch.domain.RadioFacts
 import app.fieldwatch.domain.RadioKind
 import app.fieldwatch.domain.ServiceDataRecord
@@ -161,6 +162,42 @@ class DeviceStoreTest {
         assertNull(again.payloadAircraft)
         assertEquals(40.0, again.payloadLat!!, 1e-6)
         assertEquals(-74.0, again.payloadLon!!, 1e-6)
+    }
+
+    @Test
+    fun remoteIdOperatorKindSticksAndUnknownAltitudeDoesNotClear() {
+        val store = DeviceStore()
+        val mac = "AA:BB:CC:DD:EE:18"
+        val live = "0D00420176E42711B5FF81CF010000000000000005088B02900E00"
+        val location = "0D0012200000000084D717007FE4D3000098083408000000000000"
+        val takeoffUnknown = "0D00420076E42711B5FF81CF010000000000000000008B02900E00"
+        store.ingestBatch(
+            listOf(ble(mac, name = "", facts = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", live))))),
+            fleets,
+            30,
+        )
+        val first = store.find("BLE:$mac")!!
+        assertEquals(OperatorLoc.LIVE, first.payloadOpKind)
+        assertEquals(26.5, first.payloadOpAlt!!, 1e-6)
+        assertEquals("Live GPS", first.liveDecode.single().text)
+        store.ingestBatch(
+            listOf(ble(mac, name = "", facts = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", location))))),
+            fleets,
+            30,
+        )
+        val held = store.find("BLE:$mac")!!
+        assertEquals(OperatorLoc.LIVE, held.payloadOpKind)
+        assertEquals(26.5, held.payloadOpAlt!!, 1e-6)
+        assertEquals(40.0, held.payloadLat!!, 1e-6)
+        store.ingestBatch(
+            listOf(ble(mac, name = "", facts = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", takeoffUnknown))))),
+            fleets,
+            30,
+        )
+        val takeoff = store.find("BLE:$mac")!!
+        assertEquals(OperatorLoc.TAKEOFF, takeoff.payloadOpKind)
+        assertEquals(26.5, takeoff.payloadOpAlt!!, 1e-6)
+        assertEquals("Takeoff", takeoff.liveDecode.single().text)
     }
 
     @Test

@@ -202,7 +202,7 @@ class AircraftTrailTest {
         assertFalse(key.contains("28.787120"))
         assertFalse(key.contains("-81.360360"))
         assertTrue(key.contains("last masked"))
-        assertTrue(key.contains("pilot masked"))
+        assertTrue(key.contains("Operator masked"))
         assertTrue(key.contains("130 m"))
         assertTrue(key.contains("course 90"))
         val plain = masked.toPlainText()
@@ -219,7 +219,7 @@ class AircraftTrailTest {
             extraAttention = false,
             named = false,
             mac = mac,
-            advertisedNote = "Airborne · UAS $serial · last 28.787120, -81.365491 · pilot 28.787120, -81.360360",
+            advertisedNote = "Airborne · UAS $serial · last 28.787120, -81.365491 · Operator 28.787120, -81.360360",
         )
         val figure = SitPathPlot.Figure(
             kicker = "OPERATOR PATH",
@@ -256,6 +256,38 @@ class AircraftTrailTest {
             aircraft = "Freefly Alta X Gen2",
         )
         assertTrue(note.startsWith("Freefly Alta X Gen2 · Airborne · UAS 18179132000209"))
+        val takeoff = AircraftTrail.advertisedNote(
+            status = "",
+            uasId = "",
+            label = "Remote ID",
+            lat = 28.0,
+            lon = -81.0,
+            alt = null,
+            heading = null,
+            speed = null,
+            pilotLat = 28.1,
+            pilotLon = -81.1,
+            opKind = OperatorLoc.TAKEOFF,
+        )
+        assertTrue(takeoff.contains("Takeoff 28.100000, -81.100000"))
+        val mark = AircraftTrail.pilotMark(
+            AircraftTrail.Picture(
+                uasId = "1",
+                title = "1",
+                fixes = listOf(PayloadFix(1L, 28.0, -81.0)),
+                status = "",
+                alt = null,
+                heading = null,
+                speed = null,
+                pilotLat = 28.1,
+                pilotLon = -81.1,
+                opKind = OperatorLoc.FIXED,
+                pilotOnMap = true,
+                onWalk = true,
+                ownFigure = false,
+            ),
+        )
+        assertEquals("Fixed", mark!!.label)
         val text = AircraftTrail.body(
             listOf(
                 AircraftTrail.Picture(

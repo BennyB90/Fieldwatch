@@ -3612,7 +3612,7 @@ object DefaultCatalog {
         colorIndex = Hue.DRONE,
         kind = SignatureClass.DRONE,
         matchAny = true,
-        notes = "In-flight drone digital license plate (ASTM / FAA Remote ID). Decoded fields can show ID, position, heading, and operator. The French Direct Remote ID vendor IE labels this row too. That plate does not fill position or pilot. Pattern match, not a tail number. Wi-Fi Remote ID often misses on stock Android.",
+        notes = "In-flight drone digital license plate (ASTM / FAA Remote ID). Decoded fields can show ID, position, heading, and operator location (takeoff, live GPS, or a fixed point). EU class shows only when the plate says EU. The French Direct Remote ID vendor IE labels this row too. That plate does not fill position or the operator pin. Pattern match, not a tail number. Wi-Fi Remote ID often misses on stock Android.",
         builtIn = true,
         decode = CatalogDecodes.remoteId,
         rules = listOf(

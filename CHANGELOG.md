@@ -4,6 +4,12 @@ Newest first. This is Fieldwatch (`app.fieldwatch`). Each build below is what Se
 
 Fieldwatch continues the Spectre 1.2.14 field build under a new name, application id, and the MIT License. It does not replace Spectre on a phone.
 
+## 1.1.26 — 12 October 2026
+
+- A Remote ID operator location says what that point is. Takeoff is the launch spot. Pilot is a live GPS operator. Fixed is a point the aircraft declared. An older sit says Operator. The pin stays Orange. A known operator altitude is shown. Unknown stays blank. The card can say the aircraft height is above takeoff or above the ground. EU category and class show only when the plate says the classification is EU.
+- Settings calls the longer GNSS mark an ellipse. A short hit is still a pin. A longer hit is one ellipse from the start to the last place, half as wide as it is long.
+- The user manual, under GNSS interference, explains how a hit is decided.
+
 ## 1.1.25 — 11 October 2026
 
 - A GNSS hit can put a mark on the ATAK map where this phone was. A short hit is a pin. If the phone keeps moving while the hit lasts, the mark becomes an oval from where it started to where it was last heard, half as wide as it is long. The words also stay on this phone's Fieldwatch marker. The mark does not say where the cause is.

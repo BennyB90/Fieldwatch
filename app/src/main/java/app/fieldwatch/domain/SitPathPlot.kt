@@ -440,6 +440,7 @@ object SitPathPlot {
                             pilotLat = d.payloadOpLat,
                             pilotLon = d.payloadOpLon,
                             aircraft = d.payloadAircraft?.trim().orEmpty(),
+                            opKind = d.payloadOpKind,
                         )
                     } else {
                         ""
@@ -456,7 +457,7 @@ object SitPathPlot {
 
     /**
      * Last advertised fix the sit kept. Empty trail uses the current payload pin
-     * (last 15 minutes, or a sit from before the trail). Pilot coordinates are not a pin.
+     * (last 15 minutes, or a sit from before the trail). Operator coordinates are not a pin.
      */
     fun advertisedFix(d: Sighting): GpsSample? {
         val kept = d.payloadTrail.lastOrNull { PayloadLocation.validCoord(it.lat, it.lon) }

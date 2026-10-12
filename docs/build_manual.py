@@ -479,8 +479,8 @@ def draw_cover(c, doc):
         y -= 16
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 9)
-    c.drawString(48, 108, "Version 1.1.25")
-    c.drawString(48, 94, "11 October 2026")
+    c.drawString(48, 108, "Version 1.1.26")
+    c.drawString(48, 94, "12 October 2026")
     c.drawString(48, 80, "Package  app.fieldwatch   ·   Android 10+ (API 29)   ·   Target API 35")
     c.setStrokeColor(colors.HexColor("#2A3340"))
     c.setLineWidth(0.6)
@@ -520,7 +520,7 @@ def draw_body(c, doc):
     c.line(48, 40, PAGE_W - 48, 40)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 8)
-    c.drawString(48, 28, "v1.1.25  ·  Off Grid Pete LLC")
+    c.drawString(48, 28, "v1.1.26  ·  Off Grid Pete LLC")
     draw_ig_mark(c, 148, 30, 5.2, MUTED)
     c.setFillColor(MUTED)
     c.setFont("Helvetica", 8)
@@ -1584,8 +1584,9 @@ def story():
             "<b>Drones.</b> While the stored Remote ID advertisement is a Location message, "
             "the list shows the operational status: Undeclared, Ground, Airborne, Emergency, or RID failure. "
             "<b>Emergency</b> is the heavier chip. Ground and Airborne are the quick read of what the aircraft is advertising. "
-            "The chip clears when the next advertisement is Basic ID or System. "
-            "It comes back on the next Location message. "
+            "The status chip clears when the next advertisement is Basic ID. "
+            "A System message shows Takeoff, Live GPS, or Fixed instead. That word is the operator location type. "
+            "The status chip comes back on the next Location message. "
             "A Location message buried in a BLE message pack does not light the chip. "
             "Wi-Fi Remote ID packs are split, so a Wi-Fi location can. "
             "Detail still has latitude, heading, speed, and UAS id when those messages are current. "
@@ -1603,7 +1604,7 @@ def story():
             "The last position is a class icon. Tap it for that radio. "
             "When it shares a spot with other alerts, the count lists every radio there. "
             "A farther aircraft with a UAS id gets its own map, up to three. "
-            "The pilot on that map is a person icon. "
+            "The operator on that map is a person icon. The report says takeoff, the pilot, or a fixed point. "
             "Sits saved before this change keep that single last position. "
             "Last 15 minutes marks the current advertised position and does not keep a track. §5.6.1, §11.4, §12.6, §12.16."
         ),
@@ -1827,7 +1828,7 @@ def story():
             "<b>While it runs.</b> Live title FIELDWATCH · SIT and a status banner. Path, Debrief, Sit export, Compare’s this-sit side, and AI Export use this window, not 15 minutes. Filters, Hunt, TAK, and the 400-radio Live list stay as they are. Start and End sit stay on Reports.",
             "<b>After End sit.</b> The sit appears in the list on Reports. Pick it for Path / Debrief / Sit export / Compare this-sit, or leave Last 15 minutes selected. Rename / Delete sit under the list.",
             "<b>Path</b> — North-up plot of the selected sit (open, saved, or last 15 minutes). Leave Reports in front to watch an open sit grow, or the last-15-minute snake move. An open or saved sit draws an advertised aircraft track as a white dotted line on this card. Full write-up: §5.6.1.",
-            "<b>Debrief (text) / Debrief (PDF)</b> — Same sit report, two formats. Uses the selected sit (up to 6000 unique radios), or last 15 minutes in RAM (~400, hard ceiling 900). Unmatched rotating BLE omitted from lists by default; counts still include them. Show unmatched rotating BLE is on the Sit report card. Show all radios is off by default: counts, and a radio that is Extra attention, has a custom name, is marked Mine, or is bookmarked. Compare also lists a decoded value that changed. Turn Show all radios on for the full rosters. The PDF draws those counts as bars. The text report has the same counts and the same lines. Sit export has every radio. Full cap / drop / list rules just above. Hobby / as-is disclaimer at the top. Custom names. Observer notes after Where you were. An Aircraft section follows when a radio advertised a position (§5.4.1). Filters and Live view do not change what Debrief sees. On a drive without a sit, tap Debrief more than once (§11.4.1). PDF adds bold stay/transit lines, Label: kickers, and a letter-size path figure when GPS recorded a walk. A nearby advertised track is a black dotted line on that figure. The last position is a class icon. The pilot is a person icon. A pairing flood, a name flood, or a Wi-Fi beacon flood heard during the sit is a quiet Flood section: the time, the kind, how many new addresses or new names, and how many of those addresses are left out of the radio counts and lists. The sit file and Sit export still have every radio. A sit saved before those addresses were stored still counts them with the other radios. A GNSS section lists each hit with the time, the level, and what changed. It does not name a source or a distance. Compare names which sit the hit was in.",
+            "<b>Debrief (text) / Debrief (PDF)</b> — Same sit report, two formats. Uses the selected sit (up to 6000 unique radios), or last 15 minutes in RAM (~400, hard ceiling 900). Unmatched rotating BLE omitted from lists by default; counts still include them. Show unmatched rotating BLE is on the Sit report card. Show all radios is off by default: counts, and a radio that is Extra attention, has a custom name, is marked Mine, or is bookmarked. Compare also lists a decoded value that changed. Turn Show all radios on for the full rosters. The PDF draws those counts as bars. The text report has the same counts and the same lines. Sit export has every radio. Full cap / drop / list rules just above. Hobby / as-is disclaimer at the top. Custom names. Observer notes after Where you were. An Aircraft section follows when a radio advertised a position (§5.4.1). Filters and Live view do not change what Debrief sees. On a drive without a sit, tap Debrief more than once (§11.4.1). PDF adds bold stay/transit lines, Label: kickers, and a letter-size path figure when GPS recorded a walk. A nearby advertised track is a black dotted line on that figure. The last position is a class icon. The operator is a person icon. A pairing flood, a name flood, or a Wi-Fi beacon flood heard during the sit is a quiet Flood section: the time, the kind, how many new addresses or new names, and how many of those addresses are left out of the radio counts and lists. The sit file and Sit export still have every radio. A sit saved before those addresses were stored still counts them with the other radios. A GNSS section lists each hit with the time, the level, and what changed. It does not name a source or a distance. Compare names which sit the hit was in.",
             "<b>Compare (text) / Compare (PDF)</b> — This sit vs a second saved sit. Presence only: only here, only there, in both. Kind + MAC. Same window as Debrief. Observer notes after Windows. Marked mine after that, one line per radio and which window. A live value that changed is stated (Separated → Near owner, Airborne → Ground). Last 15 minutes vs a named sit is a different net (RAM ~400 vs sit 6000). PDF overlays both walks when both have GPS. This sit’s advertised track is a black dotted line. The second sit’s is a blue dotted line. A flood note, including a Wi-Fi beacon flood, names which sit the burst was in and leaves that burst’s addresses out of the presence counts and lists.",
             "<b>Compare AI Export</b> — Paste-ready addendum for a chat. Embeds the onboard Compare, then overlap (both/union), Wi-Fi vs BLE in each bucket, RAND BLE among exclusives, exclusive Extra attention / Named radios, and Observer notes if any. Instructs the model not to reprint the lists. Sit report AI Export stays this window.",
             "<b>AI Export</b> — Sit-level paste-ready addendum (the open or selected sit, otherwise last 15 minutes with a 5-minute slice). Onboard Debrief verbatim, then rates, RSSI bands, Extra attention, finder-tag IDs, and Observer notes — not a second inventory. Instructs the model not to reprint Debrief. For a <i>single</i> radio, use AI Export on the device-detail page instead.",
@@ -1899,7 +1900,7 @@ def story():
             "One stored fix is that icon, with no line. "
             "When it shares a spot with other alerts, the count stands in for the icon and the popup lists every radio there. "
             "A farther aircraft with a UAS id gets its own map under the walk, up to three, and that map lists the alert. "
-            "The pilot is a person icon when that pin is within 2 km of the track. There is no word label on the map. "
+            "The operator is a person icon when that pin is within 2 km of the track. There is no word label on the map. The report says takeoff, the pilot, or a fixed point. "
             "A position with no UAS id stays in the sit report when it is far from the walk. "
             "Sits recorded before the trail was stored keep a single last position. "
             "Last 15 minutes marks the current advertised position and does not keep a track. "
@@ -1921,10 +1922,10 @@ def story():
             "A red diamond is a GNSS detection where this phone was. The Path key under the figure has the time, the level, and what changed. "
             "It does not say where the interference came from. "
             "Stacked radios at one place share a Path-key number. "
-            "An advertised aircraft on that figure is the drone class icon in the Path key, not a number, with the live status, UAS id, last position, motion, and the pilot position when the radio sent them. "
+            "An advertised aircraft on that figure is the drone class icon in the Path key, not a number, with the live status, UAS id, last position, motion, and the operator position when the radio sent one. "
             "Privacy mode masks the MAC tail, the UAS id, and those coordinates in that key and in the Aircraft section. Altitude, course, and speed stay. The track still draws. "
             "The letter figure draws that advertised track as a black dotted line, "
-            "with a class icon at the last position. The pilot is a person icon, with no word on the figure. "
+            "with a class icon at the last position. The operator is a person icon, with no word on the figure. "
             "Offline: the north-up trace only. Compare overlays this sit "
             "(solid) and the second sit (dashed) when both have enough GPS samples. "
             "This sit’s advertised track is black dots. The second sit’s is blue dots. Caption stays inside the panel outline."
@@ -2045,7 +2046,7 @@ def story():
             "<b>Watchlist</b> — Watchlist alerts is the master switch (off: no beep, voice, flash, jump, or shade card; bookmarking still works). Beep and Voice are independent: pip only, spoken phrase only, or pip then phrase. Voice (on by default) can say the class (finder tags, audio, …), the signature name (Apple AirTags, Axon, …), or both — Settings → What to say; default is Class + signature. Not Hunt; a second hit is skipped while a phrase is being spoken. Jump to new watched detection is on. Optional system notification (off by default). Test alert plays whatever is on. <b>Named radios (N)</b> opens the list of one-MAC names, Observer notes, and optional alerts: rename, notes, Alert on/off, remove one, or Clear all (signature watches stay on Signatures). Stock bookmarks watch Extra attention families (body-cam, camera glasses, recording wearables, pentest, public-safety vehicle APs, roadside / public camera + ALPR) and every built-in Drone-class row (DJI, Remote ID, Skydio, Autel, Parrot, HOVERAir, Tello, Potensic, Holy Stone, Hubsan, Yuneec, SwellPro, Crazyflie). Unbookmark a row on Signatures if you do not want that alert. Flock LiteOn / Espressif OUIs can be noisy. Field write-up: §10.1–10.2.1.",
             "<b>Tag detections with GPS</b> — On by default. Requests live GPS and network location updates while scanning, then stamps each hear (detail, Moving with you, Debrief, log lat/lon). Last-known older than 30 s is ignored. Path stays 0 until a live fix. High-accuracy Location. Needed for Debrief distance/following, Filters → Moving with you, and heard-here TAK pins. Advertised payload pins (Remote ID) do not need this. A Log export with tagging on contains operator coordinates.",
             "<b>GNSS interference</b> — Calibrate this phone once before the check will turn on. The result stays on this phone and is not part of Export settings. Full write-up: §5.9.",
-            "<b>TAK / CoT feed</b> — Off by default. UDP Cursor-on-Target to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — a TAK server’s TCP 8087 is not this feed. Heard-here pins sit at operator GPS at the loudest hear (closest approach) and are labeled (here). Advertised lat/lon (stock Remote ID) sit on the aircraft; sticky UAS ID keeps one moving marker; decoded pilot lat/lon is a second pin. Location heading and speed go in the ATAK track when present. Wi-Fi Remote ID (vendor IE FA:0B:BC) can pin the aircraft the same way as BLE FFFA on Android 11+. A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. Settings shows last send. What to send chips: Extra attention (on), Payload location (on), Watchlist (off), All signatures (off). GNSS is Off, While alerting, Red line, or Any hit. A GNSS hit also puts a pin or an oval on the map where this phone was. A short hit is a pin. A longer hit is an oval from the start to the last place it was heard, half as wide as it is long. How long that mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Floods is Off or On and only adds a line to this phone’s marker. The mark, the oval, and the hold are §5.8.13. Floods are §5.8.12. Privacy mode pauses the feed. Full configuration: §5.8. Sit: §12.15.",
+            "<b>TAK / CoT feed</b> — Off by default. UDP Cursor-on-Target to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — a TAK server’s TCP 8087 is not this feed. Heard-here pins sit at operator GPS at the loudest hear (closest approach) and are labeled (here). Advertised lat/lon (stock Remote ID) sit on the aircraft; sticky UAS ID keeps one moving marker; a decoded operator location is a second pin. The callsign says takeoff, the pilot, or a fixed point. Location heading and speed go in the ATAK track when present. Wi-Fi Remote ID (vendor IE FA:0B:BC) can pin the aircraft the same way as BLE FFFA on Android 11+. A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. Settings shows last send. What to send chips: Extra attention (on), Payload location (on), Watchlist (off), All signatures (off). GNSS is Off, While alerting, Red line, or Any hit. A GNSS hit also puts a pin or an ellipse on the map where this phone was. A short hit is a pin. A longer hit is an ellipse from the start to the last place it was heard, half as wide as it is long. How long that mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Floods is Off or On and only adds a line to this phone’s marker. The mark, the ellipse, and the hold are §5.8.13. Floods are §5.8.12. Privacy mode pauses the feed. Full configuration: §5.8. Sit: §12.15.",
             "<b>Online place names and maps</b> — On by default. One switch. Debrief and AI Export reverse-geocode GPS stamps (system geocoder). Reports → Path loads OpenStreetMap tiles under the trace (no Fieldwatch cloud, no API key). Offline, no geocoder, or no tiles: Debrief uses coordinates only and Path stays the north-up plot — no error dialog. Privacy mode does not hide that map. Turn off to keep streets and map tiles out of reports and Path together. Generate buttons are on Reports (§5.6, §5.6.1).",
             "<b>Logging</b> — Write to disk, rotate size, Stale after slider (when a radio is marked gone). Line/disk counts. The rotating file is JSON lines. Format (CSV, JSON lines, GPX, KML, WiGLE) and radios (Both / Wi-Fi / BLE) are on Reports → Log. Share, Save, and Reset / clear log are on Reports.",
             "<b>Allow background usage</b> — Switch. Opens Fieldwatch’s Battery page; turn on Allow background usage so the OS may run the scan when Fieldwatch is not in front. Follows that Android setting. Not Keep screen on.",
@@ -2144,7 +2145,7 @@ def story():
         bullets([
             "<b>BLE.</b> UUID FFFA in service data. One 25-byte message per advertisement. Types rotate: Basic ID, Location, System, Self ID, Operator ID. Protocol versions 0, 1, and 2 decode. The BLE address often rotates; Basic ID <font face='Courier'>uas_id</font> is the sticky identity.",
             "<b>Wi-Fi.</b> A normal AP beacon with vendor IE FA:0B:BC type 0x0D. Android 11+ exposes that IE; Android 10 does not, so a Wi-Fi-only drone will not label on Android 10. A Wi-Fi beacon can send one 25-byte message or an ASTM message pack (type 0xF, several messages). Identity is the vendor IE. The parser frames each 25-byte message as BLE FFFA (app code 0x0D, counter, message) so the stock Remote ID Decode fields map, detail, and TAK run the same as BLE.",
-            "<b>French plate.</b> Vendor IE 6A:5C:35 labels the same Remote ID row. It does not fill position, heading, or the pilot pin. Those still come from the ASTM advertisement.",
+            "<b>French plate.</b> Vendor IE 6A:5C:35 labels the same Remote ID row. It does not fill position, heading, or the operator pin. Those still come from the ASTM advertisement.",
             "<b>Serial.</b> When Basic ID says the ID type is a serial, a known manufacturer prefix adds a line on that same Remote ID row. Freefly, BRINC, Teal, Autel, and Skydio. The Autel stem is 1748C and the Skydio stem is 1668B. A shorter prefix does not. A session ID does not. The French plate does not.",
         ]),
         P("<b>What still misses.</b>", "body_left"),
@@ -2163,8 +2164,18 @@ def story():
             "Until the first Basic ID, the uid is still the MAC; then it jumps once and the "
             "old MAC marker is dropped. The System message’s "
             "<font face='Courier'>op_lat</font> / <font face='Courier'>op_lon</font> are the "
-            "<b>pilot / operator</b> location — a <i>second</i> pin (Orange), linked to the "
-            "aircraft, not a substitute for it."
+            "<b>operator</b> location — a <i>second</i> pin (Orange), linked to the "
+            "aircraft, not a substitute for it. The callsign is Takeoff, Pilot, or Fixed."
+        ),
+        P(
+            "<b>What that point is.</b> Takeoff is the launch spot. Live GPS is the pilot. "
+            "Fixed is a point the aircraft declared. The TAK callsign, the Debrief line, and "
+            "the path note use those words. A plate that has not sent the type, or an older sit, "
+            "says Operator. The pin is where the advertisement put that point. It is not where "
+            "the aircraft came from. A Location message can also say the aircraft height is "
+            "above takeoff or above the ground. Operator altitude is on the detail card, and "
+            "on the TAK pin when the message sends one. A raw value of 0 is unknown and is "
+            "left blank. EU category and class show only when the plate says the classification is EU."
         ),
         P(
             "<b>Track.</b> Location heading is the direction byte plus the east/west flag "
@@ -2172,7 +2183,7 @@ def story():
             "0.75 m/s per count plus an offset, from the SpeedMult bit. Invalid direction or "
             "speed is 255 and is omitted. Those values go in the ATAK "
             "<font face='Courier'>track</font> so the aircraft icon can point and show motion. "
-            "Pilot and heard-here pins have no track. Vertical speed and baro altitude decode "
+            "The operator pin and heard-here pins have no track. Vertical speed and baro altitude decode "
             "when present. A 0,0 pair, a non-finite number, or a value outside ±90 / ±180 is "
             "rejected and does not clobber a previous good fix."
         ),
@@ -2198,7 +2209,8 @@ def story():
                 ["latitude (aliases lat)", "Advertised WGS84 latitude. Required with longitude for a payload pin."],
                 ["longitude (aliases lon, lng)", "Advertised WGS84 longitude. Required with latitude."],
                 ["alt_geo (aliases altitude, alt, hae)", "Optional HAE meters for the CoT point. Sticky with the lat/lon pair."],
-                ["op_lat / op_lon (aliases operator_lat / operator_lon)", "Remote ID System operator (pilot) location. Second TAK pin, linked to the aircraft. Not the aircraft pin. Do not reuse these ids for the aircraft."],
+                ["op_lat / op_lon (aliases operator_lat / operator_lon)", "Remote ID System operator location. Second TAK pin, linked to the aircraft. Takeoff, the live pilot, or a fixed point. Not the aircraft pin. Do not reuse these ids for the aircraft."],
+                ["op_alt", "Operator altitude in meters when the System message sends one. A raw value of 0 is unknown and is left blank. TAK uses a known value as the operator pin height."],
                 ["heading (aliases course, direction)", "Location heading degrees. TAK track course on the aircraft pin. Direction byte 0–179 plus 180 when the east/west flag is set (opendroneid.c). Not a ×2 scale."],
                 ["speed (aliases hspeed)", "Horizontal speed m/s. TAK track speed on the aircraft pin. Stock Remote ID id is hspeed: ×0.25, or ×0.75 + 63.75 when SpeedMult is set."],
                 ["uas_id (alias serial)", "Remote ID Basic ID. Sticky. TAK aircraft uid when at least four characters after cleaning."],
@@ -2292,7 +2304,7 @@ def story():
             "GNSS and Floods sit under those four chips. They do not pick radios. "
             "Floods adds a line to this phone’s Fieldwatch marker and does not make its own pin. "
             "GNSS adds that same line, and a mark where this phone was. A short hit is a pin. "
-            "A hit that continues while the phone moves is an oval from the start to the last place it was heard, half as wide as it is long. "
+            "A hit that continues while the phone moves is an ellipse from the start to the last place it was heard, half as wide as it is long. "
             "The mark does not say where the cause is. How long it stays is 1 hour, 6 hours, 24 hours, or until deleted. "
             "GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. "
             "This phone needs a GPS fix. Privacy mode pauses the feed. The mark is §5.8.13."
@@ -2309,7 +2321,7 @@ def story():
             "<b>Scanning stopped</b> — Stop on the scan notification ends the loop. A radio that was still being sent goes stale in about 2 minutes. A spot that had already left keeps How long a spot stays.",
         ]),
         P(
-            "Advertised aircraft, pilot, and this-phone markers are sent when they first qualify, "
+            "Advertised aircraft, the operator pin, and this-phone markers are sent when they first qualify, "
             "when they have moved about 30 m, or when about 10 s have passed. Heard-here markers "
             "move only when this hear is louder than the last send (closest approach); weaker hears "
             "still refresh the same lat/lon after about 10 s so ATAK does not stale-drop. Peak RSSI "
@@ -2324,14 +2336,14 @@ def story():
         ),
         P("5.8.9 What ATAK shows", "h3"),
         bullets([
-            "<b>uid</b> — Remote ID with a sticky UAS ID is <font face='Courier'>FIELDWATCH-RID-</font> plus that id (one aircraft, one moving marker). Otherwise <font face='Courier'>FIELDWATCH-BLE-</font> or <font face='Courier'>FIELDWATCH-WIFI-</font> plus the MAC without colons. Pilot pin is <font face='Courier'>FIELDWATCH-PILOT-</font> plus the same id. A rotated BLE address without a UAS ID is still a new marker.",
-            "<b>type</b> — advertised drone-class (Remote ID / DJI class) is <font face='Courier'>a-u-A-M-H-Q</font> (unknown UAV, Yellow). Heard-here Extra attention is <font face='Courier'>a-u-G</font> (Maroon). Pilot is <font face='Courier'>a-u-G</font> (Orange). Other ground is Cyan. Not friendly/hostile affiliation.",
+            "<b>uid</b> — Remote ID with a sticky UAS ID is <font face='Courier'>FIELDWATCH-RID-</font> plus that id (one aircraft, one moving marker). Otherwise <font face='Courier'>FIELDWATCH-BLE-</font> or <font face='Courier'>FIELDWATCH-WIFI-</font> plus the MAC without colons. The operator pin uid is <font face='Courier'>FIELDWATCH-PILOT-</font> plus the same id. The callsign says Takeoff, Pilot, Fixed, or Operator. A rotated BLE address without a UAS ID is still a new marker.",
+            "<b>type</b> — advertised drone-class (Remote ID / DJI class) is <font face='Courier'>a-u-A-M-H-Q</font> (unknown UAV, Yellow). Heard-here Extra attention is <font face='Courier'>a-u-G</font> (Maroon). The operator pin is <font face='Courier'>a-u-G</font> (Orange). Other ground is Cyan. Not friendly/hostile affiliation.",
             "<b>callsign</b> — Named radio label if that MAC is named; else advertised Self ID / UAS ID; else an Extra attention signature name; else the first matching signature; else the advertised name; else the MAC tail. Heard-here callsigns end in (here). After the radio leaves, that same callsign stays for How long a spot stays. §5.8.7.",
-            "<b>point</b> — lat/lon as above. <font face='Courier'>hae</font> is advertised altitude when known, else the CoT unknown (9999999). ce/le are unknown.",
-            "<b>track</b> — advertised aircraft only. <font face='Courier'>course</font> is heading degrees, <font face='Courier'>speed</font> is m/s, when Location had them. Pilot and heard-here pins omit track. Omitted if neither course nor speed.",
-            "<b>remarks</b> — A short card (newlines) when you inspect the marker: callsign, Wi-Fi or BLE, full MAC, RSSI dBm, Wi-Fi channel when known, advertised position / heard here (operator GPS) / operator (pilot) position, UAS ID, advertised name if it is not already the callsign, up to three signature names, Extra attention text. Cap about 800 characters. Map label is still the 32-character callsign. Privacy mode pauses the feed, so remarks are not sent while it is on.",
+            "<b>point</b> — lat/lon as above. <font face='Courier'>hae</font> is the aircraft altitude on the aircraft pin, and the operator altitude on the operator pin, when the message sent one. Unknown stays the CoT unknown (9999999). ce/le are unknown.",
+            "<b>track</b> — advertised aircraft only. <font face='Courier'>course</font> is heading degrees, <font face='Courier'>speed</font> is m/s, when Location had them. The operator pin and heard-here pins omit track. Omitted if neither course nor speed.",
+            "<b>remarks</b> — A short card (newlines) when you inspect the marker: callsign, Wi-Fi or BLE, full MAC, RSSI dBm, Wi-Fi channel when known, advertised position / heard here (operator GPS) / takeoff position, operator (pilot) position, fixed operator position, or operator position, UAS ID, advertised name if it is not already the callsign, up to three signature names, Extra attention text. Cap about 800 characters. Map label is still the 32-character callsign. Privacy mode pauses the feed, so remarks are not sent while it is on.",
             "<b>how</b> — <font face='Courier'>m-g</font> (machine / GPS). Time/start/stale are UTC.",
-            "<b>GNSS mark</b> — Separate from the radios and from this phone’s Cyan marker. Callsign Possible GNSS interference, group Magenta. A short hit is a pin (<font face='Courier'>b-m-p-s-m</font>) at the start. A longer hit is one oval (<font face='Courier'>u-d-c-e</font>). §5.8.13.",
+            "<b>GNSS mark</b> — Separate from the radios and from this phone’s Cyan marker. Callsign Possible GNSS interference, group Magenta. A short hit is a pin (<font face='Courier'>b-m-p-s-m</font>) at the start. A longer hit is one ellipse (<font face='Courier'>u-d-c-e</font>). §5.8.13.",
         ]),
         P(
             "This is not a TAK data package, not a KML, and not a GeoJSON share. If the map "
@@ -2402,7 +2414,7 @@ def story():
             "The check runs only while Fieldwatch is scanning. The first minute after it starts is settling, and the next is the baseline. "
             "A mark is not sent until the check is armed and a hit qualifies. §5.9.2."
         ),
-        P("5.8.14 Pin, then an oval", "h3"),
+        P("5.8.14 Pin, then an ellipse", "h3"),
         P(
             "The first report of a hit is always a pin. The start and the latest place are the same point, "
             "so the pin sits on that start fix. A few more steps do not slide it forward."
@@ -2412,50 +2424,50 @@ def story():
             "Parked in a lot, or a short walk, is one pin at the start."
         ),
         P(
-            "At about 100 m that pin becomes one oval, under the same name, Possible GNSS interference. "
+            "At about 100 m that pin becomes one ellipse, under the same name, Possible GNSS interference. "
             "Fieldwatch does not drop a second spot named Fieldwatch at the start."
         ),
         bullets([
             "<b>Tips.</b> One tip is the fix where the hit opened. The other tip is the latest fix while the hit is still on.",
             "<b>Center.</b> Halfway between those two fixes. A TAK app that only plots points, and does not draw shapes, shows this center. It does not show the two tips.",
-            "<b>Length.</b> The straight distance from the start to the latest fix. The long axis of the oval is that full distance.",
-            "<b>Width.</b> Half the length. A stretch of about 2 km is an oval about 2 km long and about 1 km wide. ATAK prints those on the shape as W and L. W is the full width. L is the full length. A stretch of about 5 km reads about W 2.5 km and L 5 km. The width follows that distance. It does not grow with the minutes on the clock. An hour parked in one spot is still a pin.",
+            "<b>Length.</b> The straight distance from the start to the latest fix. The long axis of the ellipse is that full distance.",
+            "<b>Width.</b> Half the length. A stretch of about 2 km is an ellipse about 2 km long and about 1 km wide. ATAK prints those on the shape as W and L. W is the full width. L is the full length. A stretch of about 5 km reads about W 2.5 km and L 5 km. The width follows that distance. It does not grow with the minutes on the clock. An hour parked in one spot is still a pin.",
             "<b>Direction.</b> The long axis points from the start fix to the latest fix.",
-            "<b>A bend.</b> The oval is a straight span. A curve in the road is cut across. The shape does not trace every turn.",
+            "<b>A bend.</b> The ellipse is a straight span. A curve in the road is cut across. The shape does not trace every turn.",
         ]),
         P(
-            "The oval grows only while the hit is still on. When the hit ends, one last update freezes the shape. "
+            "The ellipse grows only while the hit is still on. When the hit ends, one last update freezes the shape. "
             "After that it does not follow the phone. "
             "The quieter ended line on Live lasts about 10 minutes. "
             "If GNSS is Red line, those words also stay on the moving Cyan marker for those 10 minutes. "
-            "They do not lengthen the oval, and they do not move its tips."
+            "They do not lengthen the ellipse, and they do not move its tips."
         ),
         P(
             "A later hit is another mark. The one that already ended stays where it froze, until its time runs out (§5.8.16). "
-            "Two hits along one drive are two shapes, not one oval that jumps backward."
+            "Two hits along one drive are two shapes, not one ellipse that jumps backward."
         ),
         P(
             "While the hit is open, the map is refreshed about every 10 seconds. "
-            "It is also refreshed when the phone has moved about 30 m since the last send, and at the moment the pin becomes an oval. "
+            "It is also refreshed when the phone has moved about 30 m since the last send, and at the moment the pin becomes an ellipse. "
             "Between those updates ATAK shows the last shape it was sent. Sitting still does not send a new shape every second."
         ),
         P("5.8.15 What ATAK shows", "h3"),
         figure(
             "fig-atak-gnss.png",
-            "Fig. 26 — A GNSS mark on ATAK. The oval is Possible GNSS interference. W is the full width and L is the full length. The Cyan Fieldwatch marker is this phone.",
+            "Fig. 26 — A GNSS mark on ATAK. The ellipse is Possible GNSS interference. W is the full width and L is the full length. The Cyan Fieldwatch marker is this phone.",
             6.9 * inch,
         ),
         P(
             "The mark is Magenta, so you can tell it from the other Fieldwatch icons (Fig. 26). "
-            "The moving phone is Cyan. A pilot pin is Orange. An advertised aircraft is Yellow. Extra attention heard here is Maroon."
+            "The moving phone is Cyan. An operator pin is Orange. An advertised aircraft is Yellow. Extra attention heard here is Maroon."
         ),
         table(
             ["On the mark", "What you get"],
             [
                 ["Callsign", "Possible GNSS interference. The name fits ATAK’s map label, so it is not cut off."],
-                ["Color", "Magenta. Outline in magenta, with a light magenta fill so the map still shows through the oval."],
+                ["Color", "Magenta. Outline in magenta, with a light magenta fill so the map still shows through the ellipse."],
                 ["Pin", "A spot, not a unit icon. CoT type b-m-p-s-m. It sits on the start fix."],
-                ["Oval", "One ellipse. CoT type u-d-c-e. The event point is the center. The two radii run from that center to the tip and to the side."],
+                ["Ellipse", "One ellipse. CoT type u-d-c-e. The event point is the center. The two radii run from that center to the tip and to the side."],
                 ["Name on the wire", "FIELDWATCH-GNSS- and then the time the hit opened. One hit keeps one name. The next hit gets another."],
                 ["Card", "The same words as the Live line, then: Where this phone was. Not the source. The coordinate is the point. It is not printed in the card."],
                 ["How", "m-g, the same machine / GPS mark as the other Fieldwatch events. Altitude is unknown. Time is UTC."],
@@ -2469,7 +2481,7 @@ def story():
             "The Magenta mark does not move with it."
         ),
         P(
-            "A flood line can share that Cyan marker with the GNSS line. A flood does not get a pin or an oval. "
+            "A flood line can share that Cyan marker with the GNSS line. A flood does not get a pin or an ellipse. "
             "The four radio chips do not gate this mark. Extra attention can be off and the mark still goes. "
             "Unmatched radios are still never sent."
         ),
@@ -2508,7 +2520,7 @@ def story():
         bullets([
             "<b>GNSS set to Off</b>, with the feed still on, tells ATAK to drop every GNSS mark this phone still knows. That includes a hit that already ended and is waiting out its hour. This is the clear.",
             "<b>TAK / CoT feed off</b> stops sending. It does not tell ATAK to drop the marks. They stay until the time you picked runs out, or until you delete them in ATAK.",
-            "<b>Privacy mode on</b> does the same. The feed pauses, and Fieldwatch forgets the marks it was updating. Shapes already on ATAK stay until their time runs out. If the hit is still on when you turn Privacy off, a new mark starts where the phone is then. It does not resume the old oval.",
+            "<b>Privacy mode on</b> does the same. The feed pauses, and Fieldwatch forgets the marks it was updating. Shapes already on ATAK stay until their time runs out. If the hit is still on when you turn Privacy off, a new mark starts where the phone is then. It does not resume the old ellipse.",
             "<b>Restore default signatures &amp; presets</b> turns the feed off, sets GNSS to Off, and puts both holds back to 1 hour.",
             "<b>Export settings</b> saves the GNSS chip, How long the mark stays, and How long a spot stays. <b>Import settings</b> brings them back. The signature pack does not include them.",
         ]),
@@ -2542,6 +2554,70 @@ def story():
             "(European Commission Joint Research Centre), and Alex Minetto, Akmal Rustamov and Fabio Dovis "
             "(Politecnico di Torino), along with Google’s Android GNSS guidance and Sean Barbeau’s GPSTest. "
             "Thank you for making this work public."
+        ),
+        P("How a hit is decided", "h3"),
+        P(
+            "The check keeps two numbers from this phone’s own GPS receiver, for each constellation and band, "
+            "such as GPS L1 or Galileo E1. "
+            "One number is the receiver gain, the AGC. "
+            "The other is the satellite signal strength. "
+            "Signal strength on a band is the average of the three strongest satellites locked on that band. "
+            "On Android 13 and newer, gain is the receiver’s own gain report. "
+            "On an older phone it is taken from the satellites. "
+            "A gain reading below −80 dB is ignored."
+        ),
+        P(
+            "Fieldwatch compares the last 10 readings with the 50 readings before them. "
+            "The receiver is usually about one reading a second, so that is about the last 10 seconds against the 50 seconds before. "
+            "Nothing is scored until those 60 readings are in. "
+            "The first minute after the check starts is thrown away while the receiver settles. §5.9.2. "
+            "A hit needs the gain and the signal both down, past the bar for the Sensitivity you picked. "
+            "Five of the last seven readings have to agree. One noisy reading does not open a hit."
+        ),
+        P(
+            "Medium is the start. It waits for about a 5 dB drop in gain and about a 3 dB drop in signal. "
+            "Low waits for about 8 dB and 5 dB. High speaks up at about 3 dB and 2 dB. "
+            "Both numbers down on one band is a medium hit, once those bars are met. "
+            "The same drop on two bands that do not share one gain reading can raise it to high. "
+            "So can a gain drop that comes with the satellites dropping out. "
+            "Gain down on its own stays low. "
+            "A phone that never reports gain can still warn, and only at low, when the signal is down on the bands it is tracking "
+            "and about half the satellites are gone."
+        ),
+        P(
+            "Calibration does not store a clean gain or a clean signal to subtract later. "
+            "It learns how much this phone wanders on a quiet sky. "
+            "On a Fair or Poor phone that wander raises the bars above, so ordinary variation is quieter. "
+            "A Good phone keeps the bars you picked. "
+            "Alert from still decides when the popup, the red line, the beep, and the voice start. "
+            "A weaker hit can be in the sit report with no popup."
+        ),
+        P(
+            "A hit stays open at least a minute, and it takes about 20 quiet readings to clear. "
+            "While it is open, those earlier readings stay the comparison, so the bad stretch does not become the new normal. "
+            "If the change is still there after about 15 minutes, Fieldwatch closes the warning and says the receiver may have adapted. "
+            "The condition may still be present. "
+            "One stretch is one warning. The level can go up. It does not open a second warning for the same stretch. "
+            "Debrief keeps one row. On ATAK it is one mark. §5.8.13."
+        ),
+        P(
+            "Spoofing checks stay off until you turn them on. "
+            "The signal test is gain down while the signal holds. "
+            "That can open a low warning. "
+            "It rises if it holds about 30 seconds. "
+            "It can go higher when the clock or the position also disagrees for about 10 seconds. "
+            "A clock, a position, or a jump by itself does not open a warning. "
+            "If an interference warning is already open, a spoofing warning on the same stretch is marked down. "
+            "It may be a side effect of the interference. "
+            "A careful spoofer can still get past these checks."
+        ),
+        P(
+            "If the phone pauses GPS, Live says <b>GNSS paused by the phone</b>. That is not a hit. "
+            "There is no popup, no red line, and nothing is added on TAK. "
+            "The readings already learned stay. "
+            "After GPS returns, Fieldwatch waits a few more readings before it watches for a drop again. "
+            "A hit that was already under way when the check started can be missed. "
+            "The receiver is already sitting in the changed state, so there is no drop to see."
         ),
         callout(
             "A steady sky",
@@ -2625,7 +2701,8 @@ def story():
             "If this phone turns GPS off, or lets the receiver rest, the satellites and the gain disappear together. "
             "Live shows <b>GNSS paused by the phone</b>. That is not interference. "
             "There is no popup, no red line, and nothing is added on TAK. "
-            "Fieldwatch waits a few seconds after GPS returns before it watches for a drop again. "
+            "Fieldwatch waits a few readings after GPS returns before it watches for a drop again. "
+            "The readings already learned stay. "
             "A real hit is still a gain drop while satellites are being tracked."
         ),
         P(
@@ -2689,8 +2766,8 @@ def story():
             "A hit below Alert from can be in that report without a popup. "
             "Diagnostics shows settling, then learning, then armed, plus the calibration grade. "
             "It does not show coordinates. "
-            "On TAK, those same choices add a line to this phone’s Cyan Fieldwatch marker, and they can leave a Magenta pin or oval where this phone was. "
-            "A short hit is a pin at the start. A hit that continues while the phone moves is an oval from that start to the last place, half as wide as it is long. "
+            "On TAK, those same choices add a line to this phone’s Cyan Fieldwatch marker, and they can leave a Magenta pin or ellipse where this phone was. "
+            "A short hit is a pin at the start. A hit that continues while the phone moves is an ellipse from that start to the last place, half as wide as it is long. "
             "The mark does not say where the cause is. Which hits send it, and how long it stays, are §5.8.13."
         ),
     ]
@@ -3914,7 +3991,7 @@ def story():
                 ["Scale / Add", "Numeric types only. After the integer/float read: modulo (if set), then × scale, then + add. Temperature often needs scale 0.01 or 0.005. Pressure that is stored as (hPa − 500)×100 uses scale 0.01 and add 500."],
                 ["Only if…", "Skip this field unless a gate holds (§9.6.4)."],
                 ["Named values…", "Map a raw number or hex to a word (§9.6.4)."],
-                ["More", "ID (stable key; leave the slug unless you export maps or want TAK advertised-position pins). TAK / CoT looks up ids, not labels: latitude + longitude (optional alt_geo) pin the gadget; op_lat / op_lon are the Remote ID pilot and are not the aircraft pin. §5.8.4. Modulo is remainder before scale — Govee packed humidity is modulo 1000."],
+                ["More", "ID (stable key; leave the slug unless you export maps or want TAK advertised-position pins). TAK / CoT looks up ids, not labels: latitude + longitude (optional alt_geo) pin the gadget; op_lat / op_lon are the Remote ID operator location (takeoff, the live pilot, or a fixed point) and are not the aircraft pin. §5.8.4. Modulo is remainder before scale — Govee packed humidity is modulo 1000."],
             ],
             [1.45 * inch, 5.05 * inch],
         ),
@@ -3990,7 +4067,7 @@ def story():
             ["Signature", "Source", "What detail can show"],
             [
                 ["Ruuvi", "Mfr 0x0499", "Format 5: temp / humidity / pressure / accel / battery / TX / movement / sequence / MAC in payload. Format 3: humidity / pressure / accel / battery (Format 3 temperature is sign-magnitude, not a plain int)."],
-                ["Remote ID", "BLE FFFA and Wi-Fi FA:0B:BC", "Same Decode fields map on both. Open Drone ID app code, counter, message type. Protocol 0–2: Basic ID, location (latitude / longitude / alt_geo / heading / hspeed). Heading is direction 0–179 plus 180 when flags bit 1 (east/west) is set — not ×2. hspeed is ×0.25, or ×0.75 + 63.75 when flags bit 0 (SpeedMult) is set. Self ID, System (op_lat / op_lon = pilot). Wi-Fi packs are framed as FFFA. Location status is a Live row chip while that message is stored: Undeclared, Ground, Airborne, Emergency, RID failure. Emergency is strong. TAK Payload location uses the lat/lon ids plus track course/speed. Not a tail number. §5.4.1."],
+                ["Remote ID", "BLE FFFA and Wi-Fi FA:0B:BC", "Same Decode fields map on both. Open Drone ID app code, counter, message type. Protocol 0–2: Basic ID, location (latitude / longitude / alt_geo / heading / hspeed). Heading is direction 0–179 plus 180 when flags bit 1 (east/west) is set — not ×2. hspeed is ×0.25, or ×0.75 + 63.75 when flags bit 0 (SpeedMult) is set. Self ID, System (op_lat / op_lon is the operator: takeoff, live GPS, or fixed). EU class and category show only when the plate says EU. Operator altitude is blank when unknown. Height can say takeoff or over ground. Wi-Fi packs are framed as FFFA. Location status is a Live row chip while that message is stored: Undeclared, Ground, Airborne, Emergency, RID failure. Emergency is strong. TAK Payload location uses the lat/lon ids plus track course/speed. Not a tail number. §5.4.1."],
                 ["Blue Maestro", "Mfr 0x0133", "Tempo Disc battery, log interval, stored logs, temperature, humidity."],
                 ["GoPro", "Mfr 0xF202", "Schema, processor awake/asleep, Wi-Fi AP, pairing, model name, media offload."],
                 ["Osmo / DJI / DJI Power", "Mfr 0x08AA", "Model id (Osmo Action / Pocket / 360, some aircraft, and Power 2000). Those rows share the map; identity rules still split cameras, the power station, and drones."],
@@ -4366,7 +4443,7 @@ def story():
             "recommended actions, and a one-line takeaway. "
             "When GPS tagging recorded a walk, a full-width operator-path figure sits with the report "
             "(OSM tiles when maps are on; stacked radios at one place share a Path-key number; "
-            "a nearby advertised aircraft track is a black dotted line on that figure, with a class icon at the last position and a person icon for the pilot). "
+            "a nearby advertised aircraft track is a black dotted line on that figure, with a class icon at the last position and a person icon for the operator). "
             "<b>Anomalies</b> is not a second inventory: Extra attention, Signature hits, and tracking callouts already list named matches. "
             "Anomalies only keeps cues that are not those sections (Fast Pair in pairing mode, a very loud unnamed radio, a high randomized-BLE count). "
             "AirTag / SmartTag / Tile rosters and Extra attention reprints are omitted."
@@ -4774,7 +4851,7 @@ def story():
                 ["ATAK overlay (Remote ID / Extra attention)", "§5.8 configure, §12.15 sit, §12.16 hear RID. Settings → TAK / CoT feed. Extra attention + Payload location. BLE FFFA and Wi-Fi FA:0B:BC. Same Wi-Fi LAN. Privacy mode off."],
                 ["Long sit / parked vehicle", "Balanced or Saver. Timeline. RSSI floor −80 if unreadable. Logging on. Watchlist, not a stare."],
                 ["Drive, then arrive home", "Moving with you is BLE only — house APs stay off. If a bag tag still does not show, the path was too short or GPS only stamped at the destination."],
-                ["Watch the path grow", "Reports → Path, stay on that tab. Open sit grows Start → Now; last 15 minutes is a sliding snake (tail drops off). An open sit also draws an advertised aircraft track as a white dotted line when the sit has one. The last position is a class icon. The pilot is a person icon. Black dot is the start. Blue dot is you, at the last point. MAC alerts and signature alerts are drawn once. A decoded latitude and longitude uses the last advertised position. Anything else is a class icon at the strongest hear. A count is several in one place. A lone class icon has no number box; tap it for that one radio. A red diamond is a GNSS detection where this phone was. The note under the map has the time and what changed. Redraws about every 3 s. §5.6.1."],
+                ["Watch the path grow", "Reports → Path, stay on that tab. Open sit grows Start → Now; last 15 minutes is a sliding snake (tail drops off). An open sit also draws an advertised aircraft track as a white dotted line when the sit has one. The last position is a class icon. The operator is a person icon. Black dot is the start. Blue dot is you, at the last point. MAC alerts and signature alerts are drawn once. A decoded latitude and longitude uses the last advertised position. Anything else is a class icon at the strongest hear. A count is several in one place. A lone class icon has no number box; tap it for that one radio. A red diamond is a GNSS detection where this phone was. The note under the map has the time and what changed. Redraws about every 3 s. §5.6.1."],
                 ["Long drive (several km)", "Start sit for a 6000-radio window (unnamed BLE drops first when full). Tap Debrief every 10–15 min or at stops and keep the shares (§11.4.1). Live RAM is still ~400. Debrief lists skip unmatched RAND BLE by default; Sit export has the roster. Log export is the hear-by-hear tape. Path on Reports can stay in front for the live trace."],
                 ["List too fast to tap", "Pause. Then detail. Resume. Or Display → Subtitle None so more of the list fits without Pause."],
                 ["Fit the row to the job", "§5.3. Display is look (Title/Subtitle, extras). Filters are who. Plaza: Subtitle None. Copy MAC: Title → MAC. Channel sit: Frequency on."],
@@ -4986,7 +5063,7 @@ def story():
             "Phone and ATAK (or WinTAK / iTAK) on the same Wi-Fi. Confirm the AP does not isolate clients. If multicast never arrives, you will switch Host to the ATAK device’s IPv4.",
             "ATAK already listens to UDP 239.2.3.1:6969 for SA. No Fieldwatch plugin. This feed is UDP; it does not log into a TAK server.",
             "Fieldwatch → Settings → Privacy mode Off. Tag detections with GPS On (high-accuracy Location) if you want heard-here pins; Remote ID advertised position does not need it.",
-            "Settings → TAK / CoT feed On. Destination: This phone when ATAK CIV is on the same phone, or LAN multicast for other ATAKs on this Wi-Fi. Extra attention On, Payload location On, Watchlist Off, All signatures Off. How long a spot stays is 1 hour unless you change it. A radio that leaves keeps its name for that long. GNSS and Floods stay off until you set them. GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. Floods adds a line on this phone’s Fieldwatch marker and does not add a pin. GNSS adds that line and a pin or oval where this phone was. A short hit is a pin. A longer hit is an oval half as wide as the stretch. How long the mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Confirm Feed status under the host fields shows a send, not an error. §5.8.7, §5.8.12.",
+            "Settings → TAK / CoT feed On. Destination: This phone when ATAK CIV is on the same phone, or LAN multicast for other ATAKs on this Wi-Fi. Extra attention On, Payload location On, Watchlist Off, All signatures Off. How long a spot stays is 1 hour unless you change it. A radio that leaves keeps its name for that long. GNSS and Floods stay off until you set them. GNSS is Off, While alerting, Red line, or Any hit. Floods is Off or On. Floods adds a line on this phone’s Fieldwatch marker and does not add a pin. GNSS adds that line and a pin or ellipse where this phone was. A short hit is a pin. A longer hit is an ellipse half as wide as the stretch. How long the mark stays is 1 hour, 6 hours, 24 hours, or until deleted. Confirm Feed status under the host fields shows a send, not an error. §5.8.7, §5.8.12.",
             "Live display: All traffic, High performance. Do not filter to Drones only if you also want body-cam / glasses — the feed ignores Live display filters, but you still need those radios to match.",
         ]),
         P(
@@ -4997,12 +5074,12 @@ def story():
             "or a Wi-Fi AP beacon with vendor IE FA:0B:BC (Android 11+). The next Basic ID "
             "packet does not clear it and, once UAS ID is heard, that aircraft is one marker that moves. "
             "Heading and speed from Location go in the ATAK track so the icon can point. "
-            "A decoded pilot location is a second Orange pin. Heard-here callsigns end in (here). "
+            "A decoded operator location is a second Orange pin. The callsign says takeoff, the pilot, or a fixed point. Heard-here callsigns end in (here). "
             "Tap a marker for remarks (name, MAC, RSSI, signatures). "
             "A radio that leaves keeps its name for How long a spot stays. 1 hour is the start. "
             "This phone’s Fieldwatch marker is the one that refreshes about every 2 minutes. "
             "With Floods on, that note is a line on this phone’s Fieldwatch marker. There is no separate pin for a flood. "
-            "With GNSS on, the line is there too, and a Magenta mark stays where this phone was: a pin if the stretch is under about 100 m, an oval if the phone kept moving. §5.8.13.",
+            "With GNSS on, the line is there too, and a Magenta mark stays where this phone was: a pin if the stretch is under about 100 m, an ellipse if the phone kept moving. §5.8.13.",
             "body_left",
         ),
         table(
@@ -5014,9 +5091,9 @@ def story():
                 ["Drone pin is kilometers away", "Expected for advertised position. Fieldwatch did not DF it. The aircraft encoded that WGS84."],
                 ["Café APs filled the map", "All signatures is on. Turn it off. Extra attention + Payload location is the field default."],
                 ["A flood did not drop a pin", "Expected. The note is a line on this phone’s Fieldwatch marker. Floods Off sends nothing. The phone needs a GPS fix. Privacy mode pauses the feed. §5.8.12."],
-                ["No Magenta GNSS mark", "GNSS is Off, the feed is off, Privacy mode is on, the check is not armed, this phone graded Poor, or there is no usable GPS fix. Under about 100 m the mark is a pin at the start, not an oval ahead of you. Set GNSS to While alerting, Red line, or Any hit. Look for Possible GNSS interference in Magenta. §5.8.13."],
-                ["The oval cuts the corner", "Expected. The oval is a straight span from the first fix to the latest. It does not follow every bend in the road. §5.8.14."],
-                ["I only see a dot in the middle", "That TAK app plotted the center and did not draw the ellipse. ATAK that draws shapes shows the oval, tips on the start and the latest fix. §5.8.14."],
+                ["No Magenta GNSS mark", "GNSS is Off, the feed is off, Privacy mode is on, the check is not armed, this phone graded Poor, or there is no usable GPS fix. Under about 100 m the mark is a pin at the start, not an ellipse ahead of you. Set GNSS to While alerting, Red line, or Any hit. Look for Possible GNSS interference in Magenta. §5.8.13."],
+                ["The ellipse cuts the corner", "Expected. The ellipse is a straight span from the first fix to the latest. It does not follow every bend in the road. §5.8.14."],
+                ["I only see a dot in the middle", "That TAK app plotted the center and did not draw the ellipse. ATAK that draws shapes shows the ellipse, tips on the start and the latest fix. §5.8.14."],
                 ["The mark is following my callsign", "That line is on the Cyan Fieldwatch marker, which moves with you. The Magenta mark stays where the phone was. §5.8.15."],
                 ["The mark vanished after about 2 minutes", "This phone’s Fieldwatch marker does that. A radio spot uses How long a spot stays. A GNSS mark uses How long the mark stays. 1 hour is the start for both. §5.8.8, §5.8.16."],
                 ["Old GNSS marks are still up", "The hold has not run out, or Until deleted is set. Set GNSS to Off, with the feed still on, to remove the marks this phone still knows. Or delete them in ATAK. Turning the feed off does not remove them. §5.8.16."],
@@ -5066,8 +5143,8 @@ def story():
             "message types rotate in. On Strength list, Hybrid, Timeline, or By class, a Location "
             "message also shows Undeclared, Ground, Airborne, Emergency, or RID failure. "
             "Emergency is the heavier chip. On TAK, Location becomes a Yellow UAV at the advertised "
-            "point; Basic ID sticks the uid so one marker moves; System can add an Orange pilot "
-            "pin; track course/speed point the aircraft icon. Skydio / Autel / Parrot name rows "
+            "point; Basic ID sticks the uid so one marker moves; System can add an Orange operator "
+            "pin. The callsign says Takeoff, Pilot, or Fixed. Track course and speed point the aircraft icon. Skydio / Autel / Parrot name rows "
             "are still the setup/RC radios — in-flight license plate is this Remote ID row.",
             "body_left",
         ),
@@ -5246,24 +5323,24 @@ def story():
             ["Signature", "A named bundle of match rules plus optional cluster flags."],
             ["Decode fields", "Optional cleartext map on a signature (Signatures → row → Decode fields). After the rules hit, device detail / Share / AI Export / Debrief parse manufacturer or service-data bytes into labels (temp, model, Remote ID, …). A field with Live row on also prints that one word on the list (§5.4.1). Strong marks the heavier chip. Note is the sentence on detail and in Debrief. TAK / CoT also reads numeric ids latitude / longitude for advertised-position pins. Remote ID uses this map on BLE FFFA and on Wi-Fi FA:0B:BC (framed as FFFA). Not a matcher. Not pairing or GATT. Encrypted ads stay hex. A hexagon on that signature’s chip means a map exists (§5.4). Byte 0 is after the company ID (manufacturer) or the first service-data byte. How to build a map: §9.6.1–§9.6.5. Stock maps: §9.6.6. TAK ids: §5.8.4. Remote ID: §5.8.3."],
             ["Decode hexagon", "Small hexagon inside a signature name chip (same color as the name) when that signature has a Decode fields map. Dual-chip radios mark only the mapped name(s). Catalog check, not a parse of this packet. Hidden when Display → Signature names is off. Extra attention “!”, the cyan Observer notes chip, the phosphor alerted bell, and a live value chip are separate. Same mark on the Signatures list, By class signature rows, and detail Decoded fields. §5.4, §9.6."],
-            ["Live value", "One decoded word on a Live list row, in the signature color. Live row must be on for that Decode fields entry, and this advertisement must have produced the word. Strong values use a heavier chip. Stock: DULT and Find Hub Separated; Remote ID Emergency, plus Ground, Airborne, Undeclared, and RID failure. Strength list, Hybrid, Timeline, By class. Not radar. Signature names off still shows the word. §5.4.1."],
+            ["Live value", "One decoded word on a Live list row, in the signature color. Live row must be on for that Decode fields entry, and this advertisement must have produced the word. Strong values use a heavier chip. Stock: DULT and Find Hub Separated; Remote ID Emergency, plus Ground, Airborne, Undeclared, and RID failure. A System message shows Takeoff, Live GPS, or Fixed. Strength list, Hybrid, Timeline, By class. Not radar. Signature names off still shows the word. §5.4.1."],
             ["Signature family (detail)", "Card on device detail, above Create signature from device. Same on-air ID rules as Signature candidates, for this radio: Strong family, Possible family, This radio only, or Already tagged. Counts distinct MACs in the log and on the air now. Verdict only — Create from device still pins this MAC. Already tagged is not a veto: a second UUID/OUI signature can dual-label (iBeacon + store). Candidates skip tagged radios. §5.5, §9.2, §9.2.1."],
             ["Named radios", "Settings list of one-MAC custom names, optional Observer notes (up to 280 characters), Mine, and optional alerts (detail Save name / Save notes, or the bookmark icon). Rename, notes, Mine on/off, Alert on/off, remove one, or Clear all. Does not include signature bookmarks. Privacy mode masks MAC tails. Orphans (gone or rotated) stay until you delete them. Filters → Named radios only (any custom name). Watched only needs Alert on. Path plots a Named radio only when Alert is on (bookmarked). Debrief, Compare, and AI Export list heard radios with notes. §5.5, §5.7, §8.1, §10.1."],
             ["Mine", "Switch on a radio you can already name. Live shows a Mine chip. No beep, voice, flash, or card for that radio while it is on. Other radios of a bookmarked signature still alert. Debrief and Compare list it under Marked mine and leave it out of the co-travel callouts. A blank name is filled. Filters → Hide my radios takes those rows off Live. Settings backup includes the mark. §5.5, §5.6, §8.1."],
             ["Flood", "A burst of new Bluetooth addresses in a few seconds, or many new Wi-Fi names in one scan at about the same loudness, gone by the next scan. A name flood counts randomized addresses. A factory address with a stable name stays out of that count. The first Wi-Fi scan of a session stays quiet. A repeated name, a mesh, an extender, or a guest network is not counted. One dialog, then a red line: Pairing flood, Name flood, or Wi-Fi beacon flood. A pairing or name dialog says this can be many radios already advertising, such as in a store, or one radio changing its address. A Flipper Zero, or an ESP32 running Marauder or Bruce, can do the second. The advertisement does not name the tool. Hide these turns Hide this burst on and takes this burst, and later bursts in the hold, off Live. Continue leaves the radios up. During a sit, that answer holds until the sit ends. Later bursts keep the red line and do not open the dialog. Ending the sit asks again. With no sit open, the choice holds for about 15 minutes from the tap and does not slide. A later burst in that time keeps the red line. After 15 minutes the next burst asks again. Starting a sit while those 15 minutes are still running keeps the answer until the sit ends. Turning Hide this burst off brings the open burst back and leaves later bursts in that hold on Live. Hide this burst takes those addresses off the Live display until they would have left on their own. After the red line clears, Hiding N flood radios stays until they leave or that switch is turned off. The sit file and the log still keep those packets. Alerts stay quiet for those addresses. Debrief and Compare print one line per burst and leave those addresses out of the radio counts and lists. The line says how many were set aside. Compare names the sit. A sit saved before those addresses were stored still counts them with the other radios. §5.1, §5.6."],
             ["Privacy mode", "Settings switch, off by default. Masks the last three octets of MACs on the screen and in Debrief / AI Export / detail Share (AA:BB:CC:**:**:**). GPS last-fix and sit-report coordinates show as masked; street names omitted. A Remote ID UAS id in Debrief, Compare, and AI Export, including the path key under the map, is masked. Reports → Path still loads map tiles when Online place names and maps is on, and an aircraft card titled with a UAS id reads Aircraft. Logs, matching, filters, Hunt math, Moving with you, and saved signatures stay full. Pauses a TAK / CoT feed so full MACs and coordinates are not sent. §5.7, §5.8."],
-            ["TAK / CoT feed", "Settings switch, off by default. UDP Cursor-on-Target markers to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — not a TAK server TCP client. Heard-here Extra attention at operator GPS at the loudest hear (callsign ends in (here)); advertised lat/lon on the aircraft (Remote ID BLE FFFA or Wi-Fi FA:0B:BC keeps one moving marker via sticky UAS ID, plus a pilot pin when op_lat/op_lon decoded; Location heading/speed go in track). A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. What to send: Extra attention, Payload location, Watchlist, All signatures. GNSS (Off, While alerting, Red line, Any hit) adds a line on this phone’s marker and a pin or oval where the phone was. A short hit is a pin. A longer hit is an oval half as wide as the stretch, kept 1 hour, 6 hours, 24 hours, or until deleted. Floods (Off or On) adds a line and does not add a pin. Settings shows last send. Privacy mode pauses it. Not DF, not a Remote ID plugin, not the Live display. The GNSS mark is §5.8.13. §5.8, §5.8.12, §12.15, §12.16."],
+            ["TAK / CoT feed", "Settings switch, off by default. UDP Cursor-on-Target markers to ATAK / WinTAK / iTAK. Destination chips: This phone (127.0.0.1:10011), LAN multicast (239.2.3.1:6969), Custom. UDP only — not a TAK server TCP client. Heard-here Extra attention at operator GPS at the loudest hear (callsign ends in (here)); advertised lat/lon on the aircraft (Remote ID BLE FFFA or Wi-Fi FA:0B:BC keeps one moving marker via sticky UAS ID, plus an operator pin when op_lat/op_lon decoded. The callsign says Takeoff, Pilot, or Fixed; Location heading/speed go in track). A radio that leaves keeps its name for How long a spot stays (1 hour unless you change it). This phone’s marker still refreshes about every 2 minutes. Turning the feed off, or Privacy mode on, takes those radio spots off the map. What to send: Extra attention, Payload location, Watchlist, All signatures. GNSS (Off, While alerting, Red line, Any hit) adds a line on this phone’s marker and a pin or ellipse where the phone was. A short hit is a pin. A longer hit is an ellipse half as wide as the stretch, kept 1 hour, 6 hours, 24 hours, or until deleted. Floods (Off or On) adds a line and does not add a pin. Settings shows last send. Privacy mode pauses it. Not DF, not a Remote ID plugin, not the Live display. The GNSS mark is §5.8.13. §5.8, §5.8.12, §12.15, §12.16."],
             ["Night mode", "Settings → Appearance, off by default. Red-on-black field display: text, chips, RSSI, Hunt, Extra attention, and the top-bar icons. Green and red become shades of red, so read the words beside the icons. Phone brightness is unchanged. Fig. 9, §5.1, §5.7."],
             ["Diagnostics", "Settings, under Show Live tour. What to check names a switch that is off and needs to be on. It does not name Wi-Fi scanning or Bluetooth scanning while that radio is already on. The rest of the page is the phone, Android version, catalog, whether Wi-Fi, Bluetooth, and Location are scanning, and the Faster Wi-Fi, background usage, and Unrestricted battery switches. When the GNSS check is on, it also shows settling or the monitor state, and the calibration grade. Copy pastes that into an issue. No network names, addresses, or GPS coordinates. An empty Live list points here when a scan is blocked. When Location is off, Live also shows a banner. §5.7, §5.9."],
-            ["GNSS interference", "A change in this phone’s own GPS that can mean interference, or, with spoofing checks on, a pattern that can mean spoofing. Not a located radio, and not a named jammer or spoofer. Calibrate once outside before the check will turn on. The first minute is not the baseline. A warning can come after about two minutes. A cradle, a router, or another phone against this phone can cause a hit. Popup, then a red line on Live. The top-bar GPS mark is red for that same stretch, gray while the check is warming up, paused, graded Poor, or the scan is stopped, and green once armed and quiet. Debrief lists the hit. The Path map marks where this phone was. That spot is not the source. On TAK, the same hit can leave a Magenta pin or oval where this phone was. §5.1, §5.8.13, §5.9."],
-            ["GNSS mark (TAK)", "A Magenta map mark for a GNSS hit, separate from the Cyan Fieldwatch marker. Settings → TAK / CoT feed → GNSS: Off, While alerting, Red line, or Any hit. Off sends nothing. A stretch under about 100 m is a pin at the start fix. A longer hit is one oval from that start to the latest fix, half as wide as it is long. The oval stops growing when the hit ends. The 10-minute ended line does not stretch it. Callsign Possible GNSS interference. The card says where this phone was, and that this is not the source. How long the mark stays: 1 hour (the start), 6 hours, 24 hours, or Until deleted. The time starts at the last update. Until deleted stays until GNSS is set to Off. Needs the feed on, Privacy mode off, the check armed, and a GPS fix. A pause is not a hit. §5.8.13."],
+            ["GNSS interference", "A change in this phone’s own GPS that can mean interference, or, with spoofing checks on, a pattern that can mean spoofing. Not a located radio, and not a named jammer or spoofer. Calibrate once outside before the check will turn on. The first minute is not the baseline. A warning can come after about two minutes. A cradle, a router, or another phone against this phone can cause a hit. Popup, then a red line on Live. The top-bar GPS mark is red for that same stretch, gray while the check is warming up, paused, graded Poor, or the scan is stopped, and green once armed and quiet. Debrief lists the hit. The Path map marks where this phone was. That spot is not the source. On TAK, the same hit can leave a Magenta pin or ellipse where this phone was. §5.1, §5.8.13, §5.9."],
+            ["GNSS mark (TAK)", "A Magenta map mark for a GNSS hit, separate from the Cyan Fieldwatch marker. Settings → TAK / CoT feed → GNSS: Off, While alerting, Red line, or Any hit. Off sends nothing. A stretch under about 100 m is a pin at the start fix. A longer hit is one ellipse from that start to the latest fix, half as wide as it is long. The ellipse stops growing when the hit ends. The 10-minute ended line does not stretch it. Callsign Possible GNSS interference. The card says where this phone was, and that this is not the source. How long the mark stays: 1 hour (the start), 6 hours, 24 hours, or Until deleted. The time starts at the last update. Until deleted stays until GNSS is set to Off. Needs the feed on, Privacy mode off, the check armed, and a GPS fix. A pause is not a hit. §5.8.13."],
             ["Heard here (TAK)", "CoT pin at this phone’s GPS at the loudest hear so far. The other radio is in earshot, not on that point. Walking away does not drag it. Callsign ends in (here); Extra attention is Maroon. Needs GPS tagging and a live fix. Extra attention uses this unless a payload lat/lon exists. Not DF."],
-            ["Advertised position (TAK)", "CoT pin from decode field ids latitude / longitude (optional alt_geo). Stock Remote ID fills them from the same Decode fields map on BLE FFFA and Wi-Fi FA:0B:BC. Sticky across ASTM message types. UAS ID is the TAK uid so one aircraft moves instead of leaving MAC dots. op_lat / op_lon are a second (pilot) pin. Heading/speed go in track. GPS tagging can be off. §5.8.3."],
+            ["Advertised position (TAK)", "CoT pin from decode field ids latitude / longitude (optional alt_geo). Stock Remote ID fills them from the same Decode fields map on BLE FFFA and Wi-Fi FA:0B:BC. Sticky across ASTM message types. UAS ID is the TAK uid so one aircraft moves instead of leaving MAC dots. op_lat / op_lon are a second operator pin. The callsign says Takeoff, Pilot, or Fixed. Heading/speed go in track. GPS tagging can be off. §5.8.3."],
             ["Remote ID", "ASTM F3411 / OpenDroneID digital license plate. Stock Drones-class row. Works on BLE UUID FFFA and on Wi-Fi vendor IE FA:0B:BC type 0x0D (same Decode fields map). Protocol 0–2 Location / Basic ID / System / Self ID. A Location message puts Undeclared, Ground, Airborne, Emergency, or RID failure on the list. Emergency is the heavier chip. TAK Payload location pins advertised aircraft; track course/speed when present. A sit can keep a short advertised track. Reports → Path and the sit report both draw it (§5.4.1, §5.6.1). Android 11+ for Wi-Fi IEs. NAN still misses. Not a tail number, not DF. §5.8.3, §9.6.6, §12.16."],
             ["Payload location", "TAK What-to-send chip, on by default when you turn the feed on. Selects radios with sticky advertised lat/lon. Required for stock Remote ID (no Extra attention mark). BLE FFFA and Wi-Fi FA:0B:BC both qualify."],
             ["Reports", "Bottom tab. Sits (optional named window), Path, Debrief (text/PDF), Sit export, Compare sits, AI Export, Signature candidates, Log export (Format + radios), Reset / clear log. The selected sit drives Path, Debrief, Sit export, and Compare’s this-sit side. Config for GPS, place names, and logging on/off stays on Settings. §5.6."],
             ["Sit (named)", "Optional window of watching, started from Reports → Start sit. Path, Debrief, Compare this-sit, Sit export, and AI Export use that start/end instead of the last 15 minutes in RAM. Cap 6000 unique radios. Extra attention / payload / bookmarks / watched signatures stay when full; unnamed BLE drops first. Checkpoints to app storage about every 10 s. One at a time; keep 10 closed. Live list stays ~400. Not DF. §5.6."],
-            ["Path", "Reports card. North-up plot of this phone for the selected sit (or last 15 minutes). Leave Reports in front to watch an open sit grow, or the last-15-minute snake move; the plot redraws about every three seconds. Black dot is the start. Blue dot is you, at the last point. MAC alerts and signature alerts are drawn once. A decoded latitude and longitude uses the last advertised position. Anything else is a class icon at the strongest RSSI. A count is several in one place. A lone class icon has no number box; tap it for that one radio. Extra attention alone does not plot unless that signature is bookmarked. The list puts the Wi-Fi or BLE icon next to the MAC. Observer notes sit on a MAC-alert row. Thick green = stay. Time ticks. Head labeled Now while live, End on a saved sit. On an open or saved sit, an advertised aircraft track within 2 km is a white dotted line on that plot. The letter figure draws the same track in black dots, with a class icon at the last position and a person icon for the pilot. The last position is a class icon. Tap it for that one radio. A count means it shares that spot. One stored fix is that icon, with no line. The pilot is a person icon. A farther aircraft with a UAS id gets its own map, up to three. Last 15 minutes stays this phone. OSM tiles when Online place names and maps is on and the phone is online; offline: the trace only. Privacy mode does not hide those tiles. The Debrief and Compare path figures use those same MAC alerts and signature alerts. A decoded position is the last advertised fix. An advertised aircraft on that figure is the drone class icon in the Path key, with the live status, UAS id, last position, motion, and pilot position. Extra attention on that figure is red, a MAC alert is blue, and another signature alert is green. §5.6.1."],
+            ["Path", "Reports card. North-up plot of this phone for the selected sit (or last 15 minutes). Leave Reports in front to watch an open sit grow, or the last-15-minute snake move; the plot redraws about every three seconds. Black dot is the start. Blue dot is you, at the last point. MAC alerts and signature alerts are drawn once. A decoded latitude and longitude uses the last advertised position. Anything else is a class icon at the strongest RSSI. A count is several in one place. A lone class icon has no number box; tap it for that one radio. Extra attention alone does not plot unless that signature is bookmarked. The list puts the Wi-Fi or BLE icon next to the MAC. Observer notes sit on a MAC-alert row. Thick green = stay. Time ticks. Head labeled Now while live, End on a saved sit. On an open or saved sit, an advertised aircraft track within 2 km is a white dotted line on that plot. The letter figure draws the same track in black dots, with a class icon at the last position and a person icon for the operator. The last position is a class icon. Tap it for that one radio. A count means it shares that spot. One stored fix is that icon, with no line. The operator is a person icon. A farther aircraft with a UAS id gets its own map, up to three. Last 15 minutes stays this phone. OSM tiles when Online place names and maps is on and the phone is online; offline: the trace only. Privacy mode does not hide those tiles. The Debrief and Compare path figures use those same MAC alerts and signature alerts. A decoded position is the last advertised fix. An advertised aircraft on that figure is the drone class icon in the Path key, with the live status, UAS id, last position, motion, and the operator position. Extra attention on that figure is red, a MAC alert is blue, and another signature alert is green. §5.6.1."],
             ["Sit export", "Reports card under Sit report. Same Format chips as Log export, different file: one row per unique radio in the selected sit (or last 15 minutes). CSV / JSON lines include matched signatures and Extra attention families. Logging can be off. GPX/KML include the operator path as a track. Not the rotating log. Privacy mode does not mask the file. §5.6.2."],
             ["Log export", "Reports card. Share/Save of the rotating session file (JSON lines on disk; CSV / GPX / KML / WiGLE at export). One line per hear while logging was on. Needs Write to disk. Clearing the log does not delete sits. §5.6.3, §11.6."],
             ["Observer notes", "Optional 280-character field on a Named radio (same KIND+MAC as the custom name). Cyan block on detail; cyan notes chip on Live next to Extra attention “!”. Debrief lists them after Where you were; Compare after Windows. Path lists the note only if that radio is bookmarked. AI Export lists heard radios with the note. Not catalog Notes and not Extra attention gold. BLE privacy addresses hide the pencil. Settings backup includes the note. §5.5, §5.6."],
@@ -5404,7 +5481,7 @@ def story():
             ["Insta360", "Company 0x10D7; Insta360* / X3 * / X4 * / X5 * / Ace Pro* / GO 3* / ONE X* / ONE RS*", "Arashi Vision action / 360 cameras. Cameras class, not Surveillance."],
             ["DJI", "Company 0x08AA; DJI* on BLE and Wi-Fi", "Drones / RC / setup AP. Osmo cameras are the Osmo row. A Bluetooth name that starts with Power2000 is the DJI Power row. OcuSync is not an AP. In-flight ASTM Remote ID is the Remote ID row. Drones class. Decode fields: 0x08AA model id (§9.6). Stock bookmark."],
             ["DJI Power", "BLE name Power2000*", "DJI Power 2000 portable power station. Home IoT, not Drones. A radio that also carries company 0x08AA keeps this row and drops DJI. Other DJI radios stay on DJI. Not bookmarked. Decode fields: model id 4500 reads Power 2000 (§9.6)."],
-            ["Remote ID", "BLE UUID FFFA, Wi-Fi vendor IE FA:0B:BC (ASTM), and French vendor IE 6A:5C:35", "In-flight digital license plate. ASTM on BLE FFFA and Wi-Fi FA:0B:BC decodes ID, location, heading, speed, and pilot. The French plate labels the row and does not fill position or pilot. DJI, Skydio, Autel, Parrot, HOVERAir, Dronetag / Aerobits / BlueMark modules. NAN still misses. Android 11+ for Wi-Fi IEs. Not a tail number. Drones class. Stock bookmark."],
+            ["Remote ID", "BLE UUID FFFA, Wi-Fi vendor IE FA:0B:BC (ASTM), and French vendor IE 6A:5C:35", "In-flight digital license plate. ASTM on BLE FFFA and Wi-Fi FA:0B:BC decodes ID, location, heading, speed, and the operator. The French plate labels the row and does not fill position or the operator pin. DJI, Skydio, Autel, Parrot, HOVERAir, Dronetag / Aerobits / BlueMark modules. NAN still misses. Android 11+ for Wi-Fi IEs. Not a tail number. Drones class. Stock bookmark."],
             ["Skydio", "Names Skydio*", "US public-safety / enterprise drones. In-flight RID is the Remote ID row (BLE FFFA or Wi-Fi FA:0B:BC). NAN still misses. Drones class. Stock bookmark."],
             ["Autel", "Names Autel*", "Autel Robotics drones. Not EVO* and not SSID default-ssid. Drones class. Stock bookmark."],
             ["Parrot", "Names ANAFI* / Bebop* / Skycontroller*", "Parrot drones and the Skycontroller. Not company 0x0043 (automotive). Not IEEE 90:3A:E6. Disco* not used. Drones class. Stock bookmark."],
@@ -5737,7 +5814,7 @@ def story():
             ["Path on Reports is not growing while I drive", "Reports is not in front, GPS tagging is off, or you picked a saved sit.", "Stay on Reports. The plot redraws about every 3 s while that tab is open. Last 15 minutes or an open sit are live (head labeled Now). A saved sit is a still (End). Tag detections with GPS on, high-accuracy Location, scanning running. §5.6.1."],
             ["GPS path stays 0 m while I drive / Moving with you says keep moving", "The phone is not giving a live fix.", "Turn on Tag detections with GPS and high-accuracy Location. Scanning must be running. Wait until the path meter is not 0, then walk or drive."],
             ["No Magenta GNSS mark on ATAK", "GNSS is Off, the feed is off, Privacy mode is on, the check is still settling or off, this phone graded Poor, or there is no usable GPS fix.", "TAK / CoT feed On. Privacy Off. GNSS: While alerting, Red line, or Any hit. Tag detections with GPS On. Wait until Diagnostics says armed. Under about 100 m the mark is a pin at the start. §5.8.13, §5.8.17."],
-            ["GNSS oval cuts across a bend", "The oval is a straight span from the first fix to the latest.", "Expected. It does not trace the road. Width is half the length. A TAK app that only plots points shows the center. §5.8.14."],
+            ["GNSS ellipse cuts across a bend", "The ellipse is a straight span from the first fix to the latest.", "Expected. It does not trace the road. Width is half the length. A TAK app that only plots points shows the center. §5.8.14."],
             ["GNSS mark disappeared, or it will not leave", "A GNSS mark uses How long the mark stays. Feed off and Privacy on do not remove it. A radio spot uses How long a spot stays, and those two do take radio spots off.", "1 hour is the start. The clock starts at the last update. Set GNSS to Off, feed still on, to remove marks this phone still knows. Until deleted stays until that Off, or until you delete it in ATAK. §5.8.16."],
             ["The GNSS words are moving with my callsign", "That is the line on the Cyan Fieldwatch marker.", "Expected while the hit matches the GNSS chip. The Magenta mark stays where the phone was. §5.8.15."],
             ["GNSS interference check will not turn on", "This phone has no saved calibration.", "Settings → Calibrate this phone. Outside, hold still, away from radios and Wi-Fi, about a minute. §5.9."],
@@ -5771,9 +5848,9 @@ def story():
                 ["X", "@OGridPete"],
                 ["Document", "User Manual and Technical Documentation"],
                 ["Application ID", "app.fieldwatch"],
-                ["Software version", "1.1.25 (versionCode 35), field build of 11 October 2026"],
-                ["Document version", "1.1.25"],
-                ["Document date", "11 October 2026"],
+                ["Software version", "1.1.26 (versionCode 36), field build of 12 October 2026"],
+                ["Document version", "1.1.26"],
+                ["Document date", "12 October 2026"],
                 ["License", "MIT License (see LICENSE); third-party: NOTICE"],
                 ["Platform", "Android 10+ (minSdk 29), targetSdk 35"],
                 ["Classification", "Unclassified. Operationally sensitive if filled with site logs."],

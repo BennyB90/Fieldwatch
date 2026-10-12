@@ -173,9 +173,12 @@ object OpenDroneId {
     }
 
     private fun systemMsg(m: ByteArray): PayloadLocation {
+        val kind = (m[1].toInt() and 0xFF) and 0x3
         val lat = i32le(m, 2) * 1e-7
         val lon = i32le(m, 6) * 1e-7
-        return PayloadLocation(opLat = lat, opLon = lon)
+        val altRaw = u16le(m, 18)
+        val alt = if (altRaw == 0) null else (altRaw * 0.5) - 1000.0
+        return PayloadLocation(opLat = lat, opLon = lon, opKind = kind, opAlt = alt)
     }
 
     private fun i32le(m: ByteArray, at: Int): Int {

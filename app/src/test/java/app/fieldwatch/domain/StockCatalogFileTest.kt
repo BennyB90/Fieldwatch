@@ -118,6 +118,8 @@ class StockCatalogFileTest {
         assertEquals(2.5, wifiPin.payloadSpeed!!, 1e-6)
         assertEquals(28.7827062, wifiPin.payloadOpLat!!, 1e-6)
         assertEquals(-81.3563979, wifiPin.payloadOpLon!!, 1e-6)
+        assertEquals(OperatorLoc.LIVE, wifiPin.payloadOpKind)
+        assertEquals(26.5, wifiPin.payloadOpAlt!!, 1e-6)
     }
 
     private fun row(rows: List<DecodedFieldValue>, id: String) = rows.first { it.id == id }
