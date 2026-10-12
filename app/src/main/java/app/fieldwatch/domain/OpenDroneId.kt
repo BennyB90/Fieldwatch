@@ -9,6 +9,7 @@ object OpenDroneId {
     const val BLE_UUID = "FFFA"
     const val WIFI_OUI = "FA:0B:BC"
     const val WIFI_TYPE = 0x0D
+    private const val BLE_APP_CODE = 0x0D
     private const val MSG = 25
     private const val INV_DIR = 255
     private const val INV_SPEED = 255
@@ -44,11 +45,10 @@ object OpenDroneId {
     internal fun wrapWifiAsFffa(dataHex: String): List<String> {
         val b = hex(dataHex) ?: return emptyList()
         if (b.isEmpty()) return emptyList()
-        val bleShaped = b.size >= 2 + MSG && b[0] == 0x0D.toByte()
-        val start = if (bleShaped) 2 else 1
-        if (start > b.size) return emptyList()
-        val counter = (if (bleShaped) b[1] else b[0]).toInt() and 0xFF
-        return framedMessages(b, start).map { msg ->
+        // WifiIeParser has already removed the OUI and application code. The
+        // first remaining byte is always the counter, including counter 0x0D.
+        val counter = b[0].toInt() and 0xFF
+        return framedMessages(b, 1).map { msg ->
             buildString(2 + 2 + msg.size * 2) {
                 append("0D")
                 append("%02X".format(counter))
@@ -59,17 +59,17 @@ object OpenDroneId {
 
     internal fun messagesBle(dataHex: String): List<ByteArray> {
         val b = hex(dataHex) ?: return emptyList()
-        if (b.isEmpty()) return emptyList()
-        val start = if (b.size >= 2 + MSG && b[0] == 0x0D.toByte()) 2 else 0
-        return framedMessages(b, start)
+        // FFFA service data includes the application code and counter.
+        if (b.size < 2 + MSG || b[0] != BLE_APP_CODE.toByte()) return emptyList()
+        return framedMessages(b, 2)
     }
 
     internal fun messagesWifi(dataHex: String): List<ByteArray> {
         val b = hex(dataHex) ?: return emptyList()
         if (b.isEmpty()) return emptyList()
-        // BLE-shaped [0x0D][counter][msgs], else ASTM [counter][msgs].
-        val start = if (b.size >= 2 + MSG && b[0] == 0x0D.toByte()) 2 else 1
-        return framedMessages(b, start)
+        // VendorIeRecord.dataHex excludes the Wi-Fi OUI/type: [counter][msgs].
+        // Do not infer BLE framing from the counter's value.
+        return framedMessages(b, 1)
     }
 
     /** Single 25-byte messages, or an ASTM message pack (type nibble 0xF). */

@@ -77,6 +77,15 @@ android {
                 "proguard-rules.pro",
             )
         }
+        create("spike") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".sweep.spike"
+            versionNameSuffix = "-sweep-spike"
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            matchingFallbacks += "debug"
+        }
     }
 
     compileOptions {

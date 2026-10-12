@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import app.fieldwatch.MainActivity
 import app.fieldwatch.R
 import app.fieldwatch.FieldwatchApp
+import app.fieldwatch.BuildConfig
 import app.fieldwatch.domain.Observation
 import app.fieldwatch.domain.TakFlood
 import app.fieldwatch.domain.TakGnss
@@ -195,7 +196,9 @@ class ScanService : LifecycleService() {
                 app.sits.noteFloods(app.pairingFlood.bursts())
                 app.sits.ingest(seen, fleets, app.config.watchlist)
                 if (settings.loggingEnabled) {
-                    val toLog = seen.filter { it.hitCount <= 1 || it.hitCount % 25 == 0 }.take(16)
+                    // The rig needs every processed sighting; production logging is sampled.
+                    val toLog = if (BuildConfig.BUILD_TYPE == "spike") seen else
+                        seen.filter { it.hitCount <= 1 || it.hitCount % 25 == 0 }.take(16)
                     for (row in toLog) {
                         app.logs.append(row, fleets)
                     }

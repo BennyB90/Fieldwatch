@@ -51,4 +51,42 @@ class RadioFactsTest {
         assertEquals(1, merged.serviceData.size)
         assertEquals("BBCC", merged.serviceData.single().dataHex)
     }
+
+    @Test
+    fun remoteIdShortLocationReplacesLongPackAcrossUuidAliases() {
+        val first = RadioFacts(serviceData = listOf(
+            ServiceDataRecord("0000FFFA-0000-1000-8000-00805F9B34FB", "0D00" + OpenDroneIdReferenceFixtures.PACK_A),
+        ))
+        val next = RadioFacts(serviceData = listOf(
+            ServiceDataRecord("FFFA", "0D01" + OpenDroneIdReferenceFixtures.LOCATION_B),
+        ))
+        val merged = first.merge(next)
+        assertEquals(1, merged.serviceData.size)
+        assertEquals(next.serviceData.single(), merged.serviceData.single())
+        assertEquals(40.001, OpenDroneId.fromFacts(merged).lat!!, 1e-7)
+    }
+
+    @Test
+    fun otherServiceDataStillKeepsLongerMetadataWhenShortDataArrives() {
+        val first = RadioFacts(serviceData = listOf(ServiceDataRecord("FE2C", "AABBCC")))
+        val shorter = RadioFacts(serviceData = listOf(ServiceDataRecord("FE2C", "DD")))
+        assertEquals(first.serviceData, first.merge(shorter).serviceData)
+    }
+
+    @Test
+    fun wifiRemoteIdKeepsUpdatingAfterVendorMetadataCapacity() {
+        var facts = RadioFacts(vendorIes = (0 until 12).map {
+            VendorIeRecord("00:11:22", it, "AABBCC")
+        })
+        for (counter in 0..20) {
+            val body = if (counter == 20) OpenDroneIdReferenceFixtures.LOCATION_B else OpenDroneIdReferenceFixtures.LOCATION_A
+            facts = facts.merge(RadioFacts(vendorIes = listOf(
+                VendorIeRecord("fa:0b:bc", 0x0D, "%02X".format(counter) + body),
+            )))
+        }
+        assertEquals(12, facts.vendorIes.size)
+        assertEquals(1, facts.vendorIes.count { it.oui.equals("FA:0B:BC", ignoreCase = true) })
+        assertEquals(40.001, OpenDroneId.fromFacts(facts).lat!!, 1e-7)
+        assertEquals(-74.002, OpenDroneId.fromFacts(facts).lon!!, 1e-7)
+    }
 }

@@ -30,14 +30,19 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest testSpikeUnitTest --stacktrace
+
+      - name: Spike evidence tests
+        run: python3 -m unittest discover -s spike/tests -v
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/tests/testSpikeUnitTest/
           if-no-files-found: ignore
 
   build:
@@ -65,11 +70,18 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug assembleSpike --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: fieldwatch-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP spike APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-spike-apk
+          path: app/build/outputs/apk/spike/app-spike.apk
           if-no-files-found: error

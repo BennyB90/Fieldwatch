@@ -1,4 +1,10 @@
-# Fieldwatch
+# SWEEP detection-spike fork
+
+This is the independent SWEEP fork of Fieldwatch. Current product scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.md](spike/README.md). Hardware candidates: [docs/PROCUREMENT.md](docs/PROCUREMENT.md). Build notes: [docs/SPIKE_BUILD.md](docs/SPIKE_BUILD.md).
+
+The `spike` build uses a separate installation ID and starts scans on demand. It is a test instrument; physical detection rates and battery performance have not yet been measured. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP spike APK.
+
+## Original Fieldwatch README
 
 I built Fieldwatch as a personal tool to look at what Wi-Fi access points and Bluetooth LE ads my phone was able to pick up, so that I could better understand what devices were being used around me. It’s passive, it only listens, there’s no dongle, no account, and no backend server. I wanted something that would work offline in the field.
 

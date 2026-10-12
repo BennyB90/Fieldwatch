@@ -54,6 +54,50 @@ class OpenDroneIdTest {
         assertEquals(-81.3563979, loc.opLon!!, 1e-6)
     }
 
+    @Test
+    fun referenceWifiPackDecodesForEveryCounterIncludingThirteen() {
+        for (counter in 0..255) {
+            val payload = "%02X".format(counter) + OpenDroneIdReferenceFixtures.PACK_A
+            val facts = RadioFacts(vendorIes = listOf(VendorIeRecord("FA:0B:BC", 0x0D, payload)))
+            val loc = OpenDroneId.fromFacts(facts)
+            assertEquals("counter $counter", "1581F3YTDJ1D0031Z530", loc.uasId)
+            assertEquals(40.0, loc.lat!!, 1e-7)
+            assertEquals(-74.0, loc.lon!!, 1e-7)
+            assertEquals(39.9, loc.opLat!!, 1e-7)
+            assertEquals(-73.9, loc.opLon!!, 1e-7)
+            assertEquals(OperatorLoc.TAKEOFF, loc.opKind)
+        }
+    }
+
+    @Test
+    fun referenceWifiCounterThirteenWrapsAsBleWithoutDroppingByte() {
+        val payload = "0D" + OpenDroneIdReferenceFixtures.PACK_A
+        assertEquals(
+            listOf(
+                "0D0D" + OpenDroneIdReferenceFixtures.BASIC,
+                "0D0D" + OpenDroneIdReferenceFixtures.LOCATION_A,
+                "0D0D" + OpenDroneIdReferenceFixtures.SYSTEM_A,
+            ),
+            OpenDroneId.wrapWifiAsFffa(payload),
+        )
+    }
+
+    @Test
+    fun bleServiceDataRequiresApplicationCodeAndHasItsOwnCounter() {
+        val good = RadioFacts(serviceData = listOf(
+            ServiceDataRecord("FFFA", "0D0D" + OpenDroneIdReferenceFixtures.PACK_A),
+        ))
+        assertEquals(40.0, OpenDroneId.fromFacts(good).lat!!, 1e-7)
+        val wrongCode = good.copy(serviceData = listOf(
+            ServiceDataRecord("FFFA", "000D" + OpenDroneIdReferenceFixtures.PACK_A),
+        ))
+        assertNull(OpenDroneId.fromFacts(wrongCode).pin())
+        val unframed = good.copy(serviceData = listOf(
+            ServiceDataRecord("FFFA", OpenDroneIdReferenceFixtures.LOCATION_A),
+        ))
+        assertNull(OpenDroneId.fromFacts(unframed).pin())
+    }
+
     private fun bleWrap(msg: ByteArray) = ("0D00" + msg.toHexUpper())
 
     private fun locationMsg(dir: Int, ew: Boolean, speed: Int): ByteArray {
