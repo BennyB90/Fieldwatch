@@ -31,6 +31,7 @@ android {
         versionCode = 36
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
+        buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
     }
 
     val releaseStore = localProp("FIELDWATCH_STORE_FILE")
@@ -95,6 +96,13 @@ android {
             isShrinkResources = true
             matchingFallbacks += listOf("spike", "debug")
         }
+        create("sweepRadio") {
+            initWith(getByName("sweep"))
+            applicationIdSuffix = ".sweep.radio"
+            versionNameSuffix = "-sweep-radio-alpha.1"
+            buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
+            matchingFallbacks += listOf("sweep", "spike", "debug")
+        }
     }
 
     compileOptions {
@@ -134,4 +142,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the JVM test classpath; the android.jar bundled JSONObject is a stub.
     testImplementation("org.json:json:20240303")
+    // The offline scanner does not include or initialize the online audio stack.
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer-hls:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-session:1.8.1")
 }

@@ -8,6 +8,8 @@ Scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.m
 
 Physical detection rates and battery performance have not yet been measured. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP APK. Sample mode is explicitly synthetic and is excluded from saved scan history.
 
+Optional public-safety listening: build `:app:assembleSweepRadio` for **SWEEP + Radio** (`app.fieldwatch.sweep.radio`). It adds an Internet audio player for user-added, operator-authorized HTTPS feeds, with favorites and explicit listening consent. It ships without a police-feed catalog. The offline scanner remains a separate installer with no Internet permission. [Radio module and feed access](docs/SCANNER_RADIO.md).
+
 ## Original Fieldwatch README
 
 I built Fieldwatch as a personal tool to look at what Wi-Fi access points and Bluetooth LE ads my phone was able to pick up, so that I could better understand what devices were being used around me. It’s passive, it only listens, there’s no dongle, no account, and no backend server. I wanted something that would work offline in the field.

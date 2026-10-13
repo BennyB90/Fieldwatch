@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.getValue
 import app.fieldwatch.domain.PayloadLocation
+import app.fieldwatch.BuildConfig
 import kotlinx.coroutines.launch
 
 class SweepActivity : ComponentActivity() {
@@ -41,12 +42,18 @@ class SweepActivity : ComponentActivity() {
                     onDelete = coordinator::delete, onDeleteAll = coordinator::deleteAll, onShare = ::share,
                     onDemo = coordinator::showDemo, onClearDemo = coordinator::clearDemo,
                     onSettings = ::openSettings, onMap = ::openMap,
+                    radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
                 )
             }
         }
     }
 
     override fun onResume() { super.onResume(); coordinator.refreshCoverage() }
+
+    private fun openRadio() {
+        if (!BuildConfig.SWEEP_RADIO_ENABLED) return
+        startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radio.ScannerRadioActivity"))
+    }
 
     private fun requestScan() {
         val required = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)

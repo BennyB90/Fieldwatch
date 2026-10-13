@@ -7,9 +7,10 @@ those projects ship):
 
   AndroidX (Jetpack Compose, Core, Lifecycle, Navigation, Activity, and
   related Android Open Source Project libraries)
+  AndroidX Media3 ExoPlayer, HLS and MediaSession (radio-enabled variant)
   Kotlin standard library, kotlinx-coroutines, kotlinx-serialization
   JetBrains annotations
-  Guava listenablefuture (empty stub)
+  Guava / listenablefuture (media-session integration in radio-enabled variant)
   androidx.graphics:graphics-path (libandroidx.graphics.path.so)
 
 Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0

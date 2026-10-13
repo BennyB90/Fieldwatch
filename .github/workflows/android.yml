@@ -30,7 +30,7 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest lintSweep --stacktrace
+        run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest testSweepRadioUnitTest lintSweep lintSweepRadio --stacktrace
 
       - name: Spike evidence tests
         run: python3 -m unittest discover -s spike/tests -v
@@ -44,6 +44,7 @@ jobs:
             app/build/reports/tests/testDebugUnitTest/
             app/build/reports/tests/testSpikeUnitTest/
             app/build/reports/tests/testSweepUnitTest/
+            app/build/reports/tests/testSweepRadioUnitTest/
           if-no-files-found: ignore
 
   build:
@@ -71,7 +72,7 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug assembleSpike assembleSweep --stacktrace
+        run: ./gradlew assembleDebug assembleSpike assembleSweep assembleSweepRadio --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -97,4 +98,16 @@ jobs:
         with:
           name: sweep-alpha-apk
           path: app/build/outputs/apk/sweep/app-sweep.apk
+          if-no-files-found: error
+
+      - name: Verify optional radio permissions
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/sweepRadio/app-sweepRadio.apk > sweep-radio-permissions.txt
+          python3 -c "from pathlib import Path; p=Path('sweep-radio-permissions.txt').read_text(); assert 'android.permission.INTERNET' in p; assert 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' in p"
+
+      - name: Upload SWEEP with radio APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-radio-alpha-apk
+          path: app/build/outputs/apk/sweepRadio/app-sweepRadio.apk
           if-no-files-found: error

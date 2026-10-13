@@ -47,6 +47,7 @@ private enum class SweepTab(val label: String, val icon: ImageVector) {
     SCAN("Scan", Icons.Outlined.WifiTethering),
     SESSIONS("Sessions", Icons.Outlined.History),
     CATALOG("Catalog", Icons.Outlined.GridView),
+    LISTEN("Listen", Icons.Outlined.Headphones),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +68,8 @@ fun SweepRoot(
     onClearDemo: () -> Unit,
     onSettings: () -> Unit,
     onMap: (SweepPin) -> Unit,
+    radioEnabled: Boolean = false,
+    onRadio: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -113,7 +116,7 @@ fun SweepRoot(
                         Icon(Icons.Outlined.WifiTethering, contentDescription = null, tint = Color(0xFF9FE2C8), modifier = Modifier.size(22.dp))
                     }
                     Text("SWEEP", fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, letterSpacing = 2.sp, modifier = Modifier.padding(start = 10.dp).weight(1f))
-                    TinyTag("ON DEVICE", SweepPale, SweepInk)
+                    TinyTag(if (radioEnabled) "LOCAL SCANS" else "ON DEVICE", SweepPale, SweepInk)
                 }
                 IconButton(onClick = { showInfo = true }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Outlined.Info, contentDescription = "About, privacy and scanning limits", tint = SweepMuted)
@@ -122,10 +125,13 @@ fun SweepRoot(
         },
         bottomBar = {
             NavigationBar(containerColor = Color(0xFFFFFEF9), tonalElevation = 0.dp) {
-                SweepTab.entries.forEach { item ->
+                SweepTab.entries.filter { radioEnabled || it != SweepTab.LISTEN }.forEach { item ->
                     NavigationBarItem(
                         selected = tab == item,
-                        onClick = { tab = item; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null },
+                        onClick = {
+                            if (item == SweepTab.LISTEN) onRadio()
+                            else { tab = item; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
+                        },
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = SweepInk, selectedTextColor = SweepInk, indicatorColor = SweepPale, unselectedIconColor = SweepMuted, unselectedTextColor = SweepMuted),
@@ -144,13 +150,14 @@ fun SweepRoot(
                         SweepTab.SCAN -> ScanScreen(current, coverage, starting, error, now, onStart, onStop, { selectedFindingId = it.id }, { shareSession = it }, onDemo, onClearDemo, onSettings)
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
+                        SweepTab.LISTEN -> Unit // Listen is an external route owned by the radio activity.
                     }
                 }
             }
         }
     }
 
-    if (showInfo) InfoDialog { showInfo = false }
+    if (showInfo) InfoDialog(radioEnabled) { showInfo = false }
     shareSession?.let { session -> ShareDialog(session, { shareSession = null }) { identifiers, coordinates -> onShare(session, identifiers, coordinates); shareSession = null } }
     deleteSession?.let { session ->
         AlertDialog(
@@ -659,13 +666,17 @@ private fun ShareOption(title: String, explanation: String, checked: Boolean, on
 }
 
 @Composable
-private fun InfoDialog(onDismiss: () -> Unit) {
+private fun InfoDialog(radioEnabled: Boolean, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("A clearer view of the signals.") },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("SWEEP is an on-demand wireless scanner for Android 10 and later. Detection and reports run on your phone.")
+                if (radioEnabled) {
+                    Text("Optional internet audio", style = MaterialTheme.typography.titleMedium)
+                    Text("Listen plays audio streams that you add with the provider’s permission. Listening uses the internet; the chosen provider and any stream host see your connection, including your IP address. You can revoke internet-audio consent in Listen. RF scans and saved scan reports stay local.")
+                }
                 Text("Scanning limits", style = MaterialTheme.typography.titleMedium)
                 Text("Wi-Fi and Bluetooth are only part of the radio environment. Silent, wired, cellular and unsupported devices can be invisible. Hidden microphones cannot generally be found with a phone radio scan. A match is an indicator, and an empty scan cannot certify a safe room.")
                 Text("Permissions & privacy", style = MaterialTheme.typography.titleMedium)

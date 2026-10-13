@@ -3,7 +3,7 @@ package app.fieldwatch.sweep
 import android.app.Application
 import app.fieldwatch.domain.RadioDb
 
-class SweepApplication : Application() {
+open class SweepApplication : Application() {
     lateinit var coordinator: SweepCoordinator
         private set
 
