@@ -2,6 +2,7 @@ package app.fieldwatch.sweep
 
 import app.fieldwatch.domain.DefaultCatalog
 import app.fieldwatch.domain.PayloadLocation
+import app.fieldwatch.domain.Rssi
 import java.time.Instant
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -66,7 +67,8 @@ object SweepReports {
                 appendLine("${SweepMapper.categoryLabel(category)}: ${safe.findings.count { it.category == category }}")
             }
             appendLine("Coverage: Wi-Fi ${safe.coverage.wifiStatus}; Bluetooth ${safe.coverage.bleStatus}")
-            appendLine("Samples: Wi-Fi ${safe.coverage.wifiSamples}; Bluetooth ${safe.coverage.bleSamples}; dropped ${safe.coverage.droppedSamples}")
+            appendLine("Samples: Wi-Fi AP ${safe.coverage.wifiSamples}; Wi-Fi NAN ${safe.coverage.wifiNanSamples}; Bluetooth ${safe.coverage.bleSamples}; dropped ${safe.coverage.droppedSamples}")
+            appendLine("Wi-Fi NAN discovery: ${safe.coverage.wifiNanStatus}")
             appendLine("Wi-Fi vendor information: ${if (safe.coverage.wifiIeAvailable) "available" else "unavailable"}; Wi-Fi NAN: ${if (safe.coverage.wifiNanAvailable) "available" else "unavailable"}")
             appendLine("Extended Bluetooth advertisements: ${when (safe.coverage.bleExtendedSupported) { true -> "supported"; false -> "unsupported"; null -> "unknown" }}")
             if (safe.startBattery != null && safe.endBattery != null) {
@@ -78,7 +80,8 @@ object SweepReports {
             safe.findings.forEachIndexed { index, finding ->
                 appendLine()
                 appendLine("${index + 1}. ${finding.name} — ${SweepMapper.categoryLabel(finding.category)}")
-                appendLine("${finding.transport} • ${finding.rssi} dBm • ${finding.observations} observations")
+                appendLine("${finding.transport} • ${if (Rssi.measured(finding.rssi)) "${finding.rssi} dBm" else "signal unavailable"} • ${finding.observations} observations")
+                if (finding.signalSamples.isNotEmpty()) appendLine("Signal history: ${finding.signalSamples.size} recorded measurements; strength is not distance.")
                 appendLine("Observed: ${time(finding.firstSeenAt)} to ${time(finding.lastSeenAt)}")
                 if (finding.signatureNames.isNotEmpty()) appendLine("Catalog: ${finding.signatureNames.joinToString(", ")}")
                 if (includeIdentifiers) {
@@ -108,6 +111,7 @@ object SweepReports {
         coverage = session.coverage.copy(
             wifiStatus = coverageStatus(session.coverage.wifiSupported, session.coverage.wifiReady, session.coverage.wifiSamples),
             bleStatus = coverageStatus(session.coverage.bleSupported, session.coverage.bleReady, session.coverage.bleSamples),
+            wifiNanStatus = if (!session.coverage.wifiNanSupported) "unsupported or not checked" else if (session.coverage.wifiNanSamples == 0L) "supported; no samples received" else "supported; samples received",
         ),
         findings = session.findings.mapIndexed { index, finding ->
             val products = finding.signatureNames.filter { it in stockNames }.distinct()
@@ -119,7 +123,7 @@ object SweepReports {
             finding.copy(
                 id = "finding-${index + 1}",
                 name = if (identifiers) exportedText(finding.name, coordinates) else products.firstOrNull() ?: SweepMapper.categoryLabel(finding.category),
-                transport = finding.transport.takeIf { it in setOf("BLE", "WIFI") } ?: "Unknown radio",
+                transport = finding.transport.takeIf { it in setOf("BLE", "WIFI", "WIFI NAN", "WIFI_NAN") } ?: "Unknown radio",
                 signatureNames = products,
                 evidence = categoricalEvidence,
                 identifier = if (identifiers) exportedText(finding.identifier, coordinates) else "",

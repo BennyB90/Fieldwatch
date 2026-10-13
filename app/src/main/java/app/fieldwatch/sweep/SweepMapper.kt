@@ -9,6 +9,7 @@ import app.fieldwatch.domain.RuleKind
 import app.fieldwatch.domain.SignatureClass
 import app.fieldwatch.domain.SignatureEngine
 import app.fieldwatch.domain.Sighting
+import app.fieldwatch.domain.Rssi
 
 /** Consumer interpretation of the upstream catalog; never a physical-device verdict. */
 object SweepMapper {
@@ -54,7 +55,11 @@ object SweepMapper {
             if (remoteIdDecoded) add(SweepEvidence("Remote ID", "OpenDroneID message decoded from advertised radio data."))
             if (sighting.channel > 0) add(SweepEvidence("Wi-Fi channel", sighting.channel.toString()))
             if (sighting.randomized) add(SweepEvidence("Address behavior", "Randomized address; a changed address may represent the same device."))
-            add(SweepEvidence("Signal strength", "${sighting.rssi} dBm; signal strength is not a distance measurement."))
+            if (Rssi.measured(sighting.rssi)) add(SweepEvidence("Signal strength", "${sighting.rssi} dBm; signal strength is not a distance measurement."))
+            else add(SweepEvidence("Signal strength", "Signal strength is unavailable for this observation."))
+            if (sighting.facts.serviceData.any { it.uuid == OpenDroneId.NAN_SERVICE_NAME }) {
+                add(SweepEvidence("Transport identity", "Wi-Fi NAN discovery uses a session-scoped peer handle; it is not a verified radio address."))
+            }
         }.distinct()
         val location = if (category == SweepCategory.DRONE) {
             decoded.mergeSticky(PayloadLocation.fromSighting(sighting))
@@ -77,7 +82,7 @@ object SweepMapper {
             id = sighting.key,
             name = sighting.name.takeIf { it.isNotBlank() } ?: matched.firstOrNull()?.name ?: categoryLabel(category),
             category = category,
-            transport = sighting.kind.name,
+            transport = if (sighting.facts.serviceData.any { it.uuid == OpenDroneId.NAN_SERVICE_NAME }) "WIFI NAN" else sighting.kind.name,
             rssi = sighting.rssi,
             firstSeenAt = sighting.firstSeen,
             lastSeenAt = sighting.lastSeen,

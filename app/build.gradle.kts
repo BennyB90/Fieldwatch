@@ -90,7 +90,7 @@ android {
         create("sweep") {
             initWith(getByName("spike"))
             applicationIdSuffix = ".sweep"
-            versionNameSuffix = "-sweep-alpha.1"
+            versionNameSuffix = "-sweep-alpha.2"
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
@@ -99,7 +99,7 @@ android {
         create("sweepRadio") {
             initWith(getByName("sweep"))
             applicationIdSuffix = ".sweep.radio"
-            versionNameSuffix = "-sweep-radio-alpha.1"
+            versionNameSuffix = "-sweep-radio-alpha.2"
             buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
             matchingFallbacks += listOf("sweep", "spike", "debug")
         }

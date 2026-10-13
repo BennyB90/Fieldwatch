@@ -115,13 +115,16 @@ private fun mergeServiceData(old: List<ServiceDataRecord>, extra: List<ServiceDa
         val prev = by[key]
         // A pack can be followed by a shorter Location or System message.
         // Sticky decoded fields preserve the other message types separately.
-        if (key == OpenDroneId.BLE_UUID || prev == null || rec.dataHex.length >= prev.dataHex.length) by[key] = rec
+        if (key == OpenDroneId.BLE_UUID || key == OpenDroneId.NAN_SERVICE_NAME ||
+            prev == null || rec.dataHex.length >= prev.dataHex.length
+        ) by[key] = rec
     }
     return by.values.toList()
 }
 
 /** Eddystone FEAA rotates UID / URL / TLM; keep one slot per frame type. */
 private fun serviceDataMergeKey(rec: ServiceDataRecord): String {
+    if (rec.uuid == OpenDroneId.NAN_SERVICE_NAME) return OpenDroneId.NAN_SERVICE_NAME
     val uuidHex = rec.uuid.filter { it.isLetterOrDigit() }.uppercase()
     val short = when {
         uuidHex.length == 4 -> uuidHex

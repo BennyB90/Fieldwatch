@@ -23,9 +23,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /** Foreground, user-selected accessory connection; it never owns an RF scan. */
 class ValentineRadarActivity : ComponentActivity() {
+    private val radioToken = "radar:${UUID.randomUUID()}"
+    private var radioLease = false
     private var controller: ValentineBleController? = null
     private var controllerJob: Job? = null
     private val radar = MutableStateFlow(ValentineRadarState())
@@ -94,12 +97,14 @@ class ValentineRadarActivity : ComponentActivity() {
         pendingDiscover = false; pendingAccessory = null
         controllerJob?.cancel(); controllerJob = null
         controller?.close(); controller = null
+        releaseRadio()
         radar.value = ValentineRadarState()
         super.onStop()
     }
 
     override fun onDestroy() {
         controller?.close(); controller = null
+        releaseRadio()
         super.onDestroy()
     }
 
@@ -108,6 +113,7 @@ class ValentineRadarActivity : ComponentActivity() {
         if (!guardSweep()) return
         if (!ensurePermissions(discover = true)) return
         if (!platformReady(requireLocation = true)) return
+        if (!acquireRadio()) return
         actionError.value = null
         controller?.discover() ?: run { actionError.value = "Return to this screen, then choose Discover again." }
     }
@@ -117,6 +123,7 @@ class ValentineRadarActivity : ComponentActivity() {
         if (!guardSweep()) return
         if (!ensurePermissions(discover = false, accessoryId = accessoryId)) return
         if (!platformReady(requireLocation = false)) return
+        if (!acquireRadio()) return
         actionError.value = null
         controller?.connect(accessoryId) ?: run { actionError.value = "Return to this screen, then choose the accessory again." }
     }
@@ -145,7 +152,17 @@ class ValentineRadarActivity : ComponentActivity() {
 
     private fun hasPermission(permission: String): Boolean = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
     private fun guardForeground(): Boolean = foreground && !isFinishing && !isDestroyed
-    private fun sweepIsHeld(): Boolean = (application as? SweepApplication)?.coordinator?.hasServiceRequest() == true
+    private fun sweepIsHeld(): Boolean = !radioLease && (application as? SweepApplication)?.radioGate?.held() == true
+    private fun acquireRadio(): Boolean {
+        if (radioLease) return true
+        radioLease = (application as? SweepApplication)?.radioGate?.acquire(radioToken) == true
+        if (!radioLease) actionError.value = SWEEP_GATE
+        return radioLease
+    }
+    private fun releaseRadio() {
+        if (radioLease) (application as? SweepApplication)?.radioGate?.release(radioToken)
+        radioLease = false
+    }
     private fun guardSweep(): Boolean {
         blocked.value = sweepIsHeld()
         if (!blocked.value) return true
@@ -188,5 +205,5 @@ class ValentineRadarActivity : ComponentActivity() {
         runCatching { startActivity(intent) }.onFailure { actionError.value = "Open Android settings to check Bluetooth and app permissions." }
     }
 
-    companion object { private const val SWEEP_GATE = "End the RF scan before connecting a radar accessory." }
+    companion object { private const val SWEEP_GATE = "End the room scan or travel mode before connecting a radar accessory." }
 }

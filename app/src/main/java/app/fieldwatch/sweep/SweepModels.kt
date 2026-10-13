@@ -21,6 +21,9 @@ data class SweepPin(
 data class SweepEvidence(val label: String, val value: String)
 
 @Serializable
+data class SweepSignalSample(val observedAt: Long, val rssi: Int)
+
+@Serializable
 data class SweepFinding(
     val id: String,
     val name: String,
@@ -38,6 +41,9 @@ data class SweepFinding(
     val dronePins: List<SweepPin> = emptyList(),
     val droneId: String? = null,
     val interpretation: String = "Radio observation; physical identity has not been verified.",
+    /** Latest bounded measured RSSI samples; empty in previously saved sessions. */
+    @Serializable(with = SweepSignalSamplesSerializer::class)
+    val signalSamples: List<SweepSignalSample> = emptyList(),
 )
 
 @Serializable
@@ -55,6 +61,10 @@ data class SweepCoverage(
     val wifiIeAvailable: Boolean = false,
     val bleExtendedSupported: Boolean? = null,
     val wifiNanAvailable: Boolean = false,
+    val wifiNanSupported: Boolean = false,
+    val wifiNanRunning: Boolean = false,
+    val wifiNanStatus: String = "Not checked",
+    val wifiNanSamples: Long = 0,
 )
 
 @Serializable

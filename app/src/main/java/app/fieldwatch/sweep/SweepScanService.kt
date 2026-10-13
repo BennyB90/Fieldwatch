@@ -17,6 +17,7 @@ import app.fieldwatch.domain.Observation
 import app.fieldwatch.domain.ScanIntensity
 import app.fieldwatch.radio.BleRadio
 import app.fieldwatch.radio.WifiRadio
+import app.fieldwatch.radio.WifiNanRadio
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +44,7 @@ class SweepScanService : Service() {
         onUndeliveredElement = { sessionId?.let { coordinator.noteDropped(it, serviceInstanceId) } })
     private var wifi: WifiRadio? = null
     private var ble: BleRadio? = null
+    private var nan: WifiNanRadio? = null
     private var pump: Job? = null
     private var ticker: Job? = null
     private var active = false
@@ -99,6 +101,9 @@ class SweepScanService : Service() {
                     wifi?.start()
                     wifi?.requestScan(40_000L, unthrottled = false)
                 } else wifi?.stop()
+                if (nan == null) nan = WifiNanRadio(this@SweepScanService, ::offer) { status -> coordinator.reportNanStatus(ownedId, serviceInstanceId, status) }
+                if (health.wifiReady && health.wifiNanAvailable) nan?.start() else nan?.stop()
+                nan?.status()?.let { coordinator.reportNanStatus(ownedId, serviceInstanceId, it) }
                 if (health.bleReady) {
                     if (ble == null) ble = BleRadio(this@SweepScanService, ::offer, {
                         coordinator.reportServiceError(ownedId, serviceInstanceId, "Bluetooth scanning is waiting for Android. Wi-Fi may still work.")
@@ -133,7 +138,7 @@ class SweepScanService : Service() {
     private fun end(interrupted: Boolean = false) {
         if (!ending.compareAndSet(false, true)) return
         ticker?.cancel()
-        runCatching { wifi?.stop() }; runCatching { ble?.stop() }
+        runCatching { wifi?.stop() }; runCatching { ble?.stop() }; runCatching { nan?.stop() }
         inbound.close()
         val ownedId = sessionId
         scope.launch {
@@ -150,7 +155,7 @@ class SweepScanService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) { end(); super.onTaskRemoved(rootIntent) }
 
     override fun onDestroy() {
-        ticker?.cancel(); runCatching { wifi?.close() }; runCatching { ble?.stop() }
+        ticker?.cancel(); runCatching { wifi?.close() }; runCatching { ble?.stop() }; runCatching { nan?.close() }
         inbound.cancel(); scope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()

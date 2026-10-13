@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import app.fieldwatch.domain.Fleet
 import app.fieldwatch.domain.MatchRule
 import app.fieldwatch.domain.SignatureClass
+import app.fieldwatch.domain.Rssi
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -49,6 +50,7 @@ private enum class SweepTab(val label: String, val icon: ImageVector) {
     CATALOG("Catalog", Icons.Outlined.GridView),
     LISTEN("Listen", Icons.Outlined.Headphones),
     RADAR("Radar", Icons.Outlined.Radar),
+    TRAVEL("Travel", Icons.Outlined.Route),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,6 +74,7 @@ fun SweepRoot(
     radioEnabled: Boolean = false,
     onRadio: () -> Unit = {},
     onRadar: () -> Unit = {},
+    onTravel: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -81,6 +84,7 @@ fun SweepRoot(
     var shareSession by remember { mutableStateOf<SweepSession?>(null) }
     var deleteSession by remember { mutableStateOf<SweepSession?>(null) }
     var clearAll by rememberSaveable { mutableStateOf(false) }
+    var comparing by rememberSaveable { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val tabState = rememberSaveableStateHolder()
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
@@ -89,13 +93,14 @@ fun SweepRoot(
     val findingSession = selectedSession ?: current
     val finding = findingSession?.findings?.find { it.id == selectedFindingId }
     val fleet = catalog.find { it.id == selectedFleetId }
-    val inDetail = finding != null || selectedSession != null || fleet != null
+    val inDetail = finding != null || selectedSession != null || fleet != null || comparing
 
     fun back() {
         when {
             selectedFindingId != null -> selectedFindingId = null
             selectedSessionId != null -> selectedSessionId = null
             selectedFleetId != null -> selectedFleetId = null
+            comparing -> comparing = false
             tab != SweepTab.SCAN -> tab = SweepTab.SCAN
         }
     }
@@ -112,7 +117,7 @@ fun SweepRoot(
                     IconButton(onClick = { back() }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
                     }
-                    Text(if (finding != null) "Signal details" else if (fleet != null) "Catalog entry" else "Session report", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    Text(if (finding != null) "Signal details" else if (fleet != null) "Catalog entry" else if (comparing) "Compare room scans" else "Session report", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 } else {
                     Box(Modifier.size(36.dp).background(SweepInk, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Outlined.WifiTethering, contentDescription = null, tint = Color(0xFF9FE2C8), modifier = Modifier.size(22.dp))
@@ -133,7 +138,8 @@ fun SweepRoot(
                         onClick = {
                             if (item == SweepTab.LISTEN) onRadio()
                             else if (item == SweepTab.RADAR) onRadar()
-                            else { tab = item; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
+                            else if (item == SweepTab.TRAVEL) onTravel()
+                            else { tab = item; comparing = false; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
                         },
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
@@ -148,13 +154,15 @@ fun SweepRoot(
                 finding != null -> FindingDetail(finding, findingSession!!.demo, now, onMap)
                 selectedSession != null -> SessionReport(selectedSession, now, { selectedFindingId = it.id }, { shareSession = selectedSession }, { deleteSession = selectedSession })
                 fleet != null -> CatalogDetail(fleet)
+                comparing -> SweepComparisonScreen(history) { session, selected -> selectedSessionId = session.id; selectedFindingId = selected.id }
                 else -> tabState.SaveableStateProvider(tab.name) {
                     when (tab) {
                         SweepTab.SCAN -> ScanScreen(current, coverage, starting, error, now, onStart, onStop, { selectedFindingId = it.id }, { shareSession = it }, onDemo, onClearDemo, onSettings)
-                        SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true })
+                        SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true }, { comparing = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
                         SweepTab.LISTEN -> Unit // Listen is an external route owned by the radio activity.
                         SweepTab.RADAR -> Unit
+                        SweepTab.TRAVEL -> Unit
                     }
                 }
             }
@@ -284,6 +292,8 @@ private fun RadioCoverage(coverage: SweepCoverage, onSettings: () -> Unit, sampl
         RadioRow(Icons.Outlined.Bluetooth, "Bluetooth LE", coverage.bleReady, coverage.bleSupported, coverage.bleStatus, coverage.bleSamples)
         HorizontalDivider(color = SweepLine)
         RadioRow(Icons.Outlined.Wifi, "Wi-Fi", coverage.wifiReady, coverage.wifiSupported, coverage.wifiStatus, coverage.wifiSamples)
+        HorizontalDivider(color = SweepLine)
+        RadioRow(Icons.Outlined.Air, "Drone Wi-Fi NAN", coverage.wifiNanRunning, coverage.wifiNanSupported, coverage.wifiNanStatus, coverage.wifiNanSamples)
         if (coverage.droppedSamples > 0) Text("${coverage.droppedSamples} radio samples were dropped. Coverage is incomplete.", style = MaterialTheme.typography.bodySmall, color = SweepAmber)
         Text(
             "Wi-Fi vendor fields: ${if (coverage.wifiIeAvailable) "available" else "unavailable"}. Extended Bluetooth: ${when (coverage.bleExtendedSupported) { true -> "phone reports support"; false -> "unsupported"; null -> "capability unknown" }}. Wi-Fi NAN: ${if (coverage.wifiNanAvailable) "available" else "unavailable"}.",
@@ -347,7 +357,7 @@ private fun Counts(findings: List<SweepFinding>) {
 @Composable
 private fun FindingsList(findings: List<SweepFinding>, now: Long, demo: Boolean, onFinding: (SweepFinding) -> Unit) {
     var filter by rememberSaveable { mutableStateOf<SweepCategory?>(null) }
-    val filtered = findings.filter { filter == null || it.category == filter }.sortedByDescending { it.rssi }
+    val filtered = findings.filter { filter == null || it.category == filter }.sortedByDescending { if (Rssi.measured(it.rssi)) it.rssi else Int.MIN_VALUE }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             SectionHeading("Observed signals", Modifier.weight(1f))
@@ -385,8 +395,8 @@ private fun FindingRow(finding: SweepFinding, now: Long, demo: Boolean, onClick:
             if (finding.dronePins.isNotEmpty()) Text("${finding.dronePins.size} reported ${if (finding.dronePins.size == 1) "position" else "positions"}", style = MaterialTheme.typography.bodySmall, color = SweepTeal)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("${finding.rssi}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.titleSmall)
-            Text("dBm", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
+            Text(if (Rssi.measured(finding.rssi)) "${finding.rssi}" else "—", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.titleSmall)
+            Text(if (Rssi.measured(finding.rssi)) "dBm" else "unavailable", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
         }
         Icon(Icons.Outlined.ChevronRight, null, tint = SweepMuted, modifier = Modifier.size(17.dp))
     }
@@ -405,9 +415,10 @@ private fun FindingDetail(finding: SweepFinding, demo: Boolean, now: Long, onMap
         }
         Notice(Icons.Outlined.ManageSearch, "What this observation means", finding.interpretation)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Metric("LATEST SIGNAL", "${finding.rssi} dBm", Modifier.weight(1f))
+            Metric("LATEST SIGNAL", if (Rssi.measured(finding.rssi)) "${finding.rssi} dBm" else "Unavailable", Modifier.weight(1f))
             Metric("OBSERVATIONS", finding.observations.toString(), Modifier.weight(1f))
         }
+        SweepSignalChart(finding, demo)
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeading("Observation record")
             KeyValue("First seen", dateTime(finding.firstSeenAt))
@@ -442,10 +453,14 @@ private fun FindingDetail(finding: SweepFinding, demo: Boolean, now: Long, onMap
 }
 
 @Composable
-private fun SessionsScreen(history: List<SweepSession>, now: Long, onSession: (SweepSession) -> Unit, onClear: () -> Unit) {
+private fun SessionsScreen(history: List<SweepSession>, now: Long, onSession: (SweepSession) -> Unit, onClear: () -> Unit, onCompare: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Text("Your scan journal.", style = MaterialTheme.typography.headlineLarge)
         Text("Reports stay on this phone until you choose to share them.", style = MaterialTheme.typography.bodyLarge, color = SweepMuted)
+        OutlinedButton(onClick = onCompare, enabled = history.count { !it.demo && it.state == SweepSessionState.COMPLETE && it.endedAt != null } >= 2, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Icon(Icons.Outlined.CompareArrows, null); Spacer(Modifier.width(8.dp)); Text("Compare two room scans")
+        }
+        if (history.count { !it.demo && it.state == SweepSessionState.COMPLETE && it.endedAt != null } < 2) Text("Complete two real scans to compare newly observed signals. Sample sessions are excluded.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
         if (history.isEmpty()) {
             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(23.dp)).padding(26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Outlined.History, null, tint = SweepTeal, modifier = Modifier.size(36.dp))
@@ -494,6 +509,7 @@ private fun SessionReport(session: SweepSession, now: Long, onFinding: (SweepFin
             KeyValue("Catalog version", session.catalogVersion.toString())
             KeyValue("Bluetooth LE", session.coverage.bleStatus)
             KeyValue("Wi-Fi", session.coverage.wifiStatus)
+            KeyValue("Drone Wi-Fi NAN", "${session.coverage.wifiNanStatus} · ${session.coverage.wifiNanSamples} samples")
             KeyValue("Radio samples", "${session.coverage.bleSamples} BLE · ${session.coverage.wifiSamples} Wi-Fi")
             if (session.coverage.droppedSamples > 0) KeyValue("Dropped samples", session.coverage.droppedSamples.toString())
             if (session.startBattery != null && session.endBattery != null) KeyValue("Battery", "${session.startBattery}% → ${session.endBattery}%")
@@ -686,7 +702,9 @@ private fun InfoDialog(radioEnabled: Boolean, onDismiss: () -> Unit) {
                 Text("Scanning limits", style = MaterialTheme.typography.titleMedium)
                 Text("Wi-Fi and Bluetooth are only part of the radio environment. Silent, wired, cellular and unsupported devices can be invisible. Hidden microphones cannot generally be found with a phone radio scan. A match is an indicator, and an empty scan cannot certify a safe room.")
                 Text("Permissions & privacy", style = MaterialTheme.typography.titleMedium)
-                Text("Android requires location access and location services for Wi-Fi scanning. Nearby-device permission is also required on newer versions. SWEEP does not retain the phone’s GPS position. Reports remain local until you share them. Opening a map passes the selected broadcast coordinate to the external map app.")
+                Text("Android requires location access and location services for Wi-Fi scanning. Nearby-device permission is also required on newer versions. Room scans do not retain the phone’s GPS position. Travel mode records location only if you explicitly enable location correlation before starting it. Reports remain local until you share them. Opening a map passes the selected broadcast coordinate to the external map app.")
+                Text("Travel observations", style = MaterialTheme.typography.titleMedium)
+                Text("Travel is a separately enabled foreground mode for repeated tracker broadcasts. It never starts automatically, and Android interruptions can create gaps. Repeated sightings do not establish stalking. Changed addresses are not linked into a claimed physical identity. End travel mode before using a room scan or radar accessory.")
                 Text("Drones & reported positions", style = MaterialTheme.typography.titleMedium)
                 Text("Only supported Remote ID broadcasts can be decoded. A takeoff point, fixed operator location or control-station coordinate is not a guaranteed current pilot location. Broadcast values can be incomplete, stale or misleading.")
                 Text("Attribution", style = MaterialTheme.typography.titleMedium)
@@ -700,7 +718,7 @@ private fun InfoDialog(radioEnabled: Boolean, onDismiss: () -> Unit) {
 
 @Composable
 private fun PermissionNote() {
-    Notice(Icons.Outlined.Lock, "A note about permissions", "Android requires location access and location services to scan Wi-Fi, plus nearby-device access on newer phones. SWEEP does not retain your phone’s GPS position.")
+    Notice(Icons.Outlined.Lock, "A note about permissions", "Android requires location access and location services to scan Wi-Fi, plus nearby-device access on newer phones. Room scans do not retain your phone’s GPS position. Travel location correlation is a separate opt-in choice.")
 }
 
 @Composable

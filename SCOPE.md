@@ -1,6 +1,6 @@
 # SWEEP — Android alpha and detection scope
 
-Updated October 12, 2026. Codename: SWEEP. Base: [OffGridPete/Fieldwatch](https://github.com/OffGridPete/Fieldwatch), pinned at `844ace8c5c787695977b2c4857e06533603aba95` (app 1.1.26, catalog 95).
+Updated October 13, 2026. Codename: SWEEP. Base: [OffGridPete/Fieldwatch](https://github.com/OffGridPete/Fieldwatch), pinned at `844ace8c5c787695977b2c4857e06533603aba95` (app 1.1.26, catalog 95).
 
 ## Product judgment
 
@@ -43,7 +43,11 @@ Both SWEEP variants offer a **Radar** screen for user-selected Valentine BLE acc
 
 The `sweep` alpha installs separately as `app.fieldwatch.sweep`, labeled **SWEEP**. It includes start/end sessions, four finding views with actual evidence and next checks, local history, searchable catalog, report sharing with names/identifiers and coordinates off by default, deletion, and an offline plot of reported drone positions. A clearly labeled sample mode is never mixed into saved scan history. The service checks a 20-minute session limit while it is running; Android sleep can delay the stop until it resumes.
 
-The SWEEP manifest removes Internet permission. Phone Location permission is needed for Android's scan APIs, but the SWEEP app does not request phone GPS fixes or store the phone's location. External maps and report sharing happen only through explicit user actions. Session storage, sharing and deletion run through one ordered queue; process-killed active checkpoints recover as interrupted, and deletion prevents delayed work from recreating a removed report.
+The SWEEP manifest removes Internet permission. Room scans need Android Location permission but do not request phone GPS fixes or store the phone's location. Optional Travel mode has separate, explicit location-correlation consent. External maps and report sharing happen only through explicit user actions. Session storage, sharing and deletion run through one ordered queue; process-killed active checkpoints recover as interrupted, and deletion prevents delayed work from recreating a removed report.
+
+Alpha 2 adds an explicit comparison of two completed saved scans, with newly observed, not reobserved, shared and unresolved radio identities. Comparisons never equate missing observations with removal or absence. Matching names, signatures or broadcast drone IDs cannot link different addresses into a verified physical device. Each finding retains at most 64 real timestamped signal measurements; older sessions are not backfilled with invented history. The charts show received strength and observation time, not calibrated distance or direction.
+
+Travel is a separately enabled foreground tracker-observation mode with a visible notification and Stop action. It does not auto-start or auto-resume. It stores bounded local history (eight sessions, seven days, up to four hours per run), exact-address familiar-device exclusions and conservative repeated-observation assessments. Optional fresh GPS fixes refer to the observing phone, never to a tracker. Repeated sightings and sightings at distinct phone locations do not establish unwanted tracking. Changed addresses are not linked. Revoking location correlation removes retained phone locations; clearing travel data stops the mode and deletes its sightings, coordinates and exclusions. Default travel reports omit addresses and coordinates. A single process-local radio lease prevents room, Travel and radar modes from overlapping.
 
 The `spike` build has a separate installation ID, `app.fieldwatch.sweep.spike`, and label, `SWEEP Spike`. It starts scanning after a user starts a session. Ending the session stops the service. The normal Fieldwatch build remains available as the comparison instrument.
 
@@ -55,7 +59,7 @@ The spike logs each processed sighting rather than the inherited sampled subset.
 
 ## Handset and transport coverage
 
-Android 10 is the installation floor, not a promise of every Remote ID transport. At this base revision, Wi-Fi IE parsing requires Android 11+; BLE reception remains handset-dependent. Fieldwatch has no Wi-Fi NAN subscriber layer. Do not advertise NAN reception from this fork until implemented and physically verified.
+Android 10 is the installation floor, not a promise of every Remote ID transport. Wi-Fi IE parsing requires Android 11+; BLE reception remains handset-dependent. SWEEP now attempts passive OpenDroneID service discovery through Android Wi-Fi Aware on supported, available handsets with the required permissions. The NAN parser validates protocol-2 message framing separately from BLE and beacon framing. Hardware availability, attachment and a running subscription are distinct from successful reception. NAN supplies no measured RSSI or channel here; its peer handles are session-scoped and cannot establish a permanent device identity. Physical NAN reception remains unverified and must not be marketed as proven handset coverage.
 
 Android limits normal foreground Wi-Fi scan requests to four per two minutes, and results can be cached. Consumer acceptance runs must keep normal throttling on. Developer-unthrottled runs may be recorded separately but cannot establish consumer detection timing. [Android scan rules](https://developer.android.com/develop/connectivity/wifi/wifi-scan).
 
@@ -91,9 +95,27 @@ Initial gates:
 
 ## Privacy and consumer UX
 
-Detection stays on device. The SWEEP application has no Internet permission and does not initialize geocoding, catalog fetching, map resources or TAK publishing. It offers explicit deletion and report sharing, records no phone GPS fixes, and omits names/identifiers and reported drone coordinates from shares by default. External maps and sharing hand selected data to another app only after a user action. The separate inherited Fieldwatch instrument retains its own behavior and permissions.
+Detection stays on device. The offline SWEEP variant has no Internet permission and does not initialize geocoding, catalog fetching, map resources or TAK publishing. Room scans record no phone GPS fixes. Travel mode records optional phone GPS fixes only with its separate consent and supports revocation and deletion. Report shares omit names/identifiers and coordinates by default. External maps and sharing hand selected data to another app only after a user action. The separate inherited Fieldwatch instrument retains its own behavior and permissions.
 
 The alpha shows a compact finding, match evidence and age, handset coverage, and a practical next check. It does not assign made-up confidence probabilities. Raw signal strength supports comparisons while moving; it is not a calibrated meter-distance reading. Actual decoding time is retained separately for reported drone coordinates when available.
+
+## Deferred cellular research
+
+Saved October 12, 2026 at the user's request. IMSI-catcher research is deferred; it is not part of the current alpha or a prerequisite for its release. Revisit when SWEEP has resources for handset testing, specialist equipment and independent cellular-lab validation.
+
+Study [AIMSICD's detector](https://github.com/CellularPrivacy/Android-IMSI-Catcher-Detector/blob/972eedb6690dd12eebef42c146c13ed4634ef04d/AIMSICD/src/main/java/com/secupwn/aimsicd/service/CellTracker.java) and [SeaGlass](https://seaglass.cs.washington.edu/index.html) as research references. AIMSICD's old Android/modem assumptions and disconnected checks do not establish a working modern detector. SeaGlass's external GSM sensors and repeated city-wide measurements found anomalies that were not independently confirmed as IMSI catchers.
+
+The later study should:
+
+1. Write down each proposed clue, the exact observation it needs, and benign explanations. For example, cell changes can be ordinary handovers; absent database entries can be coverage gaps; missing neighbours can be a reporting limitation.
+2. Replay benign, missing, stale and conflicting observations against an independent modern implementation. Measure incorrect warnings before designing consumer alerts. Do not import AIMSICD's GPL code as if it were Fieldwatch's MIT code.
+3. If public Android observations prove useful, prototype a local cellular timeline with explicit capability and measurement-age labels. Do not collect subscriber IMSI or handset IMEI as a substitute for evidence of interception.
+4. Measure false alerts during normal journeys across phones, carriers, dual-SIM configurations and network generations. Normal-route observations and synthetic tests cannot establish catcher sensitivity.
+5. Before making catcher-detection claims, use an authorized, shielded cellular laboratory with independent modem/network ground truth. Keep phone-visible observations separate from events the modem knows but the app cannot access.
+
+Supported Android 16 devices have [mobile-network-security notifications](https://source.android.com/docs/security/features/cellular-security/mobile-network-security) for unencrypted links and identifier disclosures. SWEEP may explain the device's own settings in a future protection guide; ordinary third-party apps do not receive all of those privileged modem events. Identifier disclosures also occur normally. More users can fund research or hardware partnerships, but do not remove Android's API restrictions.
+
+Neither a quiet scan nor an absence of alerts means that a phone, network or location is free of surveillance.
 
 ## Evidence appendix
 

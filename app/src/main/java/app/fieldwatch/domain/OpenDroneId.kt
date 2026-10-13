@@ -7,6 +7,7 @@ package app.fieldwatch.domain
  */
 object OpenDroneId {
     const val BLE_UUID = "FFFA"
+    const val NAN_SERVICE_NAME = "org.opendroneid.remoteid"
     const val WIFI_OUI = "FA:0B:BC"
     const val WIFI_TYPE = 0x0D
     private const val BLE_APP_CODE = 0x0D
@@ -19,6 +20,10 @@ object OpenDroneId {
     fun fromFacts(facts: RadioFacts): PayloadLocation {
         var acc = PayloadLocation()
         for (sd in facts.serviceData) {
+            if (sd.uuid == NAN_SERVICE_NAME) {
+                acc = parseMessages(OpenDroneIdNan.messagesHex(sd.dataHex)).mergeSticky(acc)
+                continue
+            }
             if (uuid16(sd.uuid) != 0xFFFA) continue
             acc = parseMessages(messagesBle(sd.dataHex)).mergeSticky(acc)
         }
@@ -30,11 +35,17 @@ object OpenDroneId {
     }
 
     /**
-     * Wi-Fi vendor IE payloads framed as BLE FFFA ads: `0x0D` + counter + each
-     * 25-byte ASTM message. Stock Remote ID Decode fields maps then apply.
+     * Wi-Fi vendor IE and validated NAN payloads normalized for the existing
+     * FFFA catalog field decoder: `0x0D` + counter + each 25-byte ASTM message.
+     * This internal view does not add a BLE service to the observed radio facts.
      */
     fun wifiFffaPayloads(facts: RadioFacts): List<String> {
         val out = ArrayList<String>()
+        for (sd in facts.serviceData) {
+            if (sd.uuid != NAN_SERVICE_NAME) continue
+            if (OpenDroneIdNan.messagesHex(sd.dataHex).isEmpty()) continue
+            out += wrapWifiAsFffa(sd.dataHex)
+        }
         for (ie in facts.vendorIes) {
             if (!ie.oui.equals(WIFI_OUI, ignoreCase = true) || ie.type != WIFI_TYPE) continue
             out += wrapWifiAsFffa(ie.dataHex)

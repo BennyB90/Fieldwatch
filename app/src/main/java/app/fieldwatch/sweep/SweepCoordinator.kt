@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.wifi.WifiManager
+import android.net.wifi.aware.WifiAwareManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.SystemClock
@@ -20,6 +21,7 @@ import app.fieldwatch.domain.OpenDroneId
 import app.fieldwatch.domain.OperatorLoc
 import app.fieldwatch.domain.PayloadLocation
 import app.fieldwatch.domain.RadioKind
+import app.fieldwatch.radio.WifiNanStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CancellationException
@@ -39,7 +41,7 @@ import java.io.File
 import java.util.UUID
 
 /** On-device session owner. No account, geocoder, maps SDK, phone GPS, or network client. */
-class SweepCoordinator(private val context: Context) {
+class SweepCoordinator(private val context: Context, private val radioGate: SweepRadioGate = SweepRadioGate()) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lock = Any()
     private val store = SweepSessionStore(File(context.filesDir, "sweep-sessions"))
@@ -102,6 +104,8 @@ class SweepCoordinator(private val context: Context) {
     @SuppressLint("MissingPermission")
     private fun refreshCoverageFor(sessionId: String?, serviceInstanceId: String?): SweepCoverage? {
         val wifiSupported = context.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)
+        val nanSupported = context.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE)
+        val nanAvailable = nanSupported && runCatching { context.getSystemService(WifiAwareManager::class.java)?.isAvailable == true }.getOrDefault(false)
         val bleSupported = context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
         val locationPermission = hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
         val locationOn = locationEnabled()
@@ -134,8 +138,9 @@ class SweepCoordinator(private val context: Context) {
             },
             wifiIeAvailable = Build.VERSION.SDK_INT >= 30,
             // API flags do not establish successful Remote ID long-range reception.
-            bleExtendedSupported = null,
-            wifiNanAvailable = false,
+            bleExtendedSupported = if (blePermission) runCatching { adapter?.isLeExtendedAdvertisingSupported }.getOrNull() else null,
+            wifiNanSupported = nanSupported,
+            wifiNanAvailable = nanAvailable,
             ) }
         }
     }
@@ -156,10 +161,14 @@ class SweepCoordinator(private val context: Context) {
             observationsSinceRefresh = 0
             lastDeviceRefreshAt = SystemClock.elapsedRealtime()
             findings.clear()
-            val cleanCoverage = health.copy(wifiSamples = 0, bleSamples = 0, droppedSamples = 0, wifiLastSampleAt = null)
+            val cleanCoverage = health.copy(wifiSamples = 0, bleSamples = 0, wifiNanSamples = 0, wifiNanRunning = false, wifiNanStatus = "Not started", droppedSamples = 0, wifiLastSampleAt = null)
             _coverage.value = cleanCoverage
             _error.value = null
             val id = UUID.randomUUID().toString()
+            if (!radioGate.acquire("scan:$id")) {
+                _error.value = "End travel mode or disconnect the radar accessory before starting a room scan."
+                return
+            }
             check(serviceOwnership.reserve(id))
             _current.value = SweepSession(
                 id = id, startedAt = System.currentTimeMillis(),
@@ -214,7 +223,7 @@ class SweepCoordinator(private val context: Context) {
         val stop = synchronized(lock) {
             val session = _current.value ?: return
             if (session.state != SweepSessionState.ACTIVE) return
-            if (serviceOwnership.releaseUncreated(session.id)) {
+            if (releaseUncreated(session.id)) {
                 cancelStartupWatchdog(session.id)
                 finish(session.id)
                 null
@@ -241,12 +250,20 @@ class SweepCoordinator(private val context: Context) {
         if (SystemClock.elapsedRealtime() - lastDeviceRefreshAt >= 1_000L) refreshDevices()
         // Explicit capacity and dropped count rather than unbounded session memory.
         while (findings.size > 1_000) { findings.remove(findings.minByOrNull { it.value.lastSeenAt }!!.key); noteDropped() }
-        val wifiCount = observations.count { it.kind == RadioKind.WIFI }
+        fun Observation.isNan() = facts.serviceData.any { it.uuid == OpenDroneId.NAN_SERVICE_NAME }
+        val wifiCount = observations.count { it.kind == RadioKind.WIFI && !it.isNan() }
+        val nanCount = observations.count { it.isNan() }
         _coverage.update { it.copy(
             wifiSamples = it.wifiSamples + wifiCount,
-            bleSamples = it.bleSamples + observations.size - wifiCount,
-            wifiLastSampleAt = observations.filter { row -> row.kind == RadioKind.WIFI }.maxOfOrNull { row -> row.at } ?: it.wifiLastSampleAt,
+            bleSamples = it.bleSamples + observations.count { row -> row.kind == RadioKind.BLE },
+            wifiNanSamples = it.wifiNanSamples + nanCount,
+            wifiLastSampleAt = observations.filter { row -> row.kind == RadioKind.WIFI && !row.isNan() }.maxOfOrNull { row -> row.at } ?: it.wifiLastSampleAt,
         ) }
+    }
+
+    fun reportNanStatus(sessionId: String, serviceInstanceId: String, status: WifiNanStatus) = synchronized(lock) {
+        if (!activeServiceMatches(sessionId, serviceInstanceId)) return@synchronized
+        _coverage.update { it.copy(wifiNanSupported = status.supported, wifiNanAvailable = status.available, wifiNanRunning = status.running, wifiNanStatus = status.message) }
     }
 
     fun noteDropped(sessionId: String, serviceInstanceId: String) = synchronized(lock) {
@@ -310,6 +327,7 @@ class SweepCoordinator(private val context: Context) {
         if (!serviceOwnership.owns(sessionId, serviceInstanceId)) return@synchronized
         finish(sessionId, true, "Android ended scanning unexpectedly. This session may be incomplete.")
         serviceOwnership.release(sessionId, serviceInstanceId)
+        radioGate.release("scan:$sessionId")
         serviceStopper = null
         cancelStartupWatchdog(sessionId)
         if (_error.value == SCANNER_STOPPING_MESSAGE) _error.value = null
@@ -324,7 +342,7 @@ class SweepCoordinator(private val context: Context) {
             if (!serviceOwnership.ownsSession(sessionId)) return
             finish(sessionId, true, "Android could not start scanning. Reopen SWEEP and check permissions.")
             cancelStartupWatchdog(sessionId)
-            if (serviceOwnership.releaseUncreated(sessionId)) null else serviceStopper?.takeIf { it.first == sessionId }?.second
+            if (releaseUncreated(sessionId)) null else serviceStopper?.takeIf { it.first == sessionId }?.second
         }
         stop?.invoke(true)
     }
@@ -333,7 +351,7 @@ class SweepCoordinator(private val context: Context) {
         val stop = synchronized(lock) {
             if (!serviceOwnership.awaitingStart(sessionId)) return
             finish(sessionId, true, "Android did not start the scanner. Try starting a new session.")
-            if (serviceOwnership.releaseUncreated(sessionId)) null else serviceStopper?.takeIf { it.first == sessionId }?.second
+            if (releaseUncreated(sessionId)) null else serviceStopper?.takeIf { it.first == sessionId }?.second
         }
         stop?.invoke(true)
     }
@@ -341,6 +359,12 @@ class SweepCoordinator(private val context: Context) {
     private fun cancelStartupWatchdog(sessionId: String) {
         startupWatchdog?.takeIf { it.first == sessionId }?.second?.cancel()
         if (startupWatchdog?.first == sessionId) startupWatchdog = null
+    }
+
+    private fun releaseUncreated(sessionId: String): Boolean {
+        if (!serviceOwnership.releaseUncreated(sessionId)) return false
+        radioGate.release("scan:$sessionId")
+        return true
     }
 
     private fun activeServiceMatches(sessionId: String, serviceInstanceId: String): Boolean =
@@ -508,7 +532,7 @@ internal fun sweepFindingForObservation(
 ): SweepFinding {
     val mapped = SweepMapper.finding(devices.ingest(observation, catalog, 45), catalog)
     val decoded = OpenDroneId.fromFacts(observation.facts)
-    return mapped.copy(dronePins = mapped.dronePins.map { pin ->
+    return SweepSignalHistory.record(mapped, previous, observation.at, observation.rssi, observation.fresh).copy(dronePins = mapped.dronePins.map { pin ->
         pin.copy(observedAt = sweepPinObservationTime(pin, decoded, previous?.dronePins.orEmpty(), observation.at))
     })
 }

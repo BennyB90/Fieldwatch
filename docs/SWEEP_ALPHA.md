@@ -8,6 +8,9 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 - View tracker, camera and drone indicators, other recognized devices and unmatched radio observations. Open a finding for actual match evidence, signal strength, observation age and practical next checks.
 - See reported aircraft and control-station/takeoff/fixed positions on a local coordinate plot. Coordinate decoding time is kept distinct from the latest radio reception. Opening an external maps app requires a tap.
 - Review saved sessions after closing or restarting the app, share a report, delete one session or clear local history.
+- Compare two completed saved room scans. Review newly observed, not reobserved, shared and unresolved addresses alongside the recorded radio coverage. Changed identifiers, missed scans and unequal coverage remain explicit limits.
+- Inspect measured signal history inside a finding. Up to 64 real readings are retained; older reports can have no history. Charts do not provide direction or distance.
+- Enable **Travel** explicitly for repeated tracker observations. Location correlation is off by default and records fresh phone GPS fixes only when separately enabled. A visible foreground notification offers Stop; interruptions never auto-resume. Familiar-address exclusions, location revocation and clearing travel history are available in Travel.
 - Search the complete inherited 254-signature catalog. Entries are recognition rules, not experimentally verified detection counts.
 - Explore a clearly labeled sample session. Sample results are synthetic, do not access radios and are never saved as physical scan history.
 
@@ -22,7 +25,7 @@ adb install -r app/build/outputs/apk/sweep/app-sweep.apk
 
 The app is labeled **SWEEP** and uses the separate package `app.fieldwatch.sweep`. It requires Android 10+ and targets API 35. This alpha is locally debug-signed and non-debuggable, not a Play Store release. Unused library code/resources are shrunk; the verified installer is about 9 MB.
 
-Open SWEEP and tap **Start scan**. Android requests Location and Bluetooth permissions; notifications allow the visible scan notification. Android's Wi-Fi scan API requires Location access and enabled Location services. SWEEP does not request phone GPS fixes or retain the phone's location. An available radio may continue when the other radio is missing, off or denied; the coverage panel describes the limitation. Use Settings to enable missing permissions/radios, then return to SWEEP.
+Open SWEEP and tap **Start scan**. Android requests Location, Bluetooth and applicable Nearby Wi-Fi permissions; notifications allow the visible scan notification. Android's Wi-Fi scan API requires Location access and enabled Location services. Room scans do not request phone GPS fixes or retain the phone's location. Travel location correlation is a separate opt-in choice. An available radio may continue when another radio is missing, off or denied; the coverage panel describes the limitation. Use Settings to enable missing permissions/radios, then return to SWEEP.
 
 ## Local data and sharing
 
@@ -44,6 +47,16 @@ Later on October 12, storage became available and an Android 15 emulator booted 
 
 The app does not hold a wake lock or keep the screen on. The 20-minute limit is checked by the running service rather than an exact wake-up alarm; Android sleep can pause that check and reduce radio coverage. See Android's [CPU wakefulness guidance](https://developer.android.com/develop/background-work/background-tasks/awake) and [Doze behavior](https://developer.android.com/training/monitoring-device-state/doze-standby).
 
-The hardware spike remains required. Camera AP detection depends on the camera's operating mode; Wi-Fi clients, silent/offline recorders, cellular equipment and unsupported radios are outside these scan APIs. Bluetooth long-range reception depends on the handset. Wi-Fi Remote ID vendor fields require Android 11+ here, and a Wi-Fi NAN receiver is not implemented. A matching signal is a clue to investigate, not a room-safety certification or proof of surveillance.
+The hardware spike remains required. Camera AP detection depends on the camera's operating mode; Wi-Fi clients, silent/offline recorders, cellular equipment and unsupported radios are outside these scan APIs. Bluetooth long-range reception depends on the handset. Wi-Fi Remote ID vendor fields require Android 11+ here. The new Wi-Fi NAN discovery path requires handset Wi-Fi Aware availability and permissions, and its protocol-2 framing has software tests. Physical reception is still unverified. A matching signal is a clue to investigate, not a room-safety certification or proof of surveillance.
+
+The new room-comparison and signal-chart interfaces are original implementations inspired by survey and analyzer workflows; no WiGLE or VREM code was copied. Travel observations are an original implementation informed by AirGuard's research and documented limitations; no AirGuard source was copied. Reference projects: [WiGLE](https://github.com/wiglenet/wigle-wifi-wardriving), [WiFiAnalyzer](https://github.com/VREMSoftwareDevelopment/WiFiAnalyzer), [AirGuard](https://github.com/seemoo-lab/AirGuard). The NAN transport follows the [OpenDroneID receiver's service framing](https://github.com/opendroneid/receiver-android) and [Android Wi-Fi Aware lifecycle](https://developer.android.com/develop/connectivity/wifi/wifi-aware).
+
+## Alpha 2 verification on October 13
+
+A full unfiltered run passed 692 JVM tests in each of Debug, Spike and Sweep, and 718 in SweepRadio, with zero failures, errors or skips. All 20 Python evidence-harness tests passed. All four APK variants assembled. Sweep and SweepRadio lint have zero errors and the same 50 inherited warnings. Both delivered APKs are signed and non-debuggable; the offline package has no Internet permission, and neither package requests background location.
+
+An Android 15/API 35 emulator verified the native comparison of two completed scans, Travel start/stop, room-scan exclusion while Travel owns the radios, default location-off with no GPS request, notification navigation to Travel, explicit opt-in GPS requests, removal of active GPS requests after revocation, successful erasure acknowledgment, no auto-resume after force-stop, and clearing Travel history across restart. Permissions were granted through the test harness; permission dialogs and physical handset behavior remain unverified. No physical tracker or drone was exercised. NAN protocol framing and delayed callback fences have software tests, not proof of reception on a handset.
+
+The integration review found and repaired notification navigation and channel visibility, normalized NAN peer-identity collisions, incomplete GPS-erasure visibility/recovery, and stale generic tracker assessments after a saturated phone-address cache. Regression tests cover those failure paths. Physical sensitivity, false positives on real journeys, radio range, NAN handset compatibility, screen-off/Doze behavior and battery drain remain hardware acceptance work.
 
 The rig plan and pending evidence remain in [SCOPE.md](../SCOPE.md) and [spike/README.md](../spike/README.md).

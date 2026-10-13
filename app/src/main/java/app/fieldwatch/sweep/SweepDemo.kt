@@ -31,7 +31,8 @@ object SweepDemo {
             state = SweepSessionState.COMPLETE,
             findings = radios.map { radio ->
                 SweepMapper.finding(radio, fleets).let { finding ->
-                    finding.copy(evidence = listOf(SweepEvidence("Synthetic sample", "Demo data only; no physical device was detected.")) + finding.evidence)
+                    finding.copy(evidence = listOf(SweepEvidence("Synthetic sample", "Demo data only; no physical device was detected.")) + finding.evidence,
+                        signalSamples = listOf(SweepSignalSample(radio.firstSeen, radio.rssi - 8), SweepSignalSample((radio.firstSeen + now) / 2, radio.rssi - 3), SweepSignalSample(now, radio.rssi)))
                 }
             },
             coverage = SweepCoverage(

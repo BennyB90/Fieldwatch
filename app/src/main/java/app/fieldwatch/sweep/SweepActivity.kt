@@ -44,6 +44,7 @@ class SweepActivity : ComponentActivity() {
                     onSettings = ::openSettings, onMap = ::openMap,
                     radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
                     onRadar = ::openRadar,
+                    onTravel = { startActivity(Intent(this, SweepTravelActivity::class.java)) },
                 )
             }
         }
@@ -57,8 +58,8 @@ class SweepActivity : ComponentActivity() {
     }
 
     private fun openRadar() {
-        if (coordinator.hasServiceRequest()) {
-            coordinator.reportError("End the RF scan before connecting a radar accessory.")
+        if ((application as SweepApplication).radioGate.held()) {
+            coordinator.reportError("End the room scan or travel mode before connecting a radar accessory.")
             return
         }
         startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radar.ValentineRadarActivity"))
@@ -68,6 +69,7 @@ class SweepActivity : ComponentActivity() {
         val required = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 31) { required += Manifest.permission.BLUETOOTH_SCAN; required += Manifest.permission.BLUETOOTH_CONNECT }
         if (Build.VERSION.SDK_INT >= 33) required += Manifest.permission.POST_NOTIFICATIONS
+        if (Build.VERSION.SDK_INT >= 33) required += Manifest.permission.NEARBY_WIFI_DEVICES
         if (required.any { !coordinator.hasPermission(it) }) permissions.launch(required.toTypedArray()) else coordinator.start()
     }
 

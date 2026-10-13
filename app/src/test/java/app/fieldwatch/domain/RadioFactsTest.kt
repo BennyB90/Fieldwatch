@@ -67,6 +67,25 @@ class RadioFactsTest {
     }
 
     @Test
+    fun nanShortLocationReplacesLongPackInsteadOfFreezingTheFirstPin() {
+        val initial = RadioFacts(serviceData = listOf(
+            ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, "00" + OpenDroneIdReferenceFixtures.PACK_A),
+        ))
+        val updated = RadioFacts(serviceData = listOf(
+            ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, "01" + OpenDroneIdReferenceFixtures.LOCATION_B),
+        ))
+        val merged = initial.merge(updated)
+        assertEquals(updated.serviceData, merged.serviceData)
+        assertEquals(40.001, OpenDroneId.fromFacts(merged).lat!!, 1e-7)
+        assertEquals(-74.002, OpenDroneId.fromFacts(merged).lon!!, 1e-7)
+        val newSystem = RadioFacts(serviceData = listOf(
+            ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, "02" + OpenDroneIdReferenceFixtures.SYSTEM_B),
+        ))
+        assertEquals(OperatorLoc.LIVE, OpenDroneId.fromFacts(merged.merge(newSystem)).opKind)
+        assertEquals(39.901, OpenDroneId.fromFacts(merged.merge(newSystem)).opLat!!, 1e-7)
+    }
+
+    @Test
     fun otherServiceDataStillKeepsLongerMetadataWhenShortDataArrives() {
         val first = RadioFacts(serviceData = listOf(ServiceDataRecord("FE2C", "AABBCC")))
         val shorter = RadioFacts(serviceData = listOf(ServiceDataRecord("FE2C", "DD")))
