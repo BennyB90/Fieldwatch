@@ -103,4 +103,4 @@ Physical Remote ID reception/map accuracy: **not measured**.
 
 Phone battery drain: **not measured**.
 
-Alpha build and regression-test results are recorded separately in `docs/SWEEP_ALPHA.md`; spike details are in `docs/SPIKE_BUILD.md`. Passing software tests does not satisfy these physical gates. Phone installation and native interface interaction remain unverified because no physical phone was attached and emulator setup exceeded available Mac storage.
+Alpha build and regression-test results are recorded separately in `docs/SWEEP_ALPHA.md`; spike details are in `docs/SPIKE_BUILD.md`. Passing software tests does not satisfy these physical gates. Later Android 15 emulator checks verified limited native navigation and scan start/end/restart; physical phone installation, older Android/OEM compatibility and physical detection performance remain unverified. Optional radio playback software checks are recorded in `docs/SCANNER_RADIO.md` and do not establish police-feed coverage or RF reception.

@@ -21,6 +21,7 @@ class ScannerRadioActivity : ComponentActivity() {
     private val repository get() = (application as ScannerRadioApplication).radio
     private val playback = MutableStateFlow(RadioPlaybackState())
     private val connectionError = MutableStateFlow<String?>(null)
+    private val connected = MutableStateFlow(false)
     private var future: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private val listener = object : Player.Listener {
@@ -36,11 +37,12 @@ class ScannerRadioActivity : ComponentActivity() {
             val loading by repository.loading.collectAsStateWithLifecycle()
             val error by repository.error.collectAsStateWithLifecycle()
             val connection by connectionError.collectAsStateWithLifecycle()
+            val playerConnected by connected.collectAsStateWithLifecycle()
             val playing by playback.collectAsStateWithLifecycle()
             SweepTheme {
                 ScannerRadioScreen(
                     feeds = saved.feeds, playback = playing, networkConsent = allowed, error = error ?: connection,
-                    loading = loading || controller == null, onBack = ::finish,
+                    loading = loading || (!playerConnected && connection == null), onBack = ::finish,
                     onSave = { feed ->
                         if (controller?.currentMediaItem?.mediaId == feed.id) stopPlayback()
                         repository.save(feed)
@@ -63,6 +65,7 @@ class ScannerRadioActivity : ComponentActivity() {
             if (future !== pending || isFinishing || isDestroyed) return@addListener
             runCatching {
                 controller = pending.get().also { it.addListener(listener) }
+                connected.value = true
                 connectionError.value = null
                 updatePlayback()
             }.onFailure { connectionError.value = "The audio player could not connect. Reopen Listen to try again." }
@@ -72,13 +75,17 @@ class ScannerRadioActivity : ComponentActivity() {
     override fun onStop() {
         controller?.removeListener(listener)
         controller = null
+        connected.value = false
         future?.let { MediaController.releaseFuture(it) }; future = null
         super.onStop()
     }
 
     private fun playFeed(id: String) {
         if (!repository.networkConsent.value || repository.loading.value || repository.preferences.value.feeds.none { it.id == id }) return
-        val player = controller ?: return
+        val player = controller ?: run {
+            connectionError.value = "The audio player is connecting. Reopen Listen if it does not become ready."
+            return
+        }
         connectionError.value = null
         if (player.currentMediaItem?.mediaId != id || player.playerError != null || player.playbackState == Player.STATE_ENDED) {
             player.setMediaItem(MediaItem.Builder().setMediaId(id).build())

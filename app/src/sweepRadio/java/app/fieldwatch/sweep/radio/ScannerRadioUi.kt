@@ -57,7 +57,8 @@ fun ScannerRadioScreen(
     var clearAll by rememberSaveable { mutableStateOf(false) }
     var revoke by rememberSaveable { mutableStateOf(false) }
     var consentDialog by rememberSaveable { mutableStateOf(false) }
-    var pendingFeedId by rememberSaveable { mutableStateOf<String?>(null) }
+    // A process/activity recovery must not replay a previously pending Play request.
+    var pendingFeedId by remember { mutableStateOf<String?>(null) }
     val playingFeed = feeds.find { it.id == playback.feedId }
     val filtered = remember(feeds, query, favoritesOnly) {
         feeds.filter { (!favoritesOnly || it.favorite) && (query.isBlank() || "${it.name} ${it.region} ${it.category}".contains(query, ignoreCase = true)) }
@@ -152,7 +153,7 @@ fun ScannerRadioScreen(
                 }
             }
             item(key = "radio_limits") {
-                Text("Stream availability and delay depend on the provider. Broadcast audio can be delayed, interrupted or unavailable. Use official emergency channels when you need help.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
+                Text("Stream availability and delay depend on the provider. Broadcast audio can be delayed, interrupted or unavailable.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
             }
         }
     }
