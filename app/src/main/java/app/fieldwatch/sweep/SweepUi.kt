@@ -48,6 +48,7 @@ private enum class SweepTab(val label: String, val icon: ImageVector) {
     SESSIONS("Sessions", Icons.Outlined.History),
     CATALOG("Catalog", Icons.Outlined.GridView),
     LISTEN("Listen", Icons.Outlined.Headphones),
+    RADAR("Radar", Icons.Outlined.Radar),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +71,7 @@ fun SweepRoot(
     onMap: (SweepPin) -> Unit,
     radioEnabled: Boolean = false,
     onRadio: () -> Unit = {},
+    onRadar: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -130,6 +132,7 @@ fun SweepRoot(
                         selected = tab == item,
                         onClick = {
                             if (item == SweepTab.LISTEN) onRadio()
+                            else if (item == SweepTab.RADAR) onRadar()
                             else { tab = item; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
                         },
                         icon = { Icon(item.icon, contentDescription = null) },
@@ -151,6 +154,7 @@ fun SweepRoot(
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
                         SweepTab.LISTEN -> Unit // Listen is an external route owned by the radio activity.
+                        SweepTab.RADAR -> Unit
                     }
                 }
             }
@@ -675,8 +679,10 @@ private fun InfoDialog(radioEnabled: Boolean, onDismiss: () -> Unit) {
                 Text("SWEEP is an on-demand wireless scanner for Android 10 and later. Detection and reports run on your phone.")
                 if (radioEnabled) {
                     Text("Optional internet audio", style = MaterialTheme.typography.titleMedium)
-                    Text("Listen plays audio streams that you add with the provider’s permission. Listening uses the internet; the chosen provider and any stream host see your connection, including your IP address. You can revoke internet-audio consent in Listen. RF scans and saved scan reports stay local.")
+                    Text("Listen plays authorized streams and recorded calls from a compatible Rdio server. Listening uses the internet; the chosen provider and any stream host see your connection, including your IP address. You can revoke listening consent in Listen. RF scans and saved scan reports stay local.")
                 }
+                Text("Radar accessory", style = MaterialTheme.typography.titleMedium)
+                Text("Radar connects to a compatible external Valentine detector when you choose. The detector senses radar; the phone displays its reported alerts. End an RF scan before connecting. The accessory disconnects when you leave its screen. Hardware compatibility has not yet been tested.")
                 Text("Scanning limits", style = MaterialTheme.typography.titleMedium)
                 Text("Wi-Fi and Bluetooth are only part of the radio environment. Silent, wired, cellular and unsupported devices can be invisible. Hidden microphones cannot generally be found with a phone radio scan. A match is an indicator, and an empty scan cannot certify a safe room.")
                 Text("Permissions & privacy", style = MaterialTheme.typography.titleMedium)

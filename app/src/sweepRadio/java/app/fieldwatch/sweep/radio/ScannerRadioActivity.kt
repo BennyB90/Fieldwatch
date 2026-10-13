@@ -1,6 +1,7 @@
 package app.fieldwatch.sweep.radio
 
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,6 +53,10 @@ class ScannerRadioActivity : ComponentActivity() {
                     onPause = { controller?.pause() }, onStop = ::stopPlayback,
                     onConsent = { allowedNow -> if (!allowedNow) stopPlayback(); repository.setConsent(allowedNow) },
                     onDeleteAll = { stopPlayback(); repository.deleteAll() },
+                    onRdio = {
+                        stopPlayback()
+                        startActivity(Intent(this, app.fieldwatch.sweep.radio.rdio.RdioScannerActivity::class.java))
+                    },
                 )
             }
         }

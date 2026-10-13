@@ -1,0 +1,798 @@
+diff --git a/server/main.go b/server/main.go
+index 872b9f8..aa248a6 100644
+--- a/server/main.go
++++ b/server/main.go
+@@ -132,6 +132,8 @@ func main() {
+ 
+ 	http.HandleFunc("/api/trunk-recorder-call-upload", controller.Api.TrunkRecorderCallUploadHandler)
+ 
++	RegisterSweepHTTP(controller, http.DefaultServeMux)
++
+ 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+ 		url := r.URL.Path[1:]
+ 
+diff --git a/server/sweep_http.go b/server/sweep_http.go
+new file mode 100644
+index 0000000..c0a980c
+--- /dev/null
++++ b/server/sweep_http.go
+@@ -0,0 +1,435 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++// Copyright 2026 SWEEP contributors.
++// Original opt-in HTTP companion, compiled with Rdio Scanner's GPL server.
++// No WebSocket code, admin credentials, stream relay, or automatic polling.
++package main
++
++import (
++	"crypto/subtle"
++	"database/sql"
++	"encoding/json"
++	"fmt"
++	"io"
++	"mime"
++	"net"
++	"net/http"
++	"os"
++	"strings"
++	"sync"
++	"time"
++	"unicode"
++)
++
++const sweepMaxAudio = 8 * 1024 * 1024
++const sweepMaxJSON = 1024 * 1024
++
++type sweepHTTPRequest struct {
++	Pin    string `json:"pin"`
++	Limit  int    `json:"limit,omitempty"`
++	Offset int    `json:"offset,omitempty"`
++	CallID int64  `json:"callId,omitempty"`
++}
++type sweepTalkgroup struct {
++	ID    uint   `json:"id"`
++	Label string `json:"label"`
++	Name  string `json:"name"`
++}
++type sweepSystem struct {
++	ID         uint             `json:"id"`
++	Label      string           `json:"label"`
++	Talkgroups []sweepTalkgroup `json:"talkgroups"`
++}
++type sweepCall struct {
++	ID        int64  `json:"id"`
++	System    uint   `json:"system"`
++	Talkgroup uint   `json:"talkgroup"`
++	DateTime  string `json:"dateTime"`
++}
++type sweepPeerFailures struct {
++	Count int
++	Until time.Time
++}
++type sweepHTTP struct {
++	controller *Controller
++	mutex      sync.Mutex
++	failures   map[string]sweepPeerFailures
++	busy       chan struct{}
++}
++
++// Only the operator can enable this companion; normal upstream behavior is unchanged.
++func RegisterSweepHTTP(controller *Controller, mux *http.ServeMux) {
++	if os.Getenv("SWEEP_RDIO_HTTP") != "1" {
++		return
++	}
++	h := &sweepHTTP{controller: controller, failures: map[string]sweepPeerFailures{}, busy: make(chan struct{}, 8)}
++	for _, route := range []string{"config", "calls", "audio"} {
++		route := route
++		bounded := http.TimeoutHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.serve(w, r, route) }), 20*time.Second, `{"apiVersion":1,"error":"request_timeout"}`)
++		mux.Handle("/sweep-rdio/v1/"+route, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++			w.Header().Set("Cache-Control", "no-store")
++			w.Header().Set("Pragma", "no-cache")
++			w.Header().Set("X-Content-Type-Options", "nosniff")
++			w.Header().Set("Content-Type", "application/json")
++			// A context timeout alone does not unblock a stalled request-body read.
++			// Set this on the real connection before TimeoutHandler wraps the writer.
++			connection := http.NewResponseController(w)
++			if connection.SetReadDeadline(time.Now().Add(5*time.Second)) != nil {
++				sweepHTTPError(w, 503, "body_deadline_unavailable")
++				return
++			}
++			defer connection.SetReadDeadline(time.Time{})
++			bounded.ServeHTTP(w, r)
++		}))
++	}
++}
++
++func (h *sweepHTTP) serve(w http.ResponseWriter, r *http.Request, route string) {
++	w.Header().Set("Cache-Control", "no-store")
++	w.Header().Set("Pragma", "no-cache")
++	w.Header().Set("X-Content-Type-Options", "nosniff")
++	if r.Method != http.MethodPost {
++		sweepHTTPError(w, 405, "post_required")
++		return
++	}
++	// TLS termination on a local reverse proxy is supported. Never trust caller-supplied X-Forwarded-Proto.
++	peer, _, err := net.SplitHostPort(r.RemoteAddr)
++	if err != nil {
++		sweepHTTPError(w, 400, "invalid_request")
++		return
++	}
++	ip := net.ParseIP(peer)
++	if r.TLS == nil && (ip == nil || !ip.IsLoopback()) {
++		sweepHTTPError(w, 403, "https_required")
++		return
++	}
++	if r.URL.RawQuery != "" {
++		sweepHTTPError(w, 400, "body_required")
++		return
++	}
++	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
++	if err != nil || mediaType != "application/json" {
++		sweepHTTPError(w, 415, "json_required")
++		return
++	}
++	select {
++	case h.busy <- struct{}{}:
++		defer func() { <-h.busy }()
++	default:
++		sweepHTTPError(w, 503, "busy")
++		return
++	}
++	r.Body = http.MaxBytesReader(w, r.Body, 8192)
++	defer r.Body.Close()
++	var request sweepHTTPRequest
++	decoder := json.NewDecoder(r.Body)
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF || len([]rune(request.Pin)) > 128 || strings.IndexFunc(request.Pin, func(ch rune) bool { return unicode.IsControl(ch) || unicode.Is(unicode.Cf, ch) }) >= 0 {
++		sweepHTTPError(w, 400, "invalid_request")
++		return
++	}
++	access, status := h.authorizePeer(peer, request.Pin)
++	request.Pin = "" // Never put a PIN in a URL, error, response, or application log.
++	if status != 0 {
++		code := "invalid_or_expired_access"
++		if status == 403 {
++			code = "unsupported_connection_limit_or_scope"
++		} else if status == 429 {
++			code = "access_rate_limited"
++		}
++		sweepHTTPError(w, status, code)
++		return
++	}
++	// Successful requests do not erase failed attempts, so mixed valid/invalid codes cannot bypass throttling.
++	systems, ok := h.scopedSystems(access)
++	if !ok {
++		sweepHTTPError(w, 413, "configuration_too_large")
++		return
++	}
++	switch route {
++	case "config":
++		sweepHTTPJSON(w, map[string]any{"apiVersion": 1, "systems": systems})
++	case "calls":
++		if request.Limit == 0 {
++			request.Limit = 50
++		}
++		if request.Limit < 1 || request.Limit > 100 || request.Offset < 0 || request.Offset > 1000000 {
++			sweepHTTPError(w, 400, "invalid_page")
++			return
++		}
++		h.calls(w, r, systems, request)
++	case "audio":
++		if request.CallID <= 0 {
++			sweepHTTPError(w, 400, "invalid_call")
++			return
++		}
++		h.audio(w, r, systems, request.CallID)
++	default:
++		sweepHTTPError(w, 404, "not_found")
++	}
++}
++
++// Snapshot listener scope under the same access-list lock used by the upstream settings.
++func (h *sweepHTTP) authorize(pin string) (*Access, int) {
++	a := h.controller.Accesses
++	a.mutex.Lock()
++	defer a.mutex.Unlock()
++	if len(a.List) == 0 {
++		return &Access{Systems: "*"}, 0
++	}
++	for _, candidate := range a.List {
++		if subtle.ConstantTimeCompare([]byte(candidate.Code), []byte(pin)) != 1 {
++			continue
++		}
++		if candidate.HasExpired() {
++			return nil, 401
++		}
++		// Stateless POSTs have no listener lease. Reject these codes instead of bypassing their limit.
++		if candidate.Limit > 0 || candidate.Systems == nil {
++			return nil, 403
++		}
++		bytes, err := json.Marshal(candidate.Systems)
++		if err != nil {
++			return nil, 403
++		}
++		copy := &Access{}
++		if json.Unmarshal(bytes, &copy.Systems) != nil {
++			return nil, 403
++		}
++		return copy, 0
++	}
++	return nil, 401
++}
++
++func (h *sweepHTTP) scopedSystems(access *Access) ([]sweepSystem, bool) {
++	result := []sweepSystem{}
++	total := 0
++	systems := h.controller.Systems
++	systems.mutex.Lock()
++	defer systems.mutex.Unlock()
++	for _, system := range systems.List {
++		row := sweepSystem{ID: system.SystemRef, Label: sweepText(system.Label), Talkgroups: []sweepTalkgroup{}}
++		system.Talkgroups.mutex.Lock()
++		for _, talkgroup := range system.Talkgroups.List {
++			if access.HasAccess(&Call{System: system, Talkgroup: talkgroup}) {
++				if len(row.Talkgroups) >= 1000 || total+len(row.Talkgroups) >= 5000 {
++					system.Talkgroups.mutex.Unlock()
++					return nil, false
++				}
++				row.Talkgroups = append(row.Talkgroups, sweepTalkgroup{talkgroup.TalkgroupRef, sweepText(talkgroup.Label), sweepText(talkgroup.Name)})
++			}
++		}
++		system.Talkgroups.mutex.Unlock()
++		if len(row.Talkgroups) == 0 {
++			continue
++		}
++		total += len(row.Talkgroups)
++		if len(row.Talkgroups) > 1000 || total > 5000 || len(result) >= 200 {
++			return nil, false
++		}
++		result = append(result, row)
++	}
++	return result, true
++}
++
++func sweepScope(systems []sweepSystem) (string, []any) {
++	parts := []string{}
++	args := []any{}
++	for _, system := range systems {
++		marks := []string{}
++		args = append(args, system.ID)
++		for _, group := range system.Talkgroups {
++			marks = append(marks, "?")
++			args = append(args, group.ID)
++		}
++		if len(marks) > 0 {
++			parts = append(parts, `(s."systemRef" = ? AND t."talkgroupRef" IN (`+strings.Join(marks, ",")+`))`)
++		}
++	}
++	if len(parts) == 0 {
++		return "0 = 1", nil
++	}
++	return "(" + strings.Join(parts, " OR ") + ")", args
++}
++
++// An ingest writes the call before creating its delayed marker. Enforce the
++// current database delay as well as the marker so that interval (or a failed
++// marker write) cannot expose a call early. A positive talkgroup delay overrides
++// its system delay; upstream delay units are minutes. Decimal arithmetic avoids
++// overflowing PostgreSQL's integer delay column during millisecond conversion.
++const sweepEffectiveDelay = `CASE WHEN t."delay" > 0 THEN t."delay" ELSE s."delay" END`
++const sweepJoinedCalls = ` FROM "calls" c JOIN "systems" s ON s."systemId" = c."systemId" JOIN "talkgroups" t ON t."talkgroupId" = c."talkgroupId" LEFT JOIN "delayed" d ON d."callId" = c."callId" WHERE d."callId" IS NULL AND ((` + sweepEffectiveDelay + `) = 0 OR c."timestamp" <= ? - CAST((` + sweepEffectiveDelay + `) AS DECIMAL(20,0)) * 60000) AND `
++
++func (h *sweepHTTP) querySQL(query string) string {
++	if h.controller.Database.Config.DbType != DbTypePostgresql {
++		return query
++	}
++	index := 0
++	var out strings.Builder
++	for _, ch := range query {
++		if ch == '?' {
++			index++
++			fmt.Fprintf(&out, "$%d", index)
++		} else {
++			out.WriteRune(ch)
++		}
++	}
++	return out.String()
++}
++
++func (h *sweepHTTP) calls(w http.ResponseWriter, r *http.Request, systems []sweepSystem, request sweepHTTPRequest) {
++	where, args := sweepScope(systems)
++	args = append([]any{time.Now().UnixMilli()}, args...)
++	// PostgreSQL defaults to READ COMMITTED, which could count a different
++	// archive than the following page query. Both statements share one snapshot.
++	tx, err := h.controller.Database.Sql.BeginTx(r.Context(), &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
++	if err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	defer tx.Rollback()
++	var count int64
++	if err = tx.QueryRowContext(r.Context(), h.querySQL(`SELECT COUNT(*)`+sweepJoinedCalls+where), args...).Scan(&count); err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	pageArgs := append(append([]any{}, args...), request.Limit, request.Offset)
++	rows, err := tx.QueryContext(r.Context(), h.querySQL(`SELECT c."callId", c."timestamp", s."systemRef", t."talkgroupRef"`+sweepJoinedCalls+where+` ORDER BY c."timestamp" DESC, c."callId" DESC LIMIT ? OFFSET ?`), pageArgs...)
++	if err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	result := []sweepCall{}
++	for rows.Next() {
++		var call sweepCall
++		var timestamp int64
++		if rows.Scan(&call.ID, &timestamp, &call.System, &call.Talkgroup) != nil {
++			rows.Close()
++			sweepHTTPError(w, 500, "server_error")
++			return
++		}
++		call.DateTime = time.UnixMilli(timestamp).UTC().Format(time.RFC3339Nano)
++		result = append(result, call)
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || tx.Commit() != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	var next any = nil
++	if len(result) > 0 && int64(request.Offset+len(result)) < count && request.Offset+len(result) <= 1000000 {
++		next = request.Offset + len(result)
++	}
++	sweepHTTPJSON(w, map[string]any{"apiVersion": 1, "count": count, "limit": request.Limit, "offset": request.Offset, "nextOffset": next, "calls": result})
++}
++
++func (h *sweepHTTP) audio(w http.ResponseWriter, r *http.Request, systems []sweepSystem, id int64) {
++	where, args := sweepScope(systems)
++	args = append([]any{time.Now().UnixMilli()}, args...)
++	args = append(args, id)
++	var size int64
++	query := `SELECT LENGTH(c."audio")` + sweepJoinedCalls + where + ` AND c."callId" = ?`
++	err := h.controller.Database.Sql.QueryRowContext(r.Context(), h.querySQL(query), args...).Scan(&size)
++	if err == sql.ErrNoRows {
++		sweepHTTPError(w, 404, "call_unavailable")
++		return
++	}
++	if err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	if size < 1 || size > sweepMaxAudio {
++		sweepHTTPError(w, 413, "audio_too_large")
++		return
++	}
++	var audio []byte
++	var rawType string
++	query = `SELECT c."audio", c."audioMime"` + sweepJoinedCalls + where + ` AND c."callId" = ? AND LENGTH(c."audio") <= ?`
++	err = h.controller.Database.Sql.QueryRowContext(r.Context(), h.querySQL(query), append(args, sweepMaxAudio)...).Scan(&audio, &rawType)
++	if err == sql.ErrNoRows {
++		sweepHTTPError(w, 404, "call_unavailable")
++		return
++	}
++	if err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	kind, _, err := mime.ParseMediaType(rawType)
++	if err != nil || !sweepAudioType(kind) {
++		sweepHTTPError(w, 415, "unsupported_audio")
++		return
++	}
++	if len(audio) == 0 || len(audio) > sweepMaxAudio {
++		sweepHTTPError(w, 413, "audio_too_large")
++		return
++	}
++	w.Header().Set("Content-Type", kind)
++	w.Header().Set("Content-Length", fmt.Sprint(len(audio)))
++	w.WriteHeader(200)
++	w.Write(audio)
++}
++
++func sweepAudioType(kind string) bool {
++	switch kind {
++	case "audio/mpeg", "audio/mp3", "audio/aac", "audio/mp4", "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg", "audio/flac", "audio/x-flac":
++		return true
++	}
++	return false
++}
++func sweepText(text string) string {
++	clean := []rune(strings.Map(func(ch rune) rune {
++		if unicode.IsControl(ch) || unicode.Is(unicode.Cf, ch) {
++			return -1
++		}
++		return ch
++	}, text))
++	if len(clean) > 120 {
++		clean = clean[:120]
++	}
++	return string(clean)
++}
++func sweepHTTPError(w http.ResponseWriter, status int, code string) {
++	w.Header().Set("Content-Type", "application/json")
++	w.WriteHeader(status)
++	json.NewEncoder(w).Encode(map[string]any{"apiVersion": 1, "error": code})
++}
++func sweepHTTPJSON(w http.ResponseWriter, value any) {
++	data, err := json.Marshal(value)
++	if err != nil {
++		sweepHTTPError(w, 500, "server_error")
++		return
++	}
++	if len(data) > sweepMaxJSON {
++		sweepHTTPError(w, 413, "response_too_large")
++		return
++	}
++	w.Header().Set("Content-Type", "application/json")
++	w.WriteHeader(200)
++	w.Write(data)
++}
++
++// Serialize budget checks and authentication to prevent parallel requests from
++// overshooting the five-failure budget. No upstream path takes this local lock.
++func (h *sweepHTTP) authorizePeer(peer, pin string) (*Access, int) {
++	h.mutex.Lock()
++	defer h.mutex.Unlock()
++	now := time.Now()
++	for key, state := range h.failures {
++		if !now.Before(state.Until) {
++			delete(h.failures, key)
++		}
++	}
++	state, exists := h.failures[peer]
++	if (!exists && len(h.failures) >= 2048) || (exists && state.Count >= 5) {
++		return nil, 429
++	}
++	access, status := h.authorize(pin)
++	if status == 401 {
++		state.Count++
++		if state.Until.IsZero() {
++			state.Until = now.Add(15 * time.Minute)
++		}
++		h.failures[peer] = state
++	}
++	return access, status
++}
+diff --git a/server/sweep_http_test.go b/server/sweep_http_test.go
+new file mode 100644
+index 0000000..1725d3a
+--- /dev/null
++++ b/server/sweep_http_test.go
+@@ -0,0 +1,338 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++// Copyright 2026 SWEEP contributors.
++package main
++
++import (
++	"bufio"
++	"bytes"
++	"crypto/tls"
++	"database/sql"
++	"encoding/json"
++	"fmt"
++	"net"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++)
++
++func sweepFixture(t *testing.T) *sweepHTTP {
++	t.Helper()
++	db, err := sql.Open("sqlite", ":memory:")
++	if err != nil {
++		t.Fatal(err)
++	}
++	db.SetMaxOpenConns(1)
++	t.Cleanup(func() { db.Close() })
++	for _, query := range []string{
++		`CREATE TABLE systems (systemId INTEGER, systemRef INTEGER, delay INTEGER NOT NULL DEFAULT 0)`,
++		`CREATE TABLE talkgroups (talkgroupId INTEGER, systemId INTEGER, talkgroupRef INTEGER, delay INTEGER NOT NULL DEFAULT 0)`,
++		`CREATE TABLE calls (callId INTEGER, systemId INTEGER, talkgroupId INTEGER, timestamp INTEGER, audio BLOB, audioMime TEXT)`,
++		`CREATE TABLE delayed (callId INTEGER, timestamp INTEGER)`,
++		`INSERT INTO systems (systemId, systemRef) VALUES (1,1),(2,2)`,
++		`INSERT INTO talkgroups (talkgroupId, systemId, talkgroupRef) VALUES (11,1,11),(12,1,12),(21,2,21)`,
++		`INSERT INTO delayed VALUES (104,9999999999999)`,
++	} {
++		if _, err := db.Exec(query); err != nil {
++			t.Fatal(err)
++		}
++	}
++	audio := make([]byte, 44)
++	copy(audio, "RIFF")
++	copy(audio[8:], "WAVE")
++	for _, call := range []struct{ id, system, group int }{{101, 1, 11}, {102, 1, 12}, {103, 2, 21}, {104, 1, 11}} {
++		if _, err := db.Exec(`INSERT INTO calls VALUES (?,?,?,?,?,?)`, call.id, call.system, call.group, time.Now().Add(-time.Hour).UnixMilli()+int64(call.id), audio, "audio/wav"); err != nil {
++			t.Fatal(err)
++		}
++	}
++	controller := &Controller{Accesses: NewAccesses(), Systems: NewSystems(), Database: &Database{Config: &Config{DbType: DbTypeSqlite}, Sql: db}}
++	for _, ref := range []uint{1, 2} {
++		system := NewSystem()
++		system.SystemRef = ref
++		system.Label = "System"
++		groups := []uint{11, 12}
++		if ref == 2 {
++			groups = []uint{21}
++		}
++		for _, id := range groups {
++			group := NewTalkgroup()
++			group.TalkgroupRef = id
++			group.Label = "Dispatch"
++			system.Talkgroups.List = append(system.Talkgroups.List, group)
++		}
++		controller.Systems.List = append(controller.Systems.List, system)
++	}
++	controller.Accesses.List = []*Access{{Code: "PRIVATE-PIN", Systems: []any{map[string]any{"id": float64(1), "talkgroups": []any{float64(11)}}}}}
++	return &sweepHTTP{controller: controller, failures: map[string]sweepPeerFailures{}, busy: make(chan struct{}, 8)}
++}
++
++func sweepRequest(h *sweepHTTP, route, body string) *httptest.ResponseRecorder {
++	r := httptest.NewRequest(http.MethodPost, "https://example.test/sweep-rdio/v1/"+route, strings.NewReader(body))
++	r.RemoteAddr = "192.0.2.4:49152"
++	r.TLS = &tls.ConnectionState{}
++	r.Header.Set("Content-Type", "application/json")
++	w := httptest.NewRecorder()
++	h.serve(w, r, route)
++	return w
++}
++
++func TestSweepHTTPConfigContainsOnlyAuthorizedScopeAndNoCredentials(t *testing.T) {
++	h := sweepFixture(t)
++	w := sweepRequest(h, "config", `{"pin":"PRIVATE-PIN"}`)
++	if w.Code != 200 {
++		t.Fatalf("status %d: %s", w.Code, w.Body)
++	}
++	var config struct {
++		Systems []sweepSystem `json:"systems"`
++	}
++	if err := json.Unmarshal(w.Body.Bytes(), &config); err != nil {
++		t.Fatal(err)
++	}
++	if len(config.Systems) != 1 || config.Systems[0].ID != 1 || len(config.Systems[0].Talkgroups) != 1 || config.Systems[0].Talkgroups[0].ID != 11 {
++		t.Fatalf("unscoped metadata: %#v", config)
++	}
++	if strings.Contains(w.Body.String(), "PRIVATE-PIN") {
++		t.Fatal("PIN in response")
++	}
++	if w.Header().Get("Cache-Control") != "no-store" {
++		t.Fatal("missing no-store")
++	}
++}
++
++func TestSweepHTTPCallsAndAudioExcludeUnauthorizedAndDelayedCalls(t *testing.T) {
++	h := sweepFixture(t)
++	w := sweepRequest(h, "calls", `{"pin":"PRIVATE-PIN","limit":50,"offset":0}`)
++	if w.Code != 200 {
++		t.Fatalf("list status %d: %s", w.Code, w.Body)
++	}
++	var result struct {
++		Count int         `json:"count"`
++		Calls []sweepCall `json:"calls"`
++	}
++	json.Unmarshal(w.Body.Bytes(), &result)
++	if result.Count != 1 || len(result.Calls) != 1 || result.Calls[0].ID != 101 {
++		t.Fatalf("unscoped/delayed calls: %#v", result)
++	}
++	if w = sweepRequest(h, "audio", `{"pin":"PRIVATE-PIN","callId":101}`); w.Code != 200 || !bytes.HasPrefix(w.Body.Bytes(), []byte("RIFF")) {
++		t.Fatalf("audio status %d", w.Code)
++	}
++	for _, id := range []string{"102", "103", "104"} {
++		w = sweepRequest(h, "audio", `{"pin":"PRIVATE-PIN","callId":`+id+`}`)
++		if w.Code != 404 {
++			t.Fatalf("unauthorized/delayed call %s returned %d", id, w.Code)
++		}
++	}
++}
++
++func TestSweepHTTPConfiguredDelayProtectsMissingMarkerAndCurrentDelayChanges(t *testing.T) {
++	h := sweepFixture(t)
++	db := h.controller.Database.Sql
++	for _, statement := range []string{
++		`UPDATE systems SET delay = 5 WHERE systemId = 1`,
++		fmt.Sprintf(`UPDATE calls SET timestamp = %d WHERE callId = 101`, time.Now().Add(-2*time.Minute).UnixMilli()),
++	} {
++		if _, err := db.Exec(statement); err != nil {
++			t.Fatal(err)
++		}
++	}
++	assertAvailable := func(available bool) {
++		t.Helper()
++		list := sweepRequest(h, "calls", `{"pin":"PRIVATE-PIN"}`)
++		var result struct {
++			Count int         `json:"count"`
++			Calls []sweepCall `json:"calls"`
++		}
++		if list.Code != 200 || json.Unmarshal(list.Body.Bytes(), &result) != nil {
++			t.Fatalf("list failed: %d %s", list.Code, list.Body)
++		}
++		wantCount, wantStatus := 0, 404
++		if available {
++			wantCount, wantStatus = 1, 200
++		}
++		if result.Count != wantCount || len(result.Calls) != wantCount {
++			t.Fatalf("configured-delay list: %#v; available=%v", result, available)
++		}
++		if audio := sweepRequest(h, "audio", `{"pin":"PRIVATE-PIN","callId":101}`); audio.Code != wantStatus {
++			t.Fatalf("configured-delay audio: %d; want=%d", audio.Code, wantStatus)
++		}
++	}
++	// No delayed row exists for call 101: protect both the ingest-before-marker
++	// interval and a failed marker insertion using the current configured delay.
++	assertAvailable(false)
++	if _, err := db.Exec(`UPDATE talkgroups SET delay = 1 WHERE talkgroupId = 11`); err != nil {
++		t.Fatal(err)
++	}
++	assertAvailable(true) // Positive talkgroup delay overrides the system delay.
++	if _, err := db.Exec(`UPDATE talkgroups SET delay = 3 WHERE talkgroupId = 11`); err != nil {
++		t.Fatal(err)
++	}
++	assertAvailable(false) // An increased delay also hides an older unmarked call.
++	if _, err := db.Exec(`UPDATE talkgroups SET delay = 2147483647 WHERE talkgroupId = 11`); err != nil {
++		t.Fatal(err)
++	}
++	assertAvailable(false) // Millisecond arithmetic must not overflow an int column.
++}
++
++func TestSweepHTTPExpiryRevocationAndConnectionLimitRecheckedPerRequest(t *testing.T) {
++	h := sweepFixture(t)
++	h.controller.Accesses.List[0].Expiration = uint64(time.Now().Add(-time.Minute).Unix())
++	if w := sweepRequest(h, "config", `{"pin":"PRIVATE-PIN"}`); w.Code != 401 {
++		t.Fatalf("expired status %d", w.Code)
++	}
++	h.controller.Accesses.List[0].Expiration = 0
++	h.controller.Accesses.List[0].Limit = 1
++	if w := sweepRequest(h, "config", `{"pin":"PRIVATE-PIN"}`); w.Code != 403 {
++		t.Fatalf("limited status %d", w.Code)
++	}
++	h.controller.Accesses.List[0].Limit = 0
++	h.controller.Accesses.List[0].Code = "REPLACED"
++	if w := sweepRequest(h, "calls", `{"pin":"PRIVATE-PIN"}`); w.Code != 401 {
++		t.Fatalf("revoked status %d", w.Code)
++	}
++}
++
++func TestSweepHTTPInvalidPinRateLimitAndSanitizedErrors(t *testing.T) {
++	h := sweepFixture(t)
++	for i := 0; i < 5; i++ {
++		if w := sweepRequest(h, "config", `{"pin":"private-wrong-secret"}`); w.Code != 401 || strings.Contains(w.Body.String(), "secret") {
++			t.Fatalf("attempt %d: %d %s", i, w.Code, w.Body)
++		}
++	}
++	if w := sweepRequest(h, "config", `{"pin":"PRIVATE-PIN"}`); w.Code != 429 {
++		t.Fatalf("rate limit status %d", w.Code)
++	}
++}
++
++func TestSweepHTTPConcurrentWrongPinsCannotOvershootFailureBudget(t *testing.T) {
++	h := sweepFixture(t)
++	start := make(chan struct{})
++	statuses := make(chan int, 32)
++	var pending sync.WaitGroup
++	for i := 0; i < 32; i++ {
++		pending.Add(1)
++		go func() {
++			defer pending.Done()
++			<-start
++			_, status := h.authorizePeer("192.0.2.4", "WRONG")
++			statuses <- status
++		}()
++	}
++	close(start)
++	pending.Wait()
++	close(statuses)
++	failures, throttled := 0, 0
++	for status := range statuses {
++		switch status {
++		case 401:
++			failures++
++		case 429:
++			throttled++
++		default:
++			t.Fatalf("unexpected status %d", status)
++		}
++	}
++	if failures != 5 || throttled != 27 {
++		t.Fatalf("parallel budget overshot: failures=%d throttled=%d", failures, throttled)
++	}
++	if _, status := h.authorizePeer("192.0.2.4", "PRIVATE-PIN"); status != 429 {
++		t.Fatalf("valid code bypassed failed-attempt budget: %d", status)
++	}
++}
++
++func TestSweepHTTPSlowBodyReadHasConnectionDeadline(t *testing.T) {
++	h := sweepFixture(t)
++	t.Setenv("SWEEP_RDIO_HTTP", "1")
++	mux := http.NewServeMux()
++	RegisterSweepHTTP(h.controller, mux)
++	server := httptest.NewServer(mux)
++	defer server.Close()
++	connections := []net.Conn{}
++	for i := 0; i < 8; i++ {
++		conn, err := net.DialTimeout("tcp", server.Listener.Addr().String(), time.Second)
++		if err != nil {
++			t.Fatal(err)
++		}
++		defer conn.Close()
++		connections = append(connections, conn)
++		if err := conn.SetDeadline(time.Now().Add(8 * time.Second)); err != nil {
++			t.Fatal(err)
++		}
++		// Occupy every slot with a body that never arrives. A context timeout
++		// alone does not unblock these socket reads or release the slots.
++		if _, err := fmt.Fprint(conn, "POST /sweep-rdio/v1/config HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n"); err != nil {
++			t.Fatal(err)
++		}
++	}
++	for _, conn := range connections {
++		response, err := http.ReadResponse(bufio.NewReader(conn), nil)
++		if err != nil {
++			t.Fatalf("body read did not return before the client deadline: %v", err)
++		}
++		response.Body.Close()
++		// Read timeout can cancel the request before the parser's 400 wins.
++		if response.StatusCode != 400 && response.StatusCode != 503 {
++			t.Fatalf("slow body status %d", response.StatusCode)
++		}
++	}
++	client := &http.Client{Timeout: 2 * time.Second}
++	response, err := client.Post(server.URL+"/sweep-rdio/v1/config", "application/json", strings.NewReader(`{"pin":"PRIVATE-PIN"}`))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer response.Body.Close()
++	if response.StatusCode != 200 {
++		t.Fatalf("stalled bodies retained all operation slots: %d", response.StatusCode)
++	}
++}
++
++func TestSweepHTTPPageAndPayloadAndAudioLimits(t *testing.T) {
++	h := sweepFixture(t)
++	for _, body := range []string{`{"pin":"PRIVATE-PIN","limit":101}`, `{"pin":"PRIVATE-PIN","offset":-1}`, `{"pin":"PRIVATE-PIN","unknown":true}`, `{"pin":"PRIVATE-PIN"}{}`} {
++		if w := sweepRequest(h, "calls", body); w.Code != 400 {
++			t.Fatalf("bad page status %d", w.Code)
++		}
++	}
++	if _, err := h.controller.Database.Sql.Exec(`UPDATE calls SET audio = zeroblob(?) WHERE callId = 101`, sweepMaxAudio+1); err != nil {
++		t.Fatal(err)
++	}
++	if w := sweepRequest(h, "audio", `{"pin":"PRIVATE-PIN","callId":101}`); w.Code != 413 {
++		t.Fatalf("large audio status %d", w.Code)
++	}
++}
++
++func TestSweepHTTPUnrestrictedServerAndPagination(t *testing.T) {
++	h := sweepFixture(t)
++	h.controller.Accesses.List = nil
++	w := sweepRequest(h, "calls", `{"pin":"","limit":2,"offset":0}`)
++	var page struct {
++		Count int         `json:"count"`
++		Calls []sweepCall `json:"calls"`
++		Next  *int        `json:"nextOffset"`
++	}
++	if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
++		t.Fatal(err)
++	}
++	if w.Code != 200 || page.Count != 3 || len(page.Calls) != 2 || page.Next == nil || *page.Next != 2 || page.Calls[0].ID != 103 {
++		t.Fatalf("bad first page: %d %#v", w.Code, page)
++	}
++	w = sweepRequest(h, "calls", `{"pin":"","limit":2,"offset":2}`)
++	page.Next = nil
++	json.Unmarshal(w.Body.Bytes(), &page)
++	if len(page.Calls) != 1 || page.Calls[0].ID != 101 || page.Next != nil {
++		t.Fatalf("bad final page: %#v", page)
++	}
++}
++
++func TestSweepHTTPDisabledByDefault(t *testing.T) {
++	h := sweepFixture(t)
++	t.Setenv("SWEEP_RDIO_HTTP", "")
++	mux := http.NewServeMux()
++	RegisterSweepHTTP(h.controller, mux)
++	w := httptest.NewRecorder()
++	mux.ServeHTTP(w, httptest.NewRequest("POST", "https://example.test/sweep-rdio/v1/config", nil))
++	if w.Code != 404 {
++		t.Fatalf("disabled companion status %d", w.Code)
++	}
++}

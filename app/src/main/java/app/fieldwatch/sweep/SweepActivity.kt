@@ -43,6 +43,7 @@ class SweepActivity : ComponentActivity() {
                     onDemo = coordinator::showDemo, onClearDemo = coordinator::clearDemo,
                     onSettings = ::openSettings, onMap = ::openMap,
                     radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
+                    onRadar = ::openRadar,
                 )
             }
         }
@@ -53,6 +54,14 @@ class SweepActivity : ComponentActivity() {
     private fun openRadio() {
         if (!BuildConfig.SWEEP_RADIO_ENABLED) return
         startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radio.ScannerRadioActivity"))
+    }
+
+    private fun openRadar() {
+        if (coordinator.hasServiceRequest()) {
+            coordinator.reportError("End the RF scan before connecting a radar accessory.")
+            return
+        }
+        startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radar.ValentineRadarActivity"))
     }
 
     private fun requestScan() {

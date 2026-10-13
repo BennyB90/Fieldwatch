@@ -12,6 +12,8 @@
             </intent-filter>
         </activity>
         <activity android:name="app.fieldwatch.sweep.radio.ScannerRadioActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
+        <activity android:name="app.fieldwatch.sweep.radio.rdio.RdioScannerActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
+        <activity android:name="app.fieldwatch.sweep.radar.ValentineRadarActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
         <service android:name="app.fieldwatch.sweep.SweepScanService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
         <service android:name="app.fieldwatch.sweep.radio.ScannerRadioService" android:exported="false" android:foregroundServiceType="mediaPlayback">
             <intent-filter><action android:name="androidx.media3.session.MediaSessionService" /></intent-filter>

@@ -35,3 +35,18 @@ as original Fieldwatch source.
 
 Fieldwatch continues the Spectre 1.2.14 field build under a new name,
 application id (app.fieldwatch), and license.
+
+SWEEP's optional Valentine BLE accessory integration uses UUIDs and ESP
+protocol definitions from Valentine Research's Android ESP Library:
+https://github.com/ValentineResearch/AndroidESPLibrary
+Pinned source: 7e2c8492b18f798b8b8345bebf83281627f738ce
+Copyright (c) 2016 Valentine Research, Inc. — MIT License.
+The full license is packaged at app/src/main/assets/licenses/valentine-mit.txt.
+Valentine One is a trademark of Valentine Research; this is an independent
+integration, with physical detector compatibility still to be verified.
+
+The separate operator-installed Rdio HTTP server extension under
+integrations/rdio-http is GPL-3.0-or-later. It is not part of the Android
+APK or Fieldwatch's MIT source grant. Its original Android HTTP client
+does not include Rdio server/client source or access its WebSocket API.
+Rdio Scanner: https://github.com/chuot/rdio-scanner

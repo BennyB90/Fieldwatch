@@ -49,6 +49,7 @@ fun ScannerRadioScreen(
     onStop: () -> Unit,
     onConsent: (Boolean) -> Unit,
     onDeleteAll: () -> Unit,
+    onRdio: () -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var favoritesOnly by rememberSaveable { mutableStateOf(false) }
@@ -110,6 +111,15 @@ fun ScannerRadioScreen(
                     Text("Listening uses the internet. The selected stream provider and its hosts receive your IP address and connection details. RF scans and scan reports stay local.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
                     TextButton(onClick = { if (networkConsent) revoke = true else consentDialog = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 48.dp)) {
                         Text(if (networkConsent) "Revoke listening consent" else "Allow internet audio")
+                    }
+                }
+            }
+            item(key = "rdio_connection") {
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp)).padding(17.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text("Rdio Scanner", style = MaterialTheme.typography.titleMedium)
+                    Text("Browse and play recorded calls from your operator's Rdio server with the SWEEP HTTP extension installed.", style = MaterialTheme.typography.bodyMedium, color = SweepMuted)
+                    OutlinedButton(onClick = onRdio, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(13.dp)) {
+                        Icon(Icons.Outlined.Radio, null, Modifier.size(19.dp)); Spacer(Modifier.width(8.dp)); Text("Connect to Rdio")
                     }
                 }
             }

@@ -26,6 +26,7 @@ docs/GROK_BUILD_PROMPT.md
 research/
 /spike/**/__pycache__/
 /spike/runs/
+/work/
 scripts/.lookup-cache/
 
 # Machine JDK path belongs in JAVA_HOME, not the tree

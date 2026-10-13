@@ -8,7 +8,9 @@ Scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.m
 
 Physical detection rates and battery performance have not yet been measured. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP APK. Sample mode is explicitly synthetic and is excluded from saved scan history.
 
-Optional public-safety listening: build `:app:assembleSweepRadio` for **SWEEP + Radio** (`app.fieldwatch.sweep.radio`). It adds an Internet audio player for user-added, operator-authorized HTTPS feeds, with favorites and explicit listening consent. It ships without a police-feed catalog. The offline scanner remains a separate installer with no Internet permission. [Radio module and feed access](docs/SCANNER_RADIO.md).
+Optional public-safety listening: build `:app:assembleSweepRadio` for **SWEEP + Radio** (`app.fieldwatch.sweep.radio`). It adds Internet playback for operator-authorized HTTPS streams and Rdio recorded calls, with explicit listening consent. Rdio requires the separate [SWEEP HTTP server extension](integrations/rdio-http/README.md); stock Rdio listener playback uses a different transport. It ships without a police-feed catalog. [Radio module and feed access](docs/SCANNER_RADIO.md).
+
+Both SWEEP installers include a foreground Valentine BLE accessory screen for detector-reported alerts. Real radar sensing requires compatible external hardware; physical connections have not yet been verified. The offline scanner retains no Internet permission. [Valentine integration and test limits](docs/VALENTINE_RADAR.md).
 
 ## Original Fieldwatch README
 

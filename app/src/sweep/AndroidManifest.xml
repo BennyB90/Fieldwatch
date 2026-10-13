@@ -12,6 +12,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name="app.fieldwatch.sweep.radar.ValentineRadarActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
         <service android:name="app.fieldwatch.sweep.SweepScanService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
     </application>
 </manifest>
