@@ -163,7 +163,7 @@ private fun TravelScreen(
                 Text("Saved travel sessions", style = MaterialTheme.typography.titleMedium)
                 history.forEach { session -> OutlinedButton(onClick = { selectedId = session.id }, modifier = Modifier.fillMaxWidth()) { Text("${clock.format(Date(session.startedAt))} · ${session.trackers.size} tracker signals") } }
             }
-            Text("Up to four hours per run. Local history is limited to eight sessions and seven days. Closing SWEEP from recents or an Android interruption stops the mode; it never resumes automatically.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
+            Text("Four-hour observation window. Android sleep can delay stopping and reduce coverage. Local history is limited to eight sessions and seven days. Closing SWEEP from recents or an Android interruption stops the mode; it never resumes automatically.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
             TextButton(onClick = { clearDialog = true }, enabled = !clearing) { Text(if (clearing) "Clearing…" else "Clear all travel observations", color = MaterialTheme.colorScheme.error) }
         }
     }

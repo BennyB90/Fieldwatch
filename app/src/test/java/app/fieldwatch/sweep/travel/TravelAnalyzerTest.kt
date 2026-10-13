@@ -4,6 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TravelAnalyzerTest {
+    @Test fun observationWindowRejectsLateEvidenceEvenWhenServiceTeardownWasDelayed() {
+        val trip = session(true)
+        val last = TravelSample(started + TravelLimits.MAX_SESSION_MS - 1, elapsed + TravelLimits.MAX_SESSION_MS - 1, -60)
+        assertEquals(1, TravelSamples.record(trip, address, "Item-finder signal", last, emptySet()).trackers.size)
+        for (overrun in listOf(0L, 1L, 60_000L)) {
+            val late = last.copy(observedAt = started + TravelLimits.MAX_SESSION_MS + overrun,
+                elapsedMs = elapsed + TravelLimits.MAX_SESSION_MS + overrun)
+            assertEquals(trip, TravelSamples.record(trip, address, "Item-finder signal", late, emptySet()))
+        }
+        val observation = app.fieldwatch.domain.Observation(kind = app.fieldwatch.domain.RadioKind.BLE,
+            mac = address, name = "", rssi = -60, channel = 0, frequencyMhz = 0, hiddenSsid = false,
+            serviceUuids = emptyList(), manufacturerId = null, manufacturerDataHex = "", rawHex = "", extras = "",
+            at = last.observedAt, elapsedRealtimeMs = last.elapsedMs)
+        assertNull(TravelSampleTiming.elapsed(observation, trip, started + TravelLimits.MAX_SESSION_MS + 1, elapsed + TravelLimits.MAX_SESSION_MS + 1))
+    }
     private val address = "AA:BB:CC:DD:EE:01"
     private val started = 1_000_000L
     private val elapsed = 10_000L

@@ -82,12 +82,17 @@ internal object TravelSampleTiming {
     fun elapsed(observation: Observation, session: TravelSession, nowWallMs: Long, nowElapsedMs: Long): Long? {
         val measured = observation.elapsedRealtimeMs ?: return null
         return measured.takeIf {
-            observation.kind == RadioKind.BLE && observation.fresh && it > 0 &&
+            observation.kind == RadioKind.BLE && observation.fresh && it > 0 && travelWindowOpen(session, nowElapsedMs) &&
                 it in session.startedElapsedMs..nowElapsedMs &&
                 observation.at in session.startedAt..(nowWallMs + 1_000L)
         }
     }
 }
+
+/** The evidence window closes independently of when Android schedules service teardown. */
+internal fun travelWindowOpen(session: TravelSession, elapsedMs: Long): Boolean =
+    session.state == TravelSessionState.ACTIVE && elapsedMs >= session.startedElapsedMs &&
+        elapsedMs - session.startedElapsedMs in 0L until TravelLimits.MAX_SESSION_MS
 
 internal object TravelPrivacy {
     fun withoutLocations(session: TravelSession, ignored: Set<String> = emptySet()): TravelSession {
@@ -155,7 +160,7 @@ object TravelAnalyzer {
 object TravelSamples {
     fun record(session: TravelSession, address: String, label: String, sample: TravelSample, ignored: Set<String>): TravelSession {
         val identity = normalizedTravelAddress(address) ?: return session
-        if (session.state != TravelSessionState.ACTIVE || identity in ignored || sample.elapsedMs < session.startedElapsedMs || sample.observedAt < session.startedAt) return session
+        if (!travelWindowOpen(session, sample.elapsedMs) || identity in ignored || sample.observedAt < session.startedAt) return session
         val previous = session.trackers.firstOrNull { it.address == identity }
         if (previous == null && session.trackers.size >= TravelLimits.MAX_TRACKERS) return session.copy(droppedSamples = session.droppedSamples + 1)
         if (previous?.samples?.lastOrNull()?.let { sample.elapsedMs - it.elapsedMs < TravelLimits.MIN_SAMPLE_SPACING_MS } == true) return session

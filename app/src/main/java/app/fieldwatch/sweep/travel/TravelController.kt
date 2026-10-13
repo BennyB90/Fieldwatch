@@ -167,8 +167,10 @@ class TravelController(
         )
     }.getOrElse { TravelAvailability(false, "Android notification availability could not be checked. Review SWEEP notifications in Android settings.") }
 
-    fun locationAllowed(): Boolean = current.value?.locationConsent == true && granted(Manifest.permission.ACCESS_FINE_LOCATION) &&
+    private fun locationAccessAvailable(): Boolean = granted(Manifest.permission.ACCESS_FINE_LOCATION) &&
         (context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager)?.isLocationEnabled == true
+
+    fun locationAllowed(): Boolean = current.value?.let { it.locationConsent && travelWindowOpen(it, SystemClock.elapsedRealtime()) } == true && locationAccessAvailable()
 
     fun start(locationConsent: Boolean = false) {
         val available = availability()
@@ -278,7 +280,7 @@ class TravelController(
     }
 
     internal fun reconcileLocationConsent() = synchronized(lock) {
-        if (_current.value?.locationConsent == true && !locationAllowed()) {
+        if (_current.value?.locationConsent == true && !locationAccessAvailable()) {
             redactLocationLocked()
             _error.value = "GPS correlation stopped because location access changed."
         }
