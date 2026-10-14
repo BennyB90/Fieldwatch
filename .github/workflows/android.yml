@@ -103,7 +103,8 @@ jobs:
       - name: Verify SWEEP has no network permission
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/sweep/app-sweep.apk > sweep-permissions.txt
-          python3 -c "from pathlib import Path; assert 'android.permission.INTERNET' not in Path('sweep-permissions.txt').read_text()"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree app/build/outputs/apk/sweep/app-sweep.apk AndroidManifest.xml > sweep-manifest.txt
+          python3 -c "from pathlib import Path; p=Path('sweep-permissions.txt').read_text(); assert 'android.permission.INTERNET' not in p; assert 'android.permission.CHANGE_WIFI_MULTICAST_STATE' not in p; assert 'android.permission.ACCESS_BACKGROUND_LOCATION' not in p; assert 'SweepNetworkActivity' not in Path('sweep-manifest.txt').read_text()"
 
       - name: Upload SWEEP alpha APK
         uses: actions/upload-artifact@v4
@@ -115,7 +116,8 @@ jobs:
       - name: Verify optional radio permissions
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions app/build/outputs/apk/sweepRadio/app-sweepRadio.apk > sweep-radio-permissions.txt
-          python3 -c "from pathlib import Path; p=Path('sweep-radio-permissions.txt').read_text(); assert 'android.permission.INTERNET' in p; assert 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' in p"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree app/build/outputs/apk/sweepRadio/app-sweepRadio.apk AndroidManifest.xml > sweep-radio-manifest.txt
+          python3 -c "from pathlib import Path; p=Path('sweep-radio-permissions.txt').read_text(); assert 'android.permission.INTERNET' in p; assert 'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK' in p; assert 'android.permission.CHANGE_WIFI_MULTICAST_STATE' in p; assert 'android.permission.ACCESS_BACKGROUND_LOCATION' not in p; m=Path('sweep-radio-manifest.txt').read_text(); assert 'SweepNetworkActivity' in m; assert 'android.net.VpnService' not in m"
 
       - name: Upload SWEEP with radio APK
         uses: actions/upload-artifact@v4

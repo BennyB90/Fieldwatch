@@ -3,6 +3,7 @@
     <uses-feature android:name="android.hardware.wifi.aware" android:required="false" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <application android:name="app.fieldwatch.sweep.radio.ScannerRadioApplication" android:icon="@mipmap/ic_sweep" android:roundIcon="@mipmap/ic_sweep" android:usesCleartextTraffic="false" tools:replace="android:name,android:icon,android:roundIcon">
         <activity android:name="app.fieldwatch.MainActivity" tools:node="remove" />
         <service android:name="app.fieldwatch.radio.ScanService" tools:node="remove" />
@@ -16,6 +17,7 @@
         <activity android:name="app.fieldwatch.sweep.radio.rdio.RdioScannerActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
         <activity android:name="app.fieldwatch.sweep.radar.ValentineRadarActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
         <activity android:name="app.fieldwatch.sweep.SweepTravelActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
+        <activity android:name="app.fieldwatch.sweep.network.SweepNetworkActivity" android:exported="false" android:launchMode="singleTop" android:theme="@style/Theme.Fieldwatch" />
         <service android:name="app.fieldwatch.sweep.travel.TravelObservationService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
         <service android:name="app.fieldwatch.sweep.SweepScanService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
         <service android:name="app.fieldwatch.sweep.radio.ScannerRadioService" android:exported="false" android:foregroundServiceType="mediaPlayback">

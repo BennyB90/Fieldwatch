@@ -28,10 +28,11 @@ android {
         applicationId = "app.fieldwatch"
         minSdk = 29
         targetSdk = 35
-        versionCode = 36
+        versionCode = 37
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
+        buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "false")
     }
 
     val releaseStore = localProp("FIELDWATCH_STORE_FILE")
@@ -90,7 +91,7 @@ android {
         create("sweep") {
             initWith(getByName("spike"))
             applicationIdSuffix = ".sweep"
-            versionNameSuffix = "-sweep-alpha.2"
+            versionNameSuffix = "-sweep-alpha.3"
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
@@ -99,8 +100,9 @@ android {
         create("sweepRadio") {
             initWith(getByName("sweep"))
             applicationIdSuffix = ".sweep.radio"
-            versionNameSuffix = "-sweep-radio-alpha.2"
+            versionNameSuffix = "-sweep-radio-alpha.3"
             buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
+            buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "true")
             matchingFallbacks += listOf("sweep", "spike", "debug")
         }
     }

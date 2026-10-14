@@ -56,3 +56,5 @@ Duplicate the pending battery record with a new ID for every additional phone/se
 - An RF indicator does not establish a hidden camera, actual operator identity, precise distance, or a physical device's absence. Silent, unsupported, offline, and wired devices may be invisible. Only observations supported by the completed rig belong in the evidence appendix.
 
 The fixed matrix and thresholds are `sweep-spike-v1`. Changes to targets, trial counts, environments, scan duration, freshness, or source semantics require a new protocol rather than editing a successful subset into this one.
+
+The separate [actual-recorder mode and A/B room protocol](recorder-protocol.md) and `recorder-template.json` preregister hotspot, connected-client, and offline-recording tests, with BLE only when the inventoried device supports it. They contain pending plans only and are not inputs to this spike's summarizer.

@@ -45,6 +45,7 @@ class SweepActivity : ComponentActivity() {
                     radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
                     onRadar = ::openRadar,
                     onTravel = { startActivity(Intent(this, SweepTravelActivity::class.java)) },
+                    networkEnabled = BuildConfig.SWEEP_NETWORK_ENABLED, onNetwork = ::openNetwork,
                 )
             }
         }
@@ -57,9 +58,14 @@ class SweepActivity : ComponentActivity() {
         startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radio.ScannerRadioActivity"))
     }
 
+    private fun openNetwork() {
+        if (!BuildConfig.SWEEP_NETWORK_ENABLED) return
+        startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.network.SweepNetworkActivity"))
+    }
+
     private fun openRadar() {
         if ((application as SweepApplication).radioGate.held()) {
-            coordinator.reportError("End the room scan or travel mode before connecting a radar accessory.")
+            coordinator.reportError("End the room scan, Travel or network discovery before connecting a radar accessory.")
             return
         }
         startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radar.ValentineRadarActivity"))

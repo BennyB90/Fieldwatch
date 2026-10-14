@@ -13,6 +13,7 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 - Enable **Travel** explicitly for repeated tracker observations. Location correlation is off by default and records fresh phone GPS fixes only when separately enabled. A visible foreground notification offers Stop; interruptions never auto-resume. Familiar-address exclusions, location revocation and clearing travel history are available in Travel.
 - Search the complete inherited 254-signature catalog. Entries are recognition rules, not experimentally verified detection counts.
 - Explore a clearly labeled sample session. Sample results are synthetic, do not access radios and are never saved as physical scan history.
+- In **SWEEP + Radio**, open **Network** for authorized Wi-Fi service discovery and generic router JSON imports. Live discovery requires Android 13+; imported inventories and saved snapshots support Android 10+. Service records are candidates for investigation, without recorder classification. See [network discovery](NETWORK_DISCOVERY.md).
 
 ## Installation
 
@@ -30,6 +31,8 @@ Open SWEEP and tap **Start scan**. Android requests Location, Bluetooth and appl
 ## Local data and sharing
 
 The SWEEP manifest removes Internet permission. No account, cloud upload, catalog fetch, geocoder, map SDK, analytics client, or TAK publisher runs in the SWEEP application. The normal Fieldwatch build remains an independent comparison instrument.
+
+The separate **SWEEP + Radio** build has Internet and multicast permissions for explicit network discovery and listening. Network discovery ends when its screen leaves view, retains at most 20 local snapshots for seven days on load/write, and shares the existing radio-mode lock. Android cleanup must be confirmed before another live scan can acquire that lock. Router imports accept a bounded generic JSON schema, with reported capture times separate from phone import times. Network reports omit identifying evidence by default. No VPN traffic capture, endpoint connection or router login is implemented.
 
 Sessions are stored in the app-private directory with atomic replacement. The store retains up to 100 sessions and 1,000 recent radio findings per session. Active sessions are checkpointed; a process-killed session is recovered as interrupted, never silently resumed or marked complete. A new scan waits for the previous scanner's cleanup, and callbacks are tied to their original session and service instance. Android may terminate a scan or omit radio traffic; dropped samples and incomplete coverage remain visible.
 
@@ -60,3 +63,13 @@ An Android 15/API 35 emulator verified the native comparison of two completed sc
 The integration review found and repaired notification navigation and channel visibility, normalized NAN peer-identity collisions, incomplete GPS-erasure visibility/recovery, and stale generic tracker assessments after a saturated phone-address cache. Regression tests cover those failure paths. A final regression also fences the four-hour Travel evidence window independently of delayed Android teardown, and the service checks expiration before GPS/notice work. Physical sensitivity, false positives on real journeys, radio range, NAN handset compatibility, screen-off/Doze behavior and battery drain remain hardware acceptance work.
 
 The rig plan and pending evidence remain in [SCOPE.md](../SCOPE.md) and [spike/README.md](../spike/README.md).
+
+## Alpha 3 network verification on October 13
+
+A full unfiltered run passed 734 JVM tests in each of Debug, Spike and Sweep, and 760 in SweepRadio, with zero failures, errors or skips. All 20 Python evidence-harness tests passed. All four APKs assembled. Both SWEEP variants have zero lint errors and the same 50 inherited warnings. Version code 37 installers are signed and non-debuggable; the offline variant has neither Internet nor multicast permission nor a Network activity, and neither variant requests background location. No VPN service is declared.
+
+The Android 15/API35 emulator exercised the actual Network screen and authorization checkbox, discovery of a clearly synthetic Android DNS-SD advertisement, resolution to that fixture's addresses and port 54321, manual Stop and subsequent Start, interruption when leaving the screen, force-stop recovery with unknown duration and no automatic restart, generic router JSON import with separate capture/import times, rejection of unsupported credential fields without replacing valid evidence, and default-off identifying evidence in the share dialog. Android's native service-discovery state independently showed no remaining SWEEP requests after manual Stop and settled screen exit. Clearing network history remained empty after process restart. No report was sent to a recipient.
+
+The integration review and native run found and repaired Unicode-name/storage mismatches, synthetic timeout timestamps masquerading as Android receipts, cross-session native resolution overlap, unresolved cleanup after failed Stop calls, a premature stopped-status callback during restart, and Android's leading-dot resolved-service type format. Failed cleanup now retains handles and the original radio lease, with bounded cleanup-only retries and a visible recovery path. Source/network rejection remains strict.
+
+These checks establish software behavior on one emulator. They do not establish physical recorder detection, fresh on-air reception, real-router completeness, API33/OEM compatibility, VPN-change behavior on actual phones, range, false-alert rates or battery consumption. The [network guide](NETWORK_DISCOVERY.md) and [actual-recorder protocol](../spike/recorder-protocol.md) describe the capability limits and pending hardware evidence.

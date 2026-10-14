@@ -75,6 +75,8 @@ fun SweepRoot(
     onRadio: () -> Unit = {},
     onRadar: () -> Unit = {},
     onTravel: () -> Unit = {},
+    networkEnabled: Boolean = false,
+    onNetwork: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -122,8 +124,11 @@ fun SweepRoot(
                     Box(Modifier.size(36.dp).background(SweepInk, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Outlined.WifiTethering, contentDescription = null, tint = Color(0xFF9FE2C8), modifier = Modifier.size(22.dp))
                     }
-                    Text("SWEEP", fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, letterSpacing = 2.sp, modifier = Modifier.padding(start = 10.dp).weight(1f))
-                    TinyTag(if (radioEnabled) "LOCAL SCANS" else "ON DEVICE", SweepPale, SweepInk)
+                    Text("SWEEP", fontWeight = FontWeight.ExtraBold, fontSize = 23.sp, letterSpacing = 2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
+                    if (!networkEnabled) TinyTag(if (radioEnabled) "LOCAL SCANS" else "ON DEVICE", SweepPale, SweepInk)
+                }
+                if (networkEnabled && !inDetail) IconButton(onClick = onNetwork, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Outlined.Lan, contentDescription = "Local network discovery", tint = SweepMuted)
                 }
                 IconButton(onClick = { showInfo = true }, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Outlined.Info, contentDescription = "About, privacy and scanning limits", tint = SweepMuted)
@@ -704,7 +709,11 @@ private fun InfoDialog(radioEnabled: Boolean, onDismiss: () -> Unit) {
                 Text("Permissions & privacy", style = MaterialTheme.typography.titleMedium)
                 Text("Android requires location access and location services for Wi-Fi scanning. Nearby-device permission is also required on newer versions. Room scans do not retain the phone’s GPS position. Travel mode records location only if you explicitly enable location correlation before starting it. Reports remain local until you share them. Opening a map passes the selected broadcast coordinate to the external map app.")
                 Text("Travel observations", style = MaterialTheme.typography.titleMedium)
-                Text("Travel is a separately enabled foreground mode for repeated tracker broadcasts. It never starts automatically, and Android interruptions can create gaps. Repeated sightings do not establish stalking. Changed addresses are not linked into a claimed physical identity. End travel mode before using a room scan or radar accessory.")
+                Text("Travel is a separately enabled foreground mode for repeated tracker broadcasts. It never starts automatically, and Android interruptions can create gaps. Repeated sightings do not establish stalking. Changed addresses are not linked into a claimed physical identity. End travel mode before using a room scan, network discovery or radar accessory.")
+                if (radioEnabled) {
+                    Text("Local network discovery", style = MaterialTheme.typography.titleMedium)
+                    Text("The network button requests advertised services on your authorized Wi-Fi network while its screen is visible. Live scoped discovery requires Android 13+. Results can be cached and do not list every client, confirm recording or inspect encrypted storage. Router exports are separately labeled reports. No VPN traffic capture is included.")
+                }
                 Text("Drones & reported positions", style = MaterialTheme.typography.titleMedium)
                 Text("Only supported Remote ID broadcasts can be decoded. A takeoff point, fixed operator location or control-station coordinate is not a guaranteed current pilot location. Broadcast values can be incomplete, stale or misleading.")
                 Text("Attribution", style = MaterialTheme.typography.titleMedium)
