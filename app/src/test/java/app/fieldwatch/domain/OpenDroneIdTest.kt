@@ -2,9 +2,56 @@ package app.fieldwatch.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OpenDroneIdTest {
+    @Test
+    fun malformedPacksCannotProducePartialRemoteIdEvidence() {
+        val pack = OpenDroneIdReferenceFixtures.PACK_A
+        val invalid = listOf(
+            pack.replaceRange(2, 4, "01"), // Declared message size must be 25.
+            pack.dropLast(2), // Entire declared pack must be present.
+            pack.replaceRange(4, 6, "00"),
+            pack.replaceRange(4, 6, "0A"),
+            pack + "00", // No ignored trailing byte within a framed payload.
+            pack.replaceRange(6, 8, "F2"), // A pack cannot contain another pack.
+            "F21902" + OpenDroneIdReferenceFixtures.LOCATION_A.repeat(2),
+            OpenDroneIdReferenceFixtures.LOCATION_A + "AB",
+        )
+        invalid.forEach { payload ->
+            val ble = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", "0D00$payload")))
+            val wifi = RadioFacts(vendorIes = listOf(VendorIeRecord("FA:0B:BC", 0x0D, "00$payload")))
+            assertEquals(payload, PayloadLocation(), OpenDroneId.fromFacts(ble))
+            assertEquals(payload, PayloadLocation(), OpenDroneId.fromFacts(wifi))
+            assertTrue(OpenDroneId.wifiFffaPayloads(wifi).isEmpty())
+        }
+    }
+
+    @Test
+    fun maximumReferencePackAndCompatibleHeaderVersionDecode() {
+        val payload = OpenDroneIdReferenceFixtures.PACK_MAX
+        assertEquals(3 + 9 * 25, payload.length / 2)
+        listOf(payload, payload.replaceRange(0, 2, "F3")).forEach { pack ->
+            val loc = OpenDroneId.fromFacts(RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", "0D00$pack"))))
+            assertEquals(40.0, loc.lat!!, 1e-7)
+            assertEquals(39.9, loc.opLat!!, 1e-7)
+            assertEquals("1581F3YTDJ1D0031Z530", loc.uasId)
+        }
+    }
+
+    @Test
+    fun onlyTheBluetoothUuidNamespaceCanSelectRemoteIdDecoding() {
+        val payload = "0D00" + OpenDroneIdReferenceFixtures.LOCATION_A
+        fun decode(uuid: String) = OpenDroneId.fromFacts(RadioFacts(serviceData = listOf(ServiceDataRecord(uuid, payload))))
+        listOf("FFFA", "0000FFFA", "0000FFFA-0000-1000-8000-00805F9B34FB").forEach {
+            assertEquals(40.0, decode(it).lat!!, 1e-7)
+        }
+        listOf("FFFA1234-1234-5678-1234-567812345678", "0000FFFA-1234-5678-1234-567812345678").forEach {
+            assertEquals(PayloadLocation(), decode(it))
+        }
+    }
+
     @Test
     fun bleLocationHeadingSpeedAndEw() {
         val loc = OpenDroneId.fromFacts(

@@ -6,6 +6,15 @@ import org.junit.Test
 
 class RadioFactsTest {
     @Test
+    fun customUuidWithRemoteIdPrefixCannotReplaceBluetoothRemoteIdPayload() {
+        val remote = ServiceDataRecord("FFFA", "0D00" + OpenDroneIdReferenceFixtures.LOCATION_A)
+        val custom = ServiceDataRecord("0000FFFA-1234-5678-1234-567812345678", "0D00" + OpenDroneIdReferenceFixtures.LOCATION_B)
+        val merged = RadioFacts(serviceData = listOf(remote)).merge(RadioFacts(serviceData = listOf(custom)))
+        assertEquals(2, merged.serviceData.size)
+        assertEquals(40.0, OpenDroneId.fromFacts(merged).lat!!, 1e-7)
+    }
+
+    @Test
     fun connectableYesSurvivesScanResponse() {
         val adv = RadioFacts(connectable = true)
         val scanRsp = RadioFacts(connectable = false)

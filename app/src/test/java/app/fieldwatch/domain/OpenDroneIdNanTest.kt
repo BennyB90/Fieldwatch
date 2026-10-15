@@ -71,6 +71,32 @@ class OpenDroneIdNanTest {
         assertTrue(facts.vendorIes.isEmpty())
     }
 
+    @Test fun duplicatePackFieldsCannotProduceConflictingNanEvidence() {
+        val invalid = listOf(
+            "F21902" + OpenDroneIdReferenceFixtures.LOCATION_A.repeat(2),
+            "F21902" + OpenDroneIdReferenceFixtures.SYSTEM_A.repeat(2),
+            "F21903" + OpenDroneIdReferenceFixtures.BASIC.repeat(3),
+        )
+        invalid.forEach { pack ->
+            val payload = "00$pack"
+            val facts = RadioFacts(serviceData = listOf(ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, payload)))
+            assertTrue(OpenDroneIdNan.messagesHex(payload).isEmpty())
+            assertEquals(PayloadLocation(), OpenDroneId.fromFacts(facts))
+            assertTrue(OpenDroneId.wifiFffaPayloads(facts).isEmpty())
+        }
+    }
+
+    @Test fun maximumReferencePackHasTheSameNanDecodedAndNormalizedEvidence() {
+        val payload = "00" + OpenDroneIdReferenceFixtures.PACK_MAX
+        val facts = RadioFacts(serviceData = listOf(ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, payload)))
+        assertEquals(9, OpenDroneIdNan.messagesHex(payload).size)
+        assertEquals(9, OpenDroneId.wifiFffaPayloads(facts).size)
+        val decoded = OpenDroneId.fromFacts(facts)
+        assertEquals(40.0, decoded.lat!!, 1e-7)
+        assertEquals(39.9, decoded.opLat!!, 1e-7)
+        assertEquals("1581F3YTDJ1D0031Z530", decoded.uasId)
+    }
+
     @Test fun malformedHexAndCopiesAreSafe() {
         for (hex in listOf("0", "GG", " ", "0D" + "ZZ".repeat(25), "+D" + OpenDroneIdReferenceFixtures.LOCATION_B)) {
             assertTrue(OpenDroneIdNan.messagesHex(hex).isEmpty())

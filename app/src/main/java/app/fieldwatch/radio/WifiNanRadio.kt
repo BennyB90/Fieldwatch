@@ -192,6 +192,7 @@ class WifiNanRadio(
                         manufacturerDataHex = "", rawHex = bytes.toHexUpper(),
                         extras = "Wi-Fi NAN; session-scoped peer identity; RSSI and channel unavailable",
                         at = System.currentTimeMillis(), fresh = true,
+                        elapsedRealtimeMs = SystemClock.elapsedRealtime(),
                         facts = RadioFacts(addressType = "Wi-Fi NAN peer handle", wifiStandard = "Wi-Fi NAN",
                             serviceData = listOf(ServiceDataRecord(OpenDroneId.NAN_SERVICE_NAME, bytes.toHexUpper()))),
                     )

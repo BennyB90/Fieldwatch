@@ -273,7 +273,7 @@ class DeviceStoreTest {
         assertNull(module.payloadAircraft)
 
         val packMac = "AA:BB:CC:DD:EE:15"
-        val pack = "0D00" + basicIdService(1, "1914CL2D230001").removePrefix("0D00") + location.removePrefix("0D00")
+        val pack = "0D00F21902" + basicIdService(1, "1914CL2D230001").removePrefix("0D00") + location.removePrefix("0D00")
         store.ingestBatch(
             listOf(ble(packMac, name = "", facts = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", pack))))),
             fleets,

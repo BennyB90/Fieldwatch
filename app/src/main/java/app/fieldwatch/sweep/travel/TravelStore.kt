@@ -41,6 +41,10 @@ class TravelStore(private val directory: File, private val replaceFile: (File, F
 
     /** The owner may fence the final replacement against a concurrent privacy mutation. */
     @Synchronized fun save(archive: TravelArchive, now: Long, commit: (() -> Unit) -> Boolean = { replace -> replace(); true }): Boolean {
+        // Do not turn an unreadable original into an apparently empty history.
+        // Validation also protects callers if the archive is damaged after load.
+        // Explicit deleteAll() is the only recovery that discards that original.
+        if (archiveFile.exists()) load(now)
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Unable to create travel storage")
         var clean = bounded(archive, now)
         var encoded = json.encodeToString(clean)
@@ -64,7 +68,8 @@ class TravelStore(private val directory: File, private val replaceFile: (File, F
         const val MAX_BYTES = 4 * 1024 * 1024
         fun bounded(archive: TravelArchive, now: Long): TravelArchive = archive.copy(
             ignoredAddresses = archive.ignoredAddresses.mapNotNull(::normalizedTravelAddress).take(TravelLimits.MAX_IGNORED).toSet(),
-            sessions = archive.sessions.filter { it.startedAt in (now - TravelLimits.RETENTION_MS)..now }.distinctBy { it.id }
+            // A backwards phone-clock correction must not erase already collected evidence.
+            sessions = archive.sessions.filter { it.startedAt >= now - TravelLimits.RETENTION_MS }.distinctBy { it.id }
                 .sortedByDescending { it.startedAt }.take(TravelLimits.MAX_SESSIONS).map { session ->
                     val trackers = session.trackers.take(TravelLimits.MAX_TRACKERS).map { tracker ->
                         tracker.copy(label = tracker.label.take(80), samples = tracker.samples.takeLast(TravelLimits.MAX_SAMPLES_PER_TRACKER).map {

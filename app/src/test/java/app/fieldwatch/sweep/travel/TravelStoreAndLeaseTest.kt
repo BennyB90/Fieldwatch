@@ -27,6 +27,24 @@ class TravelStoreAndLeaseTest {
         } finally { directory.deleteRecursively() }
     }
 
+    @Test fun backwardsClockCorrectionDoesNotDeleteTheInterruptedEvidence() {
+        val directory = Files.createTempDirectory("travel-backwards-clock").toFile()
+        try {
+            val beforeCorrection = archive().sessions.single()
+            val interrupted = beforeCorrection.copy(state = TravelSessionState.INTERRUPTED, endedAt = null,
+                error = app.fieldwatch.sweep.SessionTimeWindow.CLOCK_CHANGED_MESSAGE)
+            val correctedNow = now - 3_600_000L
+            val store = TravelStore(directory)
+            assertTrue(store.save(TravelArchive(listOf(interrupted)), correctedNow))
+            val recovered = store.load(correctedNow).sessions.single()
+            assertEquals(interrupted, recovered)
+            assertNull(recovered.endedAt)
+            assertEquals(beforeCorrection.trackers, recovered.trackers)
+            // Retention resumes normally once wall time advances beyond the saved session.
+            assertTrue(store.load(now + TravelLimits.RETENTION_MS + 1).sessions.isEmpty())
+        } finally { directory.deleteRecursively() }
+    }
+
     @Test fun deletionRemovesSamplesCoordinatesAndIncompleteRecoveryFile() {
         val directory = Files.createTempDirectory("travel-delete").toFile()
         val store = TravelStore(directory)
@@ -74,6 +92,44 @@ class TravelStoreAndLeaseTest {
             assertFalse(store.save(archive(), now) { false })
             assertTrue(TravelPrivacy.coordinateFree(store.load(now)))
             assertFalse(File(directory, "observations.pending").exists())
+        } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun unreadableHistoryCannotBeReplacedUntilExplicitReset() {
+        val directory = Files.createTempDirectory("travel-unreadable-history").toFile()
+        try {
+            val store = TravelStore(directory)
+            val file = File(directory, "observations.json")
+            val damaged = "{unfinished original with private coordinates 40.1,-74.1"
+            file.writeText(damaged)
+            assertTrue(runCatching { store.load(now) }.isFailure)
+            assertTrue(runCatching { store.save(archive(), now) }.isFailure)
+            assertEquals(damaged, file.readText())
+            assertFalse(File(directory, "observations.pending").exists())
+
+            store.deleteAll()
+            assertTrue(store.save(archive(), now))
+            assertEquals("trip", store.load(now).sessions.single().id)
+        } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun damageAfterLoadCannotTurnAnErasureRetryIntoImplicitHistoryReset() {
+        val directory = Files.createTempDirectory("travel-damaged-erasure").toFile()
+        try {
+            val store = TravelStore(directory)
+            store.save(archive(), now)
+            val previouslyLoaded = store.load(now)
+            val file = File(directory, "observations.json")
+            val damaged = "{damaged after load; original evidence still retained"
+            file.writeText(damaged)
+            store.markLocationErasurePending()
+            val redacted = previouslyLoaded.copy(sessions = previouslyLoaded.sessions.map { TravelPrivacy.withoutLocations(it) })
+            assertTrue(runCatching { store.save(redacted, now) }.isFailure)
+            assertEquals(damaged, file.readText())
+            assertTrue(store.locationErasurePending())
+            store.deleteAll()
+            assertFalse(store.locationErasurePending())
+            assertEquals(TravelArchive(), store.load(now))
         } finally { directory.deleteRecursively() }
     }
 

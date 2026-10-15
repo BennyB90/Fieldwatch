@@ -114,6 +114,7 @@ class TravelObservationService : Service() {
             while (isActive && !ending.get()) {
                 val session = controller.current.value
                 if (session?.id != id || session.state != TravelSessionState.ACTIVE) { end(true); break }
+                if (!controller.collectionWindowOpen(id, instanceId)) { end(); break }
                 if (!travelWindowOpen(session, SystemClock.elapsedRealtime())) { end(false, "The four-hour observation window ended. Start another Travel session explicitly if needed."); break }
                 // Consent revocation erases history as well as rejecting new coordinates.
                 controller.reconcileLocationConsent()
@@ -127,7 +128,7 @@ class TravelObservationService : Service() {
                         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification())
                         delay(ble?.restartBackoffMs() ?: 1_200L)
                     }
-                    if (!travelWindowOpen(session, SystemClock.elapsedRealtime())) { end(false, "The four-hour observation window ended. Start another Travel session explicitly if needed."); break }
+                    if (!controller.collectionWindowOpen(id, instanceId)) { end(); break }
                     if (!ending.get()) ble?.start(ScanIntensity.BALANCED)
                 }
                 val elapsed = SystemClock.elapsedRealtime()

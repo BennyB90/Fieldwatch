@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import app.fieldwatch.domain.Observation
 import app.fieldwatch.sweep.SweepRadioGate
+import app.fieldwatch.sweep.SessionTimeWindow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,10 +47,14 @@ class TravelController(
     private var clearRequested = false
     private var generation = 0L
     private var initializing = true
+    // An unavailable archive is not an empty archive. Only a successful load or
+    // explicit, completed reset permits a replacement history to be written.
+    private var historyAvailable = false
     private var ignored = emptySet<String>()
     private var qualifier = TravelTrackerQualifier()
     private var stopService: ((Boolean) -> Unit)? = null
     private var startupWatchdog: Job? = null
+    private var timingEndState: SessionTimeWindow.State? = null
     private val _current = MutableStateFlow<TravelSession?>(null)
     val current = _current.asStateFlow()
     private val _history = MutableStateFlow<List<TravelSession>>(emptyList())
@@ -83,6 +88,7 @@ class TravelController(
                         store.deleteAll()
                         synchronized(lock) {
                             if (generation == mutation.first) {
+                                historyAvailable = true
                                 _clearing.value = false
                                 _locationErasurePending.value = false
                             }
@@ -126,14 +132,16 @@ class TravelController(
                 if (!initializing) return@synchronized
                 if (generation != initializedGeneration) { initializing = false; return@synchronized }
                 archive.onSuccess {
+                    historyAvailable = true
                     _locationErasurePending.value = pendingErasure
                     ignored = it.ignoredAddresses
                     _ignoredAddresses.value = ignored
                     _history.value = it.sessions
                 }.onFailure {
+                    historyAvailable = false
                     _locationErasurePending.value = pendingErasure
                     _error.value = if (pendingErasure) ERASURE_UNCONFIRMED
-                    else "Saved travel observations are unavailable. Nothing has resumed."
+                    else HISTORY_UNAVAILABLE
                 }
                 initializing = false
                 if (archive.isSuccess) checkpointLocked()
@@ -179,12 +187,14 @@ class TravelController(
         if (!canStart()) { _error.value = "End the other radio mode before starting Travel."; return }
         val id = synchronized(lock) {
             if (initializing || _clearing.value) { _error.value = "Travel history is loading or being cleared. Try again shortly."; return }
+            if (!historyAvailable) { _error.value = HISTORY_UNAVAILABLE; return }
             if (_locationErasurePending.value) { _error.value = ERASURE_BEFORE_START; return }
             if (lease.held()) { _error.value = "Travel is running or still stopping. Wait for teardown before restarting."; return }
             val sessionId = UUID.randomUUID().toString()
             if (!lease.reserve(sessionId)) { _error.value = "End the RF scan or radar mode before starting Travel."; return }
             _error.value = null
             qualifier = TravelTrackerQualifier()
+            timingEndState = null
             _current.value = TravelSession(sessionId, System.currentTimeMillis(), SystemClock.elapsedRealtime(), locationConsent = locationConsent)
             _starting.value = true
             startupWatchdog = scope.launch { delay(10_000L); startupTimedOut(sessionId) }
@@ -247,7 +257,10 @@ class TravelController(
         synchronized(lock) {
             val session = _current.value ?: return
             if (!lease.owns(id, instanceId) || session.id != id || session.state != TravelSessionState.ACTIVE || !observation.fresh) return
-            if (TravelSampleTiming.elapsed(observation, session, System.currentTimeMillis(), SystemClock.elapsedRealtime()) != elapsedMs) return
+            val nowWall = System.currentTimeMillis()
+            val nowElapsed = SystemClock.elapsedRealtime()
+            if (!collectionWindowOpenLocked(session, nowWall, nowElapsed)) return
+            if (TravelSampleTiming.elapsed(observation, session, nowWall, nowElapsed) != elapsedMs) return
             val label = qualifier.label(observation)
             if (label == null) {
                 val cleaned = TravelPhoneEvidence.removeGenericRow(session, observation, qualifier)
@@ -261,6 +274,22 @@ class TravelController(
             val sample = TravelSample(observation.at, elapsedMs, observation.rssi, if (locationAllowed()) fix else null)
             _current.value = TravelSamples.record(session, observation.mac, label, sample, ignored)
         }
+    }
+
+    internal fun collectionWindowOpen(id: String, instanceId: String): Boolean = synchronized(lock) {
+        val session = _current.value ?: return@synchronized false
+        if (!lease.owns(id, instanceId) || session.id != id || session.state != TravelSessionState.ACTIVE) return@synchronized false
+        collectionWindowOpenLocked(session, System.currentTimeMillis(), SystemClock.elapsedRealtime())
+    }
+
+    private fun collectionWindowOpenLocked(session: TravelSession, nowWall: Long, nowElapsed: Long): Boolean {
+        if (timingEndState != null) return false
+        val state = SessionTimeWindow(session.startedAt, session.startedElapsedMs, TravelLimits.MAX_SESSION_MS).state(nowWall, nowElapsed)
+        if (state == SessionTimeWindow.State.OPEN) return true
+        timingEndState = state
+        val stop = stopService
+        if (stop != null) scope.launch { stop(state == SessionTimeWindow.State.CLOCK_CHANGED) }
+        return false
     }
 
     internal fun receptionStatus(id: String, instanceId: String, bluetoothRunning: Boolean, gpsAvailable: Boolean,
@@ -305,11 +334,19 @@ class TravelController(
         if (current.id != id || current.state != TravelSessionState.ACTIVE) return
         startupWatchdog?.cancel(); startupWatchdog = null
         _starting.value = false
-        val finished = current.copy(state = if (interrupted) TravelSessionState.INTERRUPTED else TravelSessionState.COMPLETE,
-            endedAt = System.currentTimeMillis(), status = "Travel mode stopped", error = reason)
+        val now = System.currentTimeMillis()
+        val timing = SessionTimeWindow(current.startedAt, current.startedElapsedMs, TravelLimits.MAX_SESSION_MS)
+        val currentTimingState = timing.state(now, SystemClock.elapsedRealtime())
+        val timingState = timingEndState ?: currentTimingState
+        val clockChanged = timingEndState == SessionTimeWindow.State.CLOCK_CHANGED || currentTimingState == SessionTimeWindow.State.CLOCK_CHANGED
+        val actualReason = if (clockChanged) SessionTimeWindow.CLOCK_CHANGED_MESSAGE
+            else if (timingState == SessionTimeWindow.State.EXPIRED) "The four-hour observation window ended. Start another Travel session explicitly if needed."
+            else reason
+        val finished = current.copy(state = if (interrupted || clockChanged) TravelSessionState.INTERRUPTED else TravelSessionState.COMPLETE,
+            endedAt = if (clockChanged) null else now, status = "Travel mode stopped", error = actualReason)
         _current.value = finished
         _history.value = (listOf(finished) + _history.value).distinctBy { it.id }.take(TravelLimits.MAX_SESSIONS)
-        if (reason != null) _error.value = reason
+        if (actualReason != null) _error.value = actualReason
         checkpointLocked()
     }
 
@@ -321,6 +358,7 @@ class TravelController(
     }
 
     fun setIgnored(address: String, ignored: Boolean) = synchronized(lock) {
+        if (!historyAvailable) { _error.value = HISTORY_UNAVAILABLE; return@synchronized }
         val identity = normalizedTravelAddress(address) ?: return@synchronized
         if (ignored && identity !in this.ignored && this.ignored.size >= TravelLimits.MAX_IGNORED) { _error.value = "The familiar-address list is full. Remove an entry first."; return@synchronized }
         this.ignored = if (ignored) this.ignored + identity else this.ignored - identity
@@ -337,6 +375,7 @@ class TravelController(
     /** Revoking this separate consent erases saved phone coordinates and stops future correlation. */
     fun disableLocation() = synchronized(lock) {
         if (initializing) { _error.value = "Travel history is loading. Wait before erasing saved locations."; return@synchronized }
+        if (!historyAvailable) { _error.value = HISTORY_UNAVAILABLE; return@synchronized }
         _error.value = null
         redactLocationLocked()
     }
@@ -357,6 +396,7 @@ class TravelController(
             generation++
             desiredArchive = null
             clearRequested = true
+            historyAvailable = false
             _clearing.value = true
             _current.value = null
             _history.value = emptyList()
@@ -373,9 +413,9 @@ class TravelController(
     }
 
     private fun checkpointLocked() {
-        if (_clearing.value || initializing) return
+        if (_clearing.value || initializing || !historyAvailable) return
         val now = System.currentTimeMillis()
-        _history.value = _history.value.filter { it.startedAt in (now - TravelLimits.RETENTION_MS)..now }.take(TravelLimits.MAX_SESSIONS)
+        _history.value = _history.value.filter { it.startedAt >= now - TravelLimits.RETENTION_MS }.take(TravelLimits.MAX_SESSIONS)
         val sessions = (_current.value?.let { listOf(it) }.orEmpty() + _history.value).distinctBy { it.id }
         desiredArchive = generation to TravelArchive(sessions, ignored)
         writes.trySend(Unit)
@@ -384,6 +424,7 @@ class TravelController(
     private fun granted(permission: String): Boolean = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     private companion object {
+        const val HISTORY_UNAVAILABLE = "Saved Travel history is unavailable. Clear all Travel observations explicitly before starting or changing saved observations."
         const val ERASURE_FAILED = "Correlation stopped, but saved phone locations were not erased. Retry erasing locations or clear all Travel observations."
         const val ERASURE_UNCONFIRMED = "Saved phone location erasure is unconfirmed. Retry erasing locations or clear all Travel observations."
         const val ERASURE_BEFORE_START = "Saved phone location erasure is unconfirmed. Retry erasing locations before starting another Travel session."

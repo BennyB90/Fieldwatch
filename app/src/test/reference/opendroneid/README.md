@@ -5,6 +5,7 @@
 independent [OpenDroneID core C library](https://github.com/opendroneid/opendroneid-core-c/tree/849c03adbe0cdd68997a462fafab397edcfe53f3).
 It calls the reference Basic ID, Location, System, and Message Pack encoders;
 it does not construct payloads using Fieldwatch's decode offsets.
+The maximum-size fixture also uses the reference Auth encoder for pages 0–5.
 
 Reference commit: `849c03adbe0cdd68997a462fafab397edcfe53f3`.
 The header declares protocol version 2 and message size 25 bytes.
@@ -38,12 +39,16 @@ LOCATION_B=122087300410ABD717E030E4D300009A080000000000000000
 SYSTEM_A=4200C041C81740C1F3D3010000000000000034080000000000
 SYSTEM_B=4201D068C8172073F3D301000000000000003E080000000000
 PACK_A=F2190302123135383146335954444A3144303033315A35333000000012205A28040084D717007FE4D30000980800000000000000004200C041C81740C1F3D3010000000000000034080000000000
+PACK_MAX=F2190902123135383146335954444A3144303033315A35333000000012205A28040084D717007FE4D30000980800000000000000004200C041C81740C1F3D3010000000000000034080000000000220005840000000000000000000000000000000000000000002201000000000000000000000000000000000000000000000022020000000000000000000000000000000000000000000000220300000000000000000000000000000000000000000000002204000000000000000000000000000000000000000000000022050000000000000000000000000000000000000000000000
 ```
 
 Tests add transport framing separately: BLE FFFA service data includes the
 `0D` application code, counter, and encoded message or pack. The Wi-Fi vendor
 IE parser has already removed OUI `FA:0B:BC` and type `0D`, so its `dataHex`
 starts with the counter. A Wi-Fi counter of `0D` remains a counter.
+The maximum pack has 228 message bytes, or 229 bytes with its Wi-Fi counter;
+the information-element parser must retain all of them. Framing is rejected
+as a whole when the declared size/count or complete payload is inconsistent.
 
 These fixtures check decoding and state updates. They do not establish radio
 range, reception compatibility, drone identity, or physical detection rates.

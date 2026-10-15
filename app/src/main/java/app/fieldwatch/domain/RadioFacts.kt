@@ -128,7 +128,8 @@ private fun serviceDataMergeKey(rec: ServiceDataRecord): String {
     val uuidHex = rec.uuid.filter { it.isLetterOrDigit() }.uppercase()
     val short = when {
         uuidHex.length == 4 -> uuidHex
-        uuidHex.length == 32 && uuidHex.startsWith("0000") -> uuidHex.substring(4, 8)
+        uuidHex.length == 8 && uuidHex.startsWith("0000") -> uuidHex.substring(4, 8)
+        uuidHex.length == 32 && uuidHex.startsWith("0000") && uuidHex.endsWith("00001000800000805F9B34FB") -> uuidHex.substring(4, 8)
         else -> uuidHex
     }
     if (short == "FEAA") {

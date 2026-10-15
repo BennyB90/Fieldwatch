@@ -55,6 +55,8 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
     private var devices = DeviceStore()
     private var observationsSinceRefresh = 0
     private var lastDeviceRefreshAt = 0L
+    private var sessionTimeWindow: SessionTimeWindow? = null
+    private var timingEndState: SessionTimeWindow.State? = null
     private val findings = LinkedHashMap<String, SweepFinding>()
     private val _current = MutableStateFlow<SweepSession?>(null)
     val current = _current.asStateFlow()
@@ -170,8 +172,11 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
                 return
             }
             check(serviceOwnership.reserve(id))
+            val startedAt = System.currentTimeMillis()
+            sessionTimeWindow = SessionTimeWindow(startedAt, SystemClock.elapsedRealtime(), SessionTimeWindow.ROOM_DURATION_MS)
+            timingEndState = null
             _current.value = SweepSession(
-                id = id, startedAt = System.currentTimeMillis(),
+                id = id, startedAt = startedAt,
                 phone = "${Build.MANUFACTURER} ${Build.MODEL}",
                 androidVersion = "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}, ${Build.DISPLAY})",
                 startBattery = battery(), coverage = cleanCoverage,
@@ -236,7 +241,11 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
         if (!activeServiceMatches(sessionId, serviceInstanceId)) return@synchronized
         val session = _current.value ?: return@synchronized
         if (session.state != SweepSessionState.ACTIVE || session.demo) return@synchronized
-        val observations = batch.filter { it.at >= session.startedAt && it.fresh }
+        val nowWall = System.currentTimeMillis()
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (!collectionWindowOpenLocked(sessionId, nowWall, nowElapsed)) return@synchronized
+        val observations = batch.filter { it.at >= session.startedAt && it.fresh &&
+            sessionTimeWindow?.acceptsMeasurement(it.elapsedRealtimeMs, nowWall, nowElapsed) == true }
         if (observations.isEmpty()) return@synchronized
         for (observation in observations) {
             // Apply each rotating Remote ID message before the next message replaces its
@@ -274,6 +283,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
 
     fun publish(sessionId: String, serviceInstanceId: String, wifiStatus: String? = null, bleStatus: String? = null) = synchronized(lock) {
         if (!activeServiceMatches(sessionId, serviceInstanceId)) return@synchronized
+        if (!collectionWindowOpenLocked(sessionId)) return@synchronized
         val session = _current.value ?: return@synchronized
         if (session.state != SweepSessionState.ACTIVE) return@synchronized
         if (wifiStatus != null || bleStatus != null) _coverage.update { it.copy(wifiStatus = wifiStatus ?: it.wifiStatus, bleStatus = bleStatus ?: it.bleStatus) }
@@ -304,10 +314,17 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
             val session = _current.value ?: return
             if (session.id != sessionId || session.state != SweepSessionState.ACTIVE) return
             _starting.value = false
+            val now = System.currentTimeMillis()
+            val timing = sessionTimeWindow
+            val currentTimingState = timing?.state(now, SystemClock.elapsedRealtime())
+            val clockChanged = timingEndState == SessionTimeWindow.State.CLOCK_CHANGED || currentTimingState == SessionTimeWindow.State.CLOCK_CHANGED
+            val actualReason = if (clockChanged) SessionTimeWindow.CLOCK_CHANGED_MESSAGE else reason
             val finished = session.copy(
-                endedAt = System.currentTimeMillis(), state = if (interrupted) SweepSessionState.INTERRUPTED else SweepSessionState.COMPLETE,
-                findings = findings.values.toList(), coverage = _coverage.value, endBattery = battery(), error = reason,
-            ).also { _current.value = it; if (reason != null) _error.value = reason }
+                // Keep actual cleanup time, including any Android scheduling delay after the evidence cutoff.
+                endedAt = if (clockChanged) null else now,
+                state = if (interrupted || clockChanged) SweepSessionState.INTERRUPTED else SweepSessionState.COMPLETE,
+                findings = findings.values.toList(), coverage = _coverage.value, endBattery = battery(), error = actualReason,
+            ).also { _current.value = it; if (actualReason != null) _error.value = actualReason }
             val generation = historyGeneration
             persistence.enqueue(onFailure = { _error.value = "This session could not be saved. Share its report before closing SWEEP." }) {
                 if (!mayPersist(generation, finished.id)) return@enqueue
@@ -370,6 +387,22 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
     private fun activeServiceMatches(sessionId: String, serviceInstanceId: String): Boolean =
         serviceOwnership.owns(sessionId, serviceInstanceId) &&
             _current.value?.let { it.id == sessionId && it.state == SweepSessionState.ACTIVE && !it.demo } == true
+
+    internal fun collectionWindowOpen(sessionId: String, serviceInstanceId: String): Boolean = synchronized(lock) {
+        activeServiceMatches(sessionId, serviceInstanceId) && collectionWindowOpenLocked(sessionId)
+    }
+
+    /** Fence queued samples immediately; final timestamps/battery are collected when the service actually ends. */
+    private fun collectionWindowOpenLocked(sessionId: String, nowWall: Long = System.currentTimeMillis(), nowElapsed: Long = SystemClock.elapsedRealtime()): Boolean {
+        if (timingEndState != null) return false
+        val state = sessionTimeWindow?.state(nowWall, nowElapsed) ?: return false
+        if (state == SessionTimeWindow.State.OPEN) return true
+        timingEndState = state
+        val stop = serviceStopper?.takeIf { it.first == sessionId }?.second
+        // Never call radio teardown while holding the coordinator lock.
+        if (stop != null) scope.launch { stop(state == SessionTimeWindow.State.CLOCK_CHANGED) }
+        return false
+    }
 
     fun showDemo() = synchronized(lock) {
         if (_current.value?.state == SweepSessionState.ACTIVE || _starting.value) return@synchronized

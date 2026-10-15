@@ -97,7 +97,7 @@ class WifiRadio(
 
     @SuppressLint("MissingPermission")
     fun requestScan(minIntervalMs: Long = 30_000L, unthrottled: Boolean = false): Boolean {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         val quotaWait = if (unthrottled) 0L else synchronized(quotaLock) { pruneAndQuotaWait(now) }
         val gate = maxOf(nextAllowedAt.get(), quotaWait)
         if (now < gate) {
@@ -129,7 +129,7 @@ class WifiRadio(
     fun waitingOnOs(): Boolean = failStreak.get() > 0
 
     fun throttleHint(): String {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         return when {
             failStreak.get() > 0 -> "Wi-Fi waiting on OS"
             awaitingScan.get() -> "Wi-Fi scanning"
@@ -206,6 +206,7 @@ class WifiRadio(
             extras = "",
             at = nowWall,
             fresh = fresh,
+            elapsedRealtimeMs = result.timestamp / 1_000L,
             vendorIeOuis = ies.vendorIes.map { it.oui }.ifEmpty { vendorIeOuisOf(result) }.distinct(),
             facts = facts,
         )
@@ -251,8 +252,8 @@ class WifiRadio(
         }
 
         fun channelOf(freq: Int): Int = when {
-            freq in 2412..2484 -> (freq - 2407) / 5
             freq == 2484 -> 14
+            freq in 2412..2472 -> (freq - 2407) / 5
             freq in 5000..5895 -> (freq - 5000) / 5
             freq in 5955..7115 -> (freq - 5955) / 5 + 1
             else -> 0

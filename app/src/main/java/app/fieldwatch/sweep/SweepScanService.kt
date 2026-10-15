@@ -49,7 +49,6 @@ class SweepScanService : Service() {
     private var ticker: Job? = null
     private var active = false
     private var lastSaveAt = 0L
-    private var startedElapsed = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,7 +82,6 @@ class SweepScanService : Service() {
         }
         if (!coordinator.scanStarted(ownedId, serviceInstanceId)) { stopSelf(); return START_NOT_STICKY }
         active = true
-        startedElapsed = SystemClock.elapsedRealtime()
         pump = scope.launch(Dispatchers.Default) {
             val batch = ArrayList<Observation>(80)
             for (first in inbound) {
@@ -94,6 +92,7 @@ class SweepScanService : Service() {
         }
         ticker = scope.launch {
             while (isActive && !ending.get()) {
+                if (!coordinator.collectionWindowOpen(ownedId, serviceInstanceId)) { end(); break }
                 val health = coordinator.refreshCoverage(ownedId, serviceInstanceId)
                 if (health == null) { end(true); break }
                 if (health.wifiReady) {
@@ -110,6 +109,7 @@ class SweepScanService : Service() {
                     })
                     if (ble?.needsRestart() == true) {
                         if (ble?.isRunning() == true) { ble?.stop(); delay(ble?.restartBackoffMs() ?: 1_200L) }
+                        if (!coordinator.collectionWindowOpen(ownedId, serviceInstanceId)) { end(); break }
                         ble?.start(ScanIntensity.BALANCED)
                     }
                 } else ble?.stop()
@@ -121,7 +121,6 @@ class SweepScanService : Service() {
                 (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification())
                 val elapsed = SystemClock.elapsedRealtime()
                 if (elapsed - lastSaveAt >= 5_000L) { coordinator.checkpoint(ownedId, serviceInstanceId); lastSaveAt = elapsed }
-                if (elapsed - startedElapsed >= MAX_SESSION_MS) { end(); break }
                 delay(1_000L)
             }
         }
@@ -181,6 +180,5 @@ class SweepScanService : Service() {
         const val EXTRA_SESSION_ID = "app.fieldwatch.sweep.SESSION_ID"
         private const val CHANNEL = "sweep-scans"
         private const val NOTIFICATION_ID = 407
-        private const val MAX_SESSION_MS = 20 * 60_000L
     }
 }

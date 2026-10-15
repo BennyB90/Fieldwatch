@@ -4,7 +4,7 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 
 ## What you can do
 
-- Start and end a scan on demand; a foreground notification offers an end-session action. The service checks a 20-minute limit while Android is running it. Phone sleep can delay the stop until the service resumes.
+- Start and end a scan on demand; a foreground notification offers an end-session action. Room observations stop being accepted after a 20-minute elapsed-time window, including when queued callbacks are processed late. Phone sleep can delay radio teardown until the service resumes.
 - View tracker, camera and drone indicators, other recognized devices and unmatched radio observations. Open a finding for actual match evidence, signal strength, observation age and practical next checks.
 - See reported aircraft and control-station/takeoff/fixed positions on a local coordinate plot. Coordinate decoding time is kept distinct from the latest radio reception. Opening an external maps app requires a tap.
 - Review saved sessions after closing or restarting the app, share a report, delete one session or clear local history.
@@ -36,6 +36,8 @@ The separate **SWEEP + Radio** build has Internet and multicast permissions for 
 
 Sessions are stored in the app-private directory with atomic replacement. The store retains up to 100 sessions and 1,000 recent radio findings per session. Active sessions are checkpointed; a process-killed session is recovered as interrupted, never silently resumed or marked complete. A new scan waits for the previous scanner's cleanup, and callbacks are tied to their original session and service instance. Android may terminate a scan or omit radio traffic; dropped samples and incomplete coverage remain visible.
 
+Both SWEEP variants explicitly exclude app storage from Android cloud backup and device transfer, in addition to disabling backup. This addresses Android's documented [OEM transfer exception](https://developer.android.com/identity/data/autobackup) to `allowBackup=false`; actual OEM migration behavior remains a handset check. An unreadable Travel archive blocks replacement until the user explicitly clears it. A backward phone-clock correction does not discard future-dated local Travel evidence; normal capacity limits still apply and age-based expiry resumes as the clock advances.
+
 Report sharing omits broadcast names, identifiers and coordinates by default. Names/identifiers and coordinates have separate explicit options. The Android share sheet sends the chosen report to another app; an external maps action sends the chosen coordinate to that app. Local deletion cannot remove copies already shared to another app.
 
 ## What this alpha establishes
@@ -48,7 +50,7 @@ Android lint completed with zero errors and 50 inherited warnings, primarily com
 
 Later on October 12, storage became available and an Android 15 emulator booted successfully. The final offline APK installed and opened without a Listen tab; starting, ending, restarting and ending a second scan were verified after granting Android permissions. No physical transmitter was tested. These checks do not validate the permission-dialog experience, a rapid teardown race, notification actions, process interruption, screen-off/Doze, report sharing/deletion, older Android versions or other OEMs. Those remain acceptance checks on a physical phone, along with sensitivity, false positives, reception range, positioning accuracy and battery consumption.
 
-The app does not hold a wake lock or keep the screen on. The 20-minute limit is checked by the running service rather than an exact wake-up alarm; Android sleep can pause that check and reduce radio coverage. See Android's [CPU wakefulness guidance](https://developer.android.com/develop/background-work/background-tasks/awake) and [Doze behavior](https://developer.android.com/training/monitoring-device-state/doze-standby).
+The app does not hold a wake lock or keep the screen on. The 20-minute evidence window is enforced when observations are processed; it is not an exact wake-up alarm. Android sleep can delay radio teardown and reduce coverage. Reports keep the actual recorded end time and battery reading, so a delayed stop is not presented as a measured 20-minute battery trial. A wall-clock correction greater than five seconds relative to elapsed time interrupts room or Travel collection with a visible explanation and an unknown end time. Starting another session is explicit. See Android's [CPU wakefulness guidance](https://developer.android.com/develop/background-work/background-tasks/awake) and [Doze behavior](https://developer.android.com/training/monitoring-device-state/doze-standby).
 
 The hardware spike remains required. Camera AP detection depends on the camera's operating mode; Wi-Fi clients, silent/offline recorders, cellular equipment and unsupported radios are outside these scan APIs. Bluetooth long-range reception depends on the handset. Wi-Fi Remote ID vendor fields require Android 11+ here. The new Wi-Fi NAN discovery path requires handset Wi-Fi Aware availability and permissions, and its protocol-2 framing has software tests. Physical reception is still unverified. A matching signal is a clue to investigate, not a room-safety certification or proof of surveillance.
 
@@ -73,3 +75,27 @@ The Android 15/API35 emulator exercised the actual Network screen and authorizat
 The integration review and native run found and repaired Unicode-name/storage mismatches, synthetic timeout timestamps masquerading as Android receipts, cross-session native resolution overlap, unresolved cleanup after failed Stop calls, a premature stopped-status callback during restart, and Android's leading-dot resolved-service type format. Failed cleanup now retains handles and the original radio lease, with bounded cleanup-only retries and a visible recovery path. Source/network rejection remains strict.
 
 These checks establish software behavior on one emulator. They do not establish physical recorder detection, fresh on-air reception, real-router completeness, API33/OEM compatibility, VPN-change behavior on actual phones, range, false-alert rates or battery consumption. The [network guide](NETWORK_DISCOVERY.md) and [actual-recorder protocol](../spike/recorder-protocol.md) describe the capability limits and pending hardware evidence.
+
+## Alpha 4 code audit on October 14
+
+The audit repaired clock-sensitive Wi-Fi pacing, enforced the room evidence window independently of delayed service ticks, and preserved Travel history through backward clock changes and unreadable archives. Both variants now have explicit backup/transfer exclusions. The 2484 MHz channel label is corrected to channel 14.
+
+Remote ID positions retain the type belonging to their last valid coordinates. BLE, beacon and NAN message packs share structural/content validation; malformed packets cannot regain map pins through the catalog field decoder. Custom UUIDs resembling the Bluetooth Remote ID UUID remain distinct. A valid nine-message reference pack survives Wi-Fi information-element extraction. The field-decoding cache now has a 512-entry limit and includes the entire decoding configuration in its key.
+
+A fresh review checked the fixes together and closed the NAN validation inconsistency found during that review. The unfiltered JVM run passed 760 tests in each of Debug, Spike and Sweep, and 786 in SweepRadio, with no failures, errors or skips. All 20 Python evidence-harness tests passed. These are software regressions and reference-encoder fixtures, not real-transmitter measurements.
+
+All four APK variants assembled. Both SWEEP variants have zero lint errors and 49 warnings. Version code 38 / Alpha 4 installers passed the compiled artifact checks below, including signature verification and backup/transfer exclusions. The prior Alpha 3 installer was independently rejected by the new exclusion check as a negative control.
+
+## Repeatable installer checks
+
+After assembling the two SWEEP variants, run the same artifact checks used by CI:
+
+```sh
+python3 scripts/verify_sweep_apks.py --sdk "$ANDROID_HOME"
+```
+
+The verifier reads the compiled APK manifests and backup resources, checks the exact permission sets and exposed components, verifies APK signatures, checks ZIP and 64-bit ELF alignment for 16 KB pages, and prints installer hashes. These checks apply to the files to be installed, including merged library declarations. They do not certify physical performance or production signing.
+
+## Play release work
+
+The current alpha still targets API 35. Google Play's [current submission requirement](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en), verified October 14, 2026, is API 36 or higher for new phone apps. A release needs a separate target/SDK/toolchain migration with Android 16 behavior checks, production signing and AAB packaging, developer-account setup, privacy/store disclosures, and handset acceptance. Alpha sideload testing can proceed before those release steps.

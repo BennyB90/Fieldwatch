@@ -64,4 +64,18 @@ int main(void) {
     ODID_MessagePack_encoded encodedPack;
     assert(encodeMessagePack(&encodedPack, &pack) == ODID_SUCCESS);
     emit("PACK_A", &encodedPack, 3 + pack.MsgPackSize * ODID_MESSAGE_SIZE);
+
+    // Exercise the maximum transport size with six independently encoded
+    // authentication pages in addition to the Basic ID, Location and System.
+    for (int page = 0; page < 6; page++) {
+        ODID_Auth_data auth;
+        odid_initAuthData(&auth);
+        auth.DataPage = page;
+        auth.LastPageIndex = 5;
+        auth.Length = 17 + 5 * 23;
+        assert(encodeAuthMessage(&pack.Messages[3 + page].auth, &auth) == ODID_SUCCESS);
+    }
+    pack.MsgPackSize = 9;
+    assert(encodeMessagePack(&encodedPack, &pack) == ODID_SUCCESS);
+    emit("PACK_MAX", &encodedPack, 3 + pack.MsgPackSize * ODID_MESSAGE_SIZE);
 }

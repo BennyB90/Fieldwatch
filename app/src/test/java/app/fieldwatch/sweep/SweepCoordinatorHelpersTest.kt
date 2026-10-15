@@ -89,6 +89,49 @@ class SweepCoordinatorHelpersTest {
     }
 
     @Test
+    fun unknownLivePositionKeepsTheEarlierTakeoffKindAndObservationTime() {
+        val store = DeviceStore()
+        val catalog = DefaultCatalog.fleets()
+        val takeoff = sweepFindingForObservation(store,
+            observation(OpenDroneIdReferenceFixtures.SYSTEM_A, 1_000L), catalog, null)
+        // Keep the reference System B header/type, but make its latitude and
+        // longitude the protocol's unavailable (0, 0) coordinate sentinel.
+        val unavailableLive = OpenDroneIdReferenceFixtures.SYSTEM_B.replaceRange(4, 20, "00".repeat(8))
+        val retained = sweepFindingForObservation(store, observation(unavailableLive, 2_000L), catalog, takeoff)
+        assertEquals(takeoff.dronePins, retained.dronePins)
+        assertEquals(SweepPinKind.TAKEOFF, retained.dronePins.single().kind)
+        assertEquals(1_000L, retained.dronePins.single().observedAt)
+        assertTrue(SweepReports.text(SweepSession("sequence", 1_000L,
+            findings = listOf(retained)), includeCoordinates = true).contains("Takeoff point:"))
+
+        val live = sweepFindingForObservation(store,
+            observation(OpenDroneIdReferenceFixtures.SYSTEM_B, 3_000L), catalog, retained)
+        assertEquals(SweepPinKind.CONTROL_STATION, live.dronePins.single().kind)
+        assertEquals(39.901, live.dronePins.single().latitude, 1e-7)
+        assertEquals(3_000L, live.dronePins.single().observedAt)
+    }
+
+    @Test
+    fun invalidRemoteIdCannotCreatePinsThroughCatalogFieldFallback() {
+        val valid = "0D00" + OpenDroneIdReferenceFixtures.LOCATION_A
+        val inputs = listOf(
+            "FFFA" to valid.dropLast(2),
+            "FFFA" to valid + "00",
+            "FFFA" to valid.replaceRange(0, 2, "00"),
+            "FFFA" to "0D00F20103" + OpenDroneIdReferenceFixtures.LOCATION_A,
+            "0000FFFA-1234-5678-1234-567812345678" to valid,
+        )
+        inputs.forEach { (uuid, payload) ->
+            val input = observation(OpenDroneIdReferenceFixtures.LOCATION_A, 1_000L).copy(
+                serviceUuids = listOf(uuid), facts = RadioFacts(serviceData = listOf(ServiceDataRecord(uuid, payload))),
+            )
+            val finding = sweepFindingForObservation(DeviceStore(), input, DefaultCatalog.fleets(), null)
+            assertTrue("Invalid input $uuid/$payload created pins", finding.dronePins.isEmpty())
+            assertTrue(finding.evidence.none { it.label == "Remote ID" })
+        }
+    }
+
+    @Test
     fun queuedCheckpointFinishAndDeleteCannotResurrectDeletedSession() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val queue = SweepPersistenceQueue(scope)

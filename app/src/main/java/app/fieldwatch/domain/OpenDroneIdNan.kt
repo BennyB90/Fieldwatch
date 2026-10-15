@@ -32,10 +32,11 @@ object OpenDroneIdNan {
         for (i in 0 until count) {
             if (!validMessageHeader(bytes[4 + i * MESSAGE_SIZE].toInt() and 0xFF)) return emptyList()
         }
-        return (0 until count).map { i ->
+        val messages = (0 until count).map { i ->
             val offset = 4 + i * MESSAGE_SIZE
             bytes.copyOfRange(offset, offset + MESSAGE_SIZE)
         }
+        return messages.takeIf(OpenDroneId::validPackContent) ?: emptyList()
     }
 
     internal fun messagesHex(dataHex: String): List<ByteArray> {
