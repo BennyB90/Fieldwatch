@@ -1,7 +1,6 @@
 package app.fieldwatch.domain
 
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.Serializable
 
 data class DecodedFieldValue(
@@ -49,7 +48,10 @@ fun List<LiveDecodeChip>.reportLabels(): List<String> =
  * Not a matcher — [SignatureEngine.match] still decides the label.
  */
 object SignatureFieldDecoder {
-    private val cache = ConcurrentHashMap<String, List<DecodedFieldValue>>()
+    // Remote ID positions and sensor counters can change every advertisement.
+    // The cache outlives scan sessions, so retaining every payload grows forever.
+    private data class CacheKey(val fleetId: String, val fleetName: String, val decode: FleetDecode, val hex: String)
+    private val cache = BoundedFieldDecodeCache<CacheKey>(512)
 
     fun decodeSighting(device: Sighting, fleets: List<Fleet>): List<DecodedFieldValue> {
         if (device.fleetIds.isEmpty()) return emptyList()
@@ -87,20 +89,13 @@ object SignatureFieldDecoder {
         val out = ArrayList<DecodedFieldValue>()
         val seen = HashSet<String>()
         for ((bytes, hex) in candidates) {
-            val key = cacheKey(fleet.id, decode, hex)
-            val parsed = cache[key] ?: parse(fleet, decode, bytes).also { cache[key] = it }
+            val key = CacheKey(fleet.id, fleet.name, decode, hex)
+            val parsed = cache.getOrPut(key) { parse(fleet, decode, bytes) }
             for (row in parsed) {
                 if (seen.add(row.id)) out += row
             }
         }
         return out
-    }
-
-    private fun cacheKey(fleetId: String, decode: FleetDecode, hex: String): String {
-        val fp = decode.fields.joinToString(",") {
-            "${it.id}:${it.offset}:${it.type}:${it.resolvedLength()}:${it.live}:${it.liveEmphasis}:${it.enumNotes}"
-        }
-        return "$fleetId|${decode.source}|$hex|$fp"
     }
 
     private fun payloads(decode: FleetDecode, device: Sighting): List<Pair<ByteArray, String>> {
@@ -123,7 +118,11 @@ object SignatureFieldDecoder {
             DecodeSource.SERVICE_DATA -> {
                 val want = decode.serviceUuid?.let { uuidKey(it) } ?: return emptyList()
                 val ads = device.facts.serviceData.filter { uuidKey(it.uuid) == want }.map { it.dataHex }
-                if (want == "FFFA") ads + OpenDroneId.wifiFffaPayloads(device.facts) else ads
+                if (want == "FFFA") {
+                    // The generic field map must not recreate a location that
+                    // the protocol parser rejected for malformed BLE framing.
+                    ads.filter { OpenDroneId.messagesBle(it).isNotEmpty() } + OpenDroneId.wifiFffaPayloads(device.facts)
+                } else ads
             }
             DecodeSource.UNSUPPORTED -> emptyList()
         }
@@ -379,6 +378,21 @@ object SignatureFieldDecoder {
     }
 
     private val INTELLI_ROCKS = "INTELLI_ROCKS".toByteArray(Charsets.US_ASCII)
+}
+
+/** A small process-wide LRU; callers receive immutable snapshots of parsed fields. */
+internal class BoundedFieldDecodeCache<K>(private val capacity: Int) {
+    init { require(capacity > 0) }
+    private val entries = LinkedHashMap<K, List<DecodedFieldValue>>(capacity, 0.75f, true)
+
+    @Synchronized
+    fun getOrPut(key: K, decode: () -> List<DecodedFieldValue>): List<DecodedFieldValue> {
+        entries[key]?.let { return it }
+        val value = java.util.Collections.unmodifiableList(ArrayList(decode()))
+        entries[key] = value
+        while (entries.size > capacity) entries.remove(entries.keys.first())
+        return value
+    }
 }
 
 /** Store enum keys as decimal so 0x05, 05, and 5 all match a u8 of 5. */

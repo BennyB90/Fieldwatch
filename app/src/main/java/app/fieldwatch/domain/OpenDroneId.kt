@@ -7,9 +7,12 @@ package app.fieldwatch.domain
  */
 object OpenDroneId {
     const val BLE_UUID = "FFFA"
+    const val NAN_SERVICE_NAME = "org.opendroneid.remoteid"
     const val WIFI_OUI = "FA:0B:BC"
     const val WIFI_TYPE = 0x0D
+    private const val BLE_APP_CODE = 0x0D
     private const val MSG = 25
+    private const val MAX_MESSAGES = 9
     private const val INV_DIR = 255
     private const val INV_SPEED = 255
     /** ASTM Basic ID id_type. 1 is a CTA-2063 serial. Session and CAA are not. */
@@ -18,6 +21,10 @@ object OpenDroneId {
     fun fromFacts(facts: RadioFacts): PayloadLocation {
         var acc = PayloadLocation()
         for (sd in facts.serviceData) {
+            if (sd.uuid == NAN_SERVICE_NAME) {
+                acc = parseMessages(OpenDroneIdNan.messagesHex(sd.dataHex)).mergeSticky(acc)
+                continue
+            }
             if (uuid16(sd.uuid) != 0xFFFA) continue
             acc = parseMessages(messagesBle(sd.dataHex)).mergeSticky(acc)
         }
@@ -29,11 +36,17 @@ object OpenDroneId {
     }
 
     /**
-     * Wi-Fi vendor IE payloads framed as BLE FFFA ads: `0x0D` + counter + each
-     * 25-byte ASTM message. Stock Remote ID Decode fields maps then apply.
+     * Wi-Fi vendor IE and validated NAN payloads normalized for the existing
+     * FFFA catalog field decoder: `0x0D` + counter + each 25-byte ASTM message.
+     * This internal view does not add a BLE service to the observed radio facts.
      */
     fun wifiFffaPayloads(facts: RadioFacts): List<String> {
         val out = ArrayList<String>()
+        for (sd in facts.serviceData) {
+            if (sd.uuid != NAN_SERVICE_NAME) continue
+            if (OpenDroneIdNan.messagesHex(sd.dataHex).isEmpty()) continue
+            out += wrapWifiAsFffa(sd.dataHex)
+        }
         for (ie in facts.vendorIes) {
             if (!ie.oui.equals(WIFI_OUI, ignoreCase = true) || ie.type != WIFI_TYPE) continue
             out += wrapWifiAsFffa(ie.dataHex)
@@ -44,11 +57,10 @@ object OpenDroneId {
     internal fun wrapWifiAsFffa(dataHex: String): List<String> {
         val b = hex(dataHex) ?: return emptyList()
         if (b.isEmpty()) return emptyList()
-        val bleShaped = b.size >= 2 + MSG && b[0] == 0x0D.toByte()
-        val start = if (bleShaped) 2 else 1
-        if (start > b.size) return emptyList()
-        val counter = (if (bleShaped) b[1] else b[0]).toInt() and 0xFF
-        return framedMessages(b, start).map { msg ->
+        // WifiIeParser has already removed the OUI and application code. The
+        // first remaining byte is always the counter, including counter 0x0D.
+        val counter = b[0].toInt() and 0xFF
+        return framedMessages(b, 1).map { msg ->
             buildString(2 + 2 + msg.size * 2) {
                 append("0D")
                 append("%02X".format(counter))
@@ -59,47 +71,53 @@ object OpenDroneId {
 
     internal fun messagesBle(dataHex: String): List<ByteArray> {
         val b = hex(dataHex) ?: return emptyList()
-        if (b.isEmpty()) return emptyList()
-        val start = if (b.size >= 2 + MSG && b[0] == 0x0D.toByte()) 2 else 0
-        return framedMessages(b, start)
+        // FFFA service data includes the application code and counter.
+        if (b.size < 2 + MSG || b[0] != BLE_APP_CODE.toByte()) return emptyList()
+        return framedMessages(b, 2)
     }
 
     internal fun messagesWifi(dataHex: String): List<ByteArray> {
         val b = hex(dataHex) ?: return emptyList()
         if (b.isEmpty()) return emptyList()
-        // BLE-shaped [0x0D][counter][msgs], else ASTM [counter][msgs].
-        val start = if (b.size >= 2 + MSG && b[0] == 0x0D.toByte()) 2 else 1
-        return framedMessages(b, start)
+        // VendorIeRecord.dataHex excludes the Wi-Fi OUI/type: [counter][msgs].
+        // Do not infer BLE framing from the counter's value.
+        return framedMessages(b, 1)
     }
 
     /** Single 25-byte messages, or an ASTM message pack (type nibble 0xF). */
     private fun framedMessages(b: ByteArray, start: Int): List<ByteArray> {
         if (start >= b.size) return emptyList()
         val head = b[start].toInt() and 0xFF
-        if (head shr 4 == 0xF && start + 3 <= b.size) {
-            val size = (b[start + 1].toInt() and 0xFF).coerceAtLeast(MSG)
+        if (head shr 4 == 0xF) {
+            if (start + 3 > b.size || (b[start + 1].toInt() and 0xFF) != MSG) return emptyList()
             val count = b[start + 2].toInt() and 0xFF
+            // A declared pack is one unit of evidence: never decode a partial
+            // prefix after truncation, a bogus size, or an unsupported member.
+            // Bounds match the pinned opendroneid-core-c reference encoder.
+            if (count !in 1..MAX_MESSAGES || b.size != start + 3 + count * MSG) return emptyList()
             val out = ArrayList<ByteArray>(count)
             var i = start + 3
             repeat(count) {
-                if (i + MSG > b.size) return@repeat
                 out += b.copyOfRange(i, i + MSG)
-                i += size
+                i += MSG
             }
-            return out
+            return out.takeIf(::validPackContent) ?: emptyList()
         }
-        return chunks(b, start)
+        if (head shr 4 !in 0..5 || b.size != start + MSG) return emptyList()
+        return listOf(b.copyOfRange(start, b.size))
     }
 
-    private fun chunks(b: ByteArray, start: Int): List<ByteArray> {
-        if (start + MSG > b.size) return emptyList()
-        val out = ArrayList<ByteArray>((b.size - start) / MSG)
-        var i = start
-        while (i + MSG <= b.size) {
-            out += b.copyOfRange(i, i + MSG)
-            i += MSG
+    /** Shared pack semantics for BLE, vendor IEs and NAN; version policy stays with each transport. */
+    internal fun validPackContent(messages: List<ByteArray>): Boolean {
+        if (messages.size !in 1..MAX_MESSAGES) return false
+        val types = IntArray(6)
+        for (message in messages) {
+            if (message.size != MSG) return false
+            val type = (message[0].toInt() and 0xFF) shr 4
+            if (type !in 0..5) return false
+            types[type]++
         }
-        return out
+        return types[0] <= 2 && listOf(1, 3, 4, 5).all { types[it] <= 1 }
     }
 
     internal fun parseMessages(msgs: List<ByteArray>): PayloadLocation {
@@ -193,12 +211,13 @@ object OpenDroneId {
         (m[at].toInt() and 0xFF) or ((m[at + 1].toInt() and 0xFF) shl 8)
 
     private fun uuid16(uuid: String): Int? {
-        val hex = uuid.filter { it.isLetterOrDigit() }
+        val hex = uuid.replace("-", "").uppercase()
         return when {
             hex.length == 4 -> hex.toIntOrNull(16)
-            hex.length >= 8 && hex.startsWith("0000", ignoreCase = true) ->
+            hex.length == 8 && hex.startsWith("0000") -> hex.substring(4, 8).toIntOrNull(16)
+            hex.length == 32 && hex.startsWith("0000") && hex.endsWith("00001000800000805F9B34FB") ->
                 hex.substring(4, 8).toIntOrNull(16)
-            else -> hex.take(4).toIntOrNull(16)
+            else -> null
         }
     }
 

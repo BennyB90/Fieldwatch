@@ -2,7 +2,9 @@ package app.fieldwatch.radio
 
 import android.net.wifi.ScanResult
 import android.os.Build
+import androidx.annotation.RequiresApi
 import app.fieldwatch.domain.VendorIeRecord
+import app.fieldwatch.domain.OpenDroneId
 import app.fieldwatch.domain.toHexUpper
 
 object WifiIeParser {
@@ -51,8 +53,14 @@ object WifiIeParser {
                         bytes[2].toInt() and 0xFF,
                     )
                     val type = if (bytes.size > 3) bytes[3].toInt() and 0xFF else 0
+                    val remoteId = oui == OpenDroneId.WIFI_OUI && type == OpenDroneId.WIFI_TYPE
+                    // A nine-message Remote ID pack needs 229 payload bytes.
+                    // Keep the full legal IE (255 minus OUI/type), including
+                    // trailing bytes so the decoder can reject malformed frames.
+                    if (remoteId && bytes.size > 255) return@forEach
+                    val payloadLimit = if (remoteId) 251 else 200
                     val payload = if (bytes.size > 4) {
-                        bytes.copyOfRange(4, bytes.size.coerceAtMost(4 + 200))
+                        bytes.copyOfRange(4, bytes.size.coerceAtMost(4 + payloadLimit))
                     } else {
                         ByteArray(0)
                     }
@@ -210,6 +218,7 @@ object WifiIeParser {
         return (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
     }
 
+    @RequiresApi(30)
     private fun ieBytes(ie: ScanResult.InformationElement): ByteArray? {
         val raw = runCatching { ie.bytes }.getOrNull() ?: return null
         val copy = ByteArray(raw.remaining())

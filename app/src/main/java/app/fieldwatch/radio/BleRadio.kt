@@ -5,11 +5,11 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
-import android.bluetooth.le.ScanRecord
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import app.fieldwatch.domain.Observation
 import app.fieldwatch.domain.RadioKind
@@ -25,6 +25,8 @@ class BleRadio(
 ) {
     private val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private var scanner: BluetoothLeScanner? = null
+    private var activeCallback: ScanCallback? = null
+    private val evidence = BleScanEvidence()
     private val running = AtomicBoolean(false)
     private var lastIntensity = ScanIntensity.PERFORMANCE
     private val startedAt = AtomicLong(0L)
@@ -41,49 +43,31 @@ class BleRadio(
     // which Samsung refuses while the screen is off.
     private val matchAll = listOf(ScanFilter.Builder().build())
 
-    private val callback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val now = System.currentTimeMillis()
-            recordHit(now)
-            lastCallbackAt.set(now)
-            failStreak = 0
-            lastError = null
-            hint = ""
-            emit(result)
+    private fun callbackFor(token: Long) = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) = synchronized(this@BleRadio) {
+            if (activeCallback !== this || !running.get() || !evidence.accepts(token)) return@synchronized
+            emit(result, token)
         }
 
-        override fun onBatchScanResults(results: MutableList<ScanResult>) {
-            if (results.isNotEmpty()) {
-                val now = System.currentTimeMillis()
-                repeat(results.size) { recordHit(now) }
-                lastCallbackAt.set(now)
-                failStreak = 0
-                lastError = null
-                hint = ""
+        override fun onBatchScanResults(results: MutableList<ScanResult>) = synchronized(this@BleRadio) {
+            if (activeCallback !== this || !running.get() || !evidence.accepts(token)) return@synchronized
+            // A delayed batch is measured in radio-time order, never stamped as delivery-time hits.
+            results.sortedBy { it.timestampNanos }.forEach { result ->
+                if (activeCallback === this && running.get() && evidence.accepts(token)) emit(result, token)
             }
-            results.forEach { emit(it) }
         }
 
-        override fun onScanFailed(errorCode: Int) {
-            if (errorCode == ScanCallback.SCAN_FAILED_ALREADY_STARTED) {
-                running.set(true)
-                return
-            }
-            running.set(false)
-            failStreak = (failStreak + 1).coerceAtMost(5)
-            val backoff = (4_000L * (1L shl (failStreak - 1))).coerceAtMost(30_000L)
-            nextRetryAt.set(System.currentTimeMillis() + backoff)
-            lastError = "BLE scan failed ($errorCode)"
-            hint = "BLE retrying"
-            demoted = true
-            onError(lastError!!)
+        override fun onScanFailed(errorCode: Int) = synchronized(this@BleRadio) {
+            if (activeCallback !== this || !evidence.accepts(token)) return@synchronized
+            scanFailed("BLE scan failed ($errorCode)")
         }
     }
 
     @SuppressLint("MissingPermission")
-    fun start(intensity: ScanIntensity) {
-        val now = System.currentTimeMillis()
+    @Synchronized fun start(intensity: ScanIntensity) {
+        val now = SystemClock.elapsedRealtime()
         if (now < nextRetryAt.get()) return
+        clearActiveScan()
         val adapter = manager.adapter
         if (adapter == null || !adapter.isEnabled) {
             running.set(false)
@@ -103,43 +87,52 @@ class BleRadio(
             return
         }
         lastIntensity = intensity
-        if (running.get()) {
-            runCatching { scanner?.stopScan(callback) }
-            running.set(false)
-        }
         scanner = next
         startWith(next, settingsFor(intensity))
     }
 
     @SuppressLint("MissingPermission")
     private fun startWith(target: BluetoothLeScanner, settings: ScanSettings) {
+        val token = evidence.begin(SystemClock.elapsedRealtimeNanos())
+        val callback = callbackFor(token)
+        activeCallback = callback
+        startedAt.set(SystemClock.elapsedRealtime())
+        lastCallbackAt.set(0L)
+        running.set(true)
+        lastError = null
+        hint = ""
         val ok = runCatching {
             target.startScan(matchAll, settings, callback)
         }
-        if (ok.isSuccess) {
-            startedAt.set(System.currentTimeMillis())
-            lastCallbackAt.set(0L)
-            running.set(true)
-            lastError = null
-            hint = ""
-        } else {
-            running.set(false)
-            failStreak = (failStreak + 1).coerceAtMost(5)
-            val backoff = (4_000L * (1L shl (failStreak - 1))).coerceAtMost(30_000L)
-            nextRetryAt.set(System.currentTimeMillis() + backoff)
-            lastError = ok.exceptionOrNull()?.message ?: "BLE start failed"
-            hint = "BLE retrying"
-            demoted = true
-            onError(lastError!!)
+        if (ok.isFailure && activeCallback === callback && evidence.accepts(token)) {
+            scanFailed(ok.exceptionOrNull()?.message ?: "BLE start failed")
         }
     }
 
+    private fun scanFailed(message: String) {
+        clearActiveScan()
+        failStreak = (failStreak + 1).coerceAtMost(5)
+        val backoff = (4_000L * (1L shl (failStreak - 1))).coerceAtMost(30_000L)
+        nextRetryAt.set(SystemClock.elapsedRealtime() + backoff)
+        lastError = message
+        hint = "BLE retrying"
+        demoted = true
+        onError(message)
+    }
+
     @SuppressLint("MissingPermission")
-    fun stop() {
-        val active = scanner ?: return
-        runCatching { active.stopScan(callback) }
+    @Synchronized fun stop() { clearActiveScan() }
+
+    @SuppressLint("MissingPermission")
+    private fun clearActiveScan() {
+        val active = scanner
+        val callback = activeCallback
+        // Invalidate before touching Android; queued failures/results belong to the old scan.
+        evidence.cancel()
+        activeCallback = null
         scanner = null
         running.set(false)
+        if (active != null && callback != null) runCatching { active.stopScan(callback) }
     }
 
     fun isRunning(): Boolean = running.get()
@@ -147,18 +140,22 @@ class BleRadio(
     fun radioOn(): Boolean = manager.adapter?.isEnabled == true
 
     fun hitsLastMinute(now: Long): Int = synchronized(hitAt) {
-        val cut = now - 60_000L
-        while (hitAt.isNotEmpty() && hitAt.first() < cut) hitAt.removeFirst()
+        pruneHits(now)
         hitAt.size
     }
 
-    private fun recordHit(now: Long) {
+    private fun recordHit(observedAt: Long, now: Long) {
         synchronized(hitAt) {
-            hitAt.addLast(now)
-            val cut = now - 60_000L
-            while (hitAt.isNotEmpty() && hitAt.first() < cut) hitAt.removeFirst()
+            hitAt.addLast(observedAt)
+            pruneHits(now)
             while (hitAt.size > 4_000) hitAt.removeFirst()
         }
+    }
+
+    private fun pruneHits(now: Long) {
+        val cut = now - 60_000L
+        val iterator = hitAt.iterator()
+        while (iterator.hasNext()) if (iterator.next() < cut) iterator.remove()
     }
 
     fun holding(): Boolean = !running.get()
@@ -167,8 +164,8 @@ class BleRadio(
 
     fun restartBackoffMs(): Long = restMs
 
-    fun needsRestart(): Boolean {
-        val now = System.currentTimeMillis()
+    @Synchronized fun needsRestart(): Boolean {
+        val now = SystemClock.elapsedRealtime()
         if (now < nextRetryAt.get()) return false
         if (!running.get()) {
             restMs = if (demoted) 6_000L else 2_500L
@@ -228,15 +225,26 @@ class BleRadio(
         ScanIntensity.SAVER -> ScanSettings.SCAN_MODE_LOW_POWER
     }
 
-    private fun emit(result: ScanResult) {
+    private fun emit(result: ScanResult, token: Long) {
         try {
-            onObservation(toObservation(result))
+            val elapsedNanos = SystemClock.elapsedRealtimeNanos()
+            val wallMs = System.currentTimeMillis()
+            val measured = evidence.measurement(token, result.device?.address.orEmpty(),
+                result.timestampNanos, elapsedNanos, wallMs) ?: return
+            val observation = toObservation(result, measured)
+            recordHit(measured.wallAt, wallMs)
+            lastCallbackAt.set(elapsedNanos / 1_000_000L)
+            failStreak = 0
+            lastError = null
+            hint = ""
+            // Shared monitor makes stop() a callback barrier, even during a batched delivery.
+            onObservation(observation)
         } catch (t: Throwable) {
             Log.e("FieldwatchBle", "scan result failed", t)
         }
     }
 
-    private fun toObservation(result: ScanResult): Observation {
+    private fun toObservation(result: ScanResult, measured: BleScanEvidence.Measurement): Observation {
         val record = result.scanRecord
         val parsed = BleAdParser.parse(record?.bytes)
         // Advertised name only. BluetoothDevice.getName() is a binder call to
@@ -265,8 +273,9 @@ class BleRadio(
             manufacturerDataHex = mfg?.dataHex.orEmpty(),
             rawHex = raw.take(1024),
             extras = "",
-            at = System.currentTimeMillis(),
+            at = measured.wallAt,
             facts = facts,
+            elapsedRealtimeMs = measured.elapsedMs,
         )
     }
 

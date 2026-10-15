@@ -30,20 +30,39 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest testSweepRadioUnitTest lintSweep lintSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
+
+      - name: Spike evidence tests
+        run: python3 -m unittest discover -s spike/tests -v
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/tests/testSpikeUnitTest/
+            app/build/reports/tests/testSweepUnitTest/
+            app/build/reports/tests/testSweepRadioUnitTest/
           if-no-files-found: ignore
+
+  rdio-http:
+    name: Rdio HTTP extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          cache: false
+      - name: Verify pinned operator extension
+        run: python3 integrations/rdio-http/verify.py
 
   build:
     name: APK
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, rdio-http]
     steps:
       - uses: actions/checkout@v4
 
@@ -65,11 +84,42 @@ jobs:
           "$SM" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug assembleSpike assembleSweep assembleSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: fieldwatch-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP spike APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-spike-apk
+          path: app/build/outputs/apk/spike/app-spike.apk
+          if-no-files-found: error
+
+      - name: Verify SWEEP installer privacy and packaging
+        run: python3 scripts/verify_sweep_apks.py > sweep-apk-verification.json
+
+      - name: Upload installer verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-apk-verification
+          path: sweep-apk-verification.json
+          if-no-files-found: error
+
+      - name: Upload SWEEP alpha APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-alpha-apk
+          path: app/build/outputs/apk/sweep/app-sweep.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP with radio APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-radio-alpha-apk
+          path: app/build/outputs/apk/sweepRadio/app-sweepRadio.apk
           if-no-files-found: error

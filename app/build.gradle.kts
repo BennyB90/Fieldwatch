@@ -28,9 +28,11 @@ android {
         applicationId = "app.fieldwatch"
         minSdk = 29
         targetSdk = 35
-        versionCode = 36
+        versionCode = 38
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
+        buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
+        buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "false")
     }
 
     val releaseStore = localProp("FIELDWATCH_STORE_FILE")
@@ -77,6 +79,32 @@ android {
                 "proguard-rules.pro",
             )
         }
+        create("spike") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".sweep.spike"
+            versionNameSuffix = "-sweep-spike"
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            matchingFallbacks += "debug"
+        }
+        create("sweep") {
+            initWith(getByName("spike"))
+            applicationIdSuffix = ".sweep"
+            versionNameSuffix = "-sweep-alpha.4"
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            matchingFallbacks += listOf("spike", "debug")
+        }
+        create("sweepRadio") {
+            initWith(getByName("sweep"))
+            applicationIdSuffix = ".sweep.radio"
+            versionNameSuffix = "-sweep-radio-alpha.4"
+            buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
+            buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "true")
+            matchingFallbacks += listOf("sweep", "spike", "debug")
+        }
     }
 
     compileOptions {
@@ -116,4 +144,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the JVM test classpath; the android.jar bundled JSONObject is a stub.
     testImplementation("org.json:json:20240303")
+    // The offline scanner does not include or initialize the online audio stack.
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer-hls:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-session:1.8.1")
 }

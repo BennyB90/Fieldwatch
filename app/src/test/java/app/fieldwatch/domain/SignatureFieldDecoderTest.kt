@@ -8,6 +8,26 @@ import java.util.Locale
 
 class SignatureFieldDecoderTest {
     @Test
+    fun catalogEditsInvalidateEveryPartOfTheCachedDecode() {
+        val field = DecodeField(id = "value", label = "Old label", offset = 0, type = DecodeType.U8)
+        val decode = FleetDecode(source = DecodeSource.MANUFACTURER_DATA, fields = listOf(field))
+        val fleet = Fleet(id = "cache-edit-regression", name = "Original fleet", decode = decode)
+        val device = ble(1, "05", fleet.id)
+        assertEquals("5", SignatureFieldDecoder.decodeSighting(device, listOf(fleet)).single().display)
+        val changed = fleet.copy(name = "Edited fleet", decode = decode.copy(fields = listOf(
+            field.copy(label = "New label", scale = 2.0, offsetAdd = 1.0, unit = "m"),
+        )))
+        val updated = SignatureFieldDecoder.decodeSighting(device, listOf(changed)).single()
+        assertEquals("Edited fleet", updated.fleetName)
+        assertEquals("New label", updated.label)
+        assertEquals("11 m", updated.display)
+        val gated = changed.copy(decode = changed.decode!!.copy(fields = listOf(
+            field.copy(gate = DecodeWhen(offset = 0, op = DecodeWhenOp.EQ, valueHex = "06")),
+        )))
+        assertTrue(SignatureFieldDecoder.decodeSighting(device, listOf(gated)).isEmpty())
+    }
+
+    @Test
     fun ruuviRawV2TemperatureHumidity() {
         // Data Format 5 after company ID 0x0499. Example from Ruuvi docs.
         val payload = "0512FC5394C37C0004FFFC040CAC364200CDCBB8334C884F"

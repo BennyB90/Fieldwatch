@@ -1,11 +1,29 @@
 package app.fieldwatch.radio
 
+import app.fieldwatch.domain.OpenDroneId
+import app.fieldwatch.domain.OpenDroneIdReferenceFixtures
+import app.fieldwatch.domain.RadioFacts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WifiIeParserTest {
+    @Test
+    fun maximumRemoteIdPackSurvivesInformationElementExtraction() {
+        val payload = "FA0BBC0D00" + OpenDroneIdReferenceFixtures.PACK_MAX
+        val bytes = payload.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val parsed = WifiIeParser.parseIes(listOf(WifiIeParser.Ie(221, bytes)), "")
+        assertEquals(229, parsed.vendorIes.single().dataHex.length / 2)
+        val decoded = OpenDroneId.fromFacts(RadioFacts(vendorIes = parsed.vendorIes))
+        assertEquals(40.0, decoded.lat!!, 1e-7)
+        assertEquals(39.9, decoded.opLat!!, 1e-7)
+        val malformed = WifiIeParser.parseIes(listOf(WifiIeParser.Ie(221, bytes + byteArrayOf(0))), "")
+        // Extraction must not truncate away junk and turn invalid framing valid.
+        assertEquals(230, malformed.vendorIes.single().dataHex.length / 2)
+        assertNull(OpenDroneId.fromFacts(RadioFacts(vendorIes = malformed.vendorIes)).pin())
+    }
+
     private fun ie(id: Int, vararg data: Int) =
         WifiIeParser.Ie(id, data.map { it.toByte() }.toByteArray())
 

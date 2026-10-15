@@ -1,0 +1,2 @@
+# Unified patches preserve upstream context, including blank context prefixes and tabs.
+/integrations/rdio-http/*.patch -whitespace

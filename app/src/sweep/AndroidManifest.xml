@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-feature android:name="android.hardware.wifi.aware" android:required="false" />
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <application android:name="app.fieldwatch.sweep.SweepApplication" android:icon="@mipmap/ic_sweep" android:roundIcon="@mipmap/ic_sweep" android:fullBackupContent="@xml/sweep_backup_rules" android:dataExtractionRules="@xml/sweep_data_extraction_rules" tools:replace="android:name,android:icon,android:roundIcon">
+        <activity android:name="app.fieldwatch.MainActivity" tools:node="remove" />
+        <service android:name="app.fieldwatch.radio.ScanService" tools:node="remove" />
+        <activity android:name="app.fieldwatch.sweep.SweepActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.Fieldwatch">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="app.fieldwatch.sweep.radar.ValentineRadarActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
+        <activity android:name="app.fieldwatch.sweep.SweepTravelActivity" android:exported="false" android:theme="@style/Theme.Fieldwatch" />
+        <service android:name="app.fieldwatch.sweep.travel.TravelObservationService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
+        <service android:name="app.fieldwatch.sweep.SweepScanService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="location|connectedDevice" />
+    </application>
+</manifest>

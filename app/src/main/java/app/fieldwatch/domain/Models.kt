@@ -914,6 +914,8 @@ data class Observation(
     val fresh: Boolean = true,
     val vendorIeOuis: List<String> = emptyList(),
     val facts: RadioFacts = RadioFacts.Empty,
+    /** Actual boot-clock observation time, when exposed by the transport. */
+    val elapsedRealtimeMs: Long? = null,
 )
 
 data class ScanStats(
