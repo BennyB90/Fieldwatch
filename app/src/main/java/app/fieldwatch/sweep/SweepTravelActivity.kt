@@ -19,12 +19,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.fieldwatch.sweep.travel.*
-import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,18 +32,23 @@ import java.util.Locale
 class SweepTravelActivity : ComponentActivity() {
     private val travel get() = (application as SweepApplication).travelController
     private var pendingLocation: Boolean? = null
+    private var pendingLowPower = false
     private var uiError by mutableStateOf<String?>(null)
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val location = pendingLocation
         pendingLocation = null
         if (location != null && !isFinishing && !isDestroyed) {
-            if (requiredPermissions().all(::hasPermission)) travel.start(location)
+            if (requiredPermissions().all(::hasPermission)) travel.start(location, pendingLowPower)
             else uiError = "Travel needs Bluetooth, precise location access for Android scanning, and notification access. GPS correlation remains a separate choice."
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState?.containsKey("pendingLocation") == true) {
+            pendingLocation = savedInstanceState.getBoolean("pendingLocation")
+            pendingLowPower = savedInstanceState.getBoolean("pendingLowPower")
+        }
         enableEdgeToEdge()
         setContent {
             val current by travel.current.collectAsStateWithLifecycle()
@@ -68,12 +73,19 @@ class SweepTravelActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 31) { add(Manifest.permission.BLUETOOTH_SCAN); add(Manifest.permission.BLUETOOTH_CONNECT) }
         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
     }
-    private fun requestStart(location: Boolean) {
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingLocation?.let { outState.putBoolean("pendingLocation", it) }
+        outState.putBoolean("pendingLowPower", pendingLowPower)
+    }
+
+    private fun requestStart(location: Boolean, lowPower: Boolean) {
         uiError = null
         if (requiredPermissions().any { !hasPermission(it) }) {
             pendingLocation = location
+            pendingLowPower = lowPower
             permissions.launch(requiredPermissions().toTypedArray())
-        } else travel.start(location)
+        } else travel.start(location, lowPower)
     }
     private fun openSettings() {
         runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
@@ -95,15 +107,16 @@ class SweepTravelActivity : ComponentActivity() {
 @Composable
 private fun TravelScreen(
     current: TravelSession?, history: List<TravelSession>, starting: Boolean, clearing: Boolean, locationErasePending: Boolean,
-    ignored: Set<String>, error: String?, onBack: () -> Unit, onStart: (Boolean) -> Unit,
+    ignored: Set<String>, error: String?, onBack: () -> Unit, onStart: (Boolean, Boolean) -> Unit,
     onStop: () -> Unit, onDeleteAll: () -> Unit, onDisableLocation: () -> Unit,
     onIgnored: (String, Boolean) -> Unit, onShare: (TravelSession) -> Unit, onSettings: () -> Unit,
 ) {
-    var locationConsent by remember { mutableStateOf(false) }
+    var locationConsent by rememberSaveable { mutableStateOf(false) }
+    var lowPower by rememberSaveable { mutableStateOf(false) }
+    var showBattery by rememberSaveable { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     var selectedId by remember { mutableStateOf<String?>(null) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1_000L) } }
+    val now = visibleClockTime()
     val active = current?.state == TravelSessionState.ACTIVE
     val selected = selectedId?.let { id -> history.find { it.id == id } } ?: current
     val clock = remember { SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault()) }
@@ -124,13 +137,21 @@ private fun TravelScreen(
                         Text("Off by default. Records GPS fixes locally for this mode to compare sightings at different places. It does not locate a tracker.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
                     }
                 }
-                Button(onClick = { selectedId = null; onStart(locationConsent) }, enabled = !starting && !clearing, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(if (starting) "Starting…" else "Start travel mode") }
+                Row(Modifier.fillMaxWidth().clickable { lowPower = !lowPower }) {
+                    Checkbox(checked = lowPower, onCheckedChange = null)
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text("Use low-power Bluetooth", style = MaterialTheme.typography.titleSmall)
+                        Text("Scans less often and may miss brief sightings. Leave off for balanced scanning.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
+                    }
+                }
+                Button(onClick = { selectedId = null; onStart(locationConsent, lowPower) }, enabled = !starting && !clearing, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(if (starting) "Starting…" else "Start travel mode") }
             } else {
                 Text(current!!.status, style = MaterialTheme.typography.titleSmall)
                 Text("${((now - current.startedAt).coerceAtLeast(0) / 60_000)} minutes elapsed · location correlation ${if (current.locationConsent) "enabled" else "off"}", style = MaterialTheme.typography.bodySmall)
                 Button(onClick = onStop, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Stop travel mode") }
             }
             TextButton(onClick = onSettings) { Text("Android permissions and settings") }
+            OutlinedButton(onClick = { showBattery = true }) { Text("Battery test") }
             if (current?.locationConsent == true || history.any { it.locationConsent } || locationErasePending) {
                 OutlinedButton(onClick = { locationConsent = false; onDisableLocation() }, enabled = !clearing, modifier = Modifier.fillMaxWidth()) { Text(if (locationErasePending) "Retry erasing saved phone locations" else "Stop location correlation and erase saved locations") }
                 if (locationErasePending) Text("Location correlation is stopped. Erasure of saved phone locations is not confirmed yet; retry if an error is shown.", style = MaterialTheme.typography.bodySmall, color = SweepAmber)
@@ -139,6 +160,12 @@ private fun TravelScreen(
                 HorizontalDivider()
                 Text(if (session.state == TravelSessionState.ACTIVE) "Current observations" else "Saved travel report", style = MaterialTheme.typography.titleMedium)
                 Text("${clock.format(Date(session.startedAt))} · ${session.state.name.lowercase(Locale.getDefault())}", style = MaterialTheme.typography.bodySmall)
+                Text("Bluetooth: ${if (session.lowPowerBluetooth) "low power" else "balanced"}", style = MaterialTheme.typography.bodySmall)
+                if (session.locationConsent) {
+                    val total = session.trackers.sumOf { it.samples.size }
+                    val withFix = session.trackers.sumOf { tracker -> tracker.samples.count { it.location != null } }
+                    Text("$withFix of $total saved sightings have a usable GPS fix.", style = MaterialTheme.typography.bodySmall)
+                }
                 session.error?.let { Text(it, color = SweepAmber) }
                 if (session.droppedSamples > 0) Text("${session.droppedSamples} samples were dropped. Reception evidence is incomplete.", style = MaterialTheme.typography.bodySmall, color = SweepAmber)
                 if (session.trackers.isEmpty()) Text("No eligible tracker broadcasts recorded. This does not rule out trackers, cellular trackers or silent devices.", color = SweepMuted)
@@ -167,6 +194,7 @@ private fun TravelScreen(
             TextButton(onClick = { clearDialog = true }, enabled = !clearing) { Text(if (clearing) "Clearing…" else "Clear all travel observations", color = MaterialTheme.colorScheme.error) }
         }
     }
+    if (showBattery) BatteryTestDialog(onClose = { showBattery = false })
     if (clearDialog) AlertDialog(onDismissRequest = { clearDialog = false },
         title = { Text("Clear travel observations?") }, text = { Text("Stops travel mode and removes local sightings, phone locations and familiar addresses. Shared copies stay in the receiving apps.") },
         confirmButton = { TextButton(onClick = { clearDialog = false; selectedId = null; locationConsent = false; onDeleteAll() }) { Text("Clear all") } },

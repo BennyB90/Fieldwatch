@@ -10,6 +10,7 @@ import app.fieldwatch.sweep.travel.TravelModeHost
 
 open class SweepApplication : Application(), TravelModeHost, NetworkModeHost {
     val radioGate = SweepRadioGate()
+    internal val batteryTest by lazy { HandsetBatteryTest(this) }
     lateinit var coordinator: SweepCoordinator
         private set
     final override lateinit var travelController: TravelController

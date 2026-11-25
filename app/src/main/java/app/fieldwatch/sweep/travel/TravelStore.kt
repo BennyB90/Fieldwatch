@@ -5,9 +5,15 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 /** Private app storage, bounded and atomically replaced. No external path or upload client. */
-class TravelStore(private val directory: File, private val replaceFile: (File, File) -> Boolean = { pending, archive -> pending.renameTo(archive) }) {
+class TravelStore(private val directory: File, private val replaceFile: (File, File) -> Boolean = { pending, archive ->
+    Files.move(pending.toPath(), archive.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+    true
+}) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val archiveFile get() = File(directory, "observations.json")
     private val pendingFile get() = File(directory, "observations.pending")
@@ -15,12 +21,15 @@ class TravelStore(private val directory: File, private val replaceFile: (File, F
 
     @Synchronized fun locationErasurePending(): Boolean = erasureFile.exists()
 
-    @Synchronized fun markLocationErasurePending() {
-        if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Unable to create travel storage")
-        erasureFile.outputStream().use { it.write(byteArrayOf(1)); it.flush(); (it as java.io.FileOutputStream).fd.sync() }
+    // The controller serializes marker changes with archive commits. Do not take
+    // the archive monitor here: save holds it before taking the controller lock.
+    fun markLocationErasurePending() {
+        Files.createDirectories(directory.toPath())
+        if (erasureFile.exists()) return
+        erasureFile.outputStream().use { it.write(1); it.fd.sync() }
     }
 
-    @Synchronized fun completeLocationErasure() {
+    fun completeLocationErasure() {
         if (erasureFile.exists() && !erasureFile.delete()) throw IOException("Unable to confirm coordinate erasure")
     }
 

@@ -49,6 +49,7 @@ class SweepScanService : Service() {
     private var ticker: Job? = null
     private var active = false
     private var lastSaveAt = 0L
+    private var postedCount = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -75,7 +76,9 @@ class SweepScanService : Service() {
         try {
             val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(NotificationChannel(CHANNEL, "Scan sessions", NotificationManager.IMPORTANCE_LOW))
-            startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            val count = observationCount()
+            startForeground(NOTIFICATION_ID, notification(count), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+            postedCount = count
         } catch (_: Exception) {
             coordinator.finishSession(ownedId, serviceInstanceId, true, "Android could not run the scanner. Check permissions and reopen SWEEP.")
             stopSelf(); return START_NOT_STICKY
@@ -118,7 +121,11 @@ class SweepScanService : Service() {
                     wifiStatus = if (!health.wifiReady) health.wifiStatus else wifi?.throttleHint()?.ifBlank { "Observing Wi-Fi access points" },
                     bleStatus = if (!health.bleReady) health.bleStatus else if (ble?.isRunning() == true) "Observing Bluetooth advertisements" else "Bluetooth waiting for Android",
                 )
-                (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification())
+                val count = observationCount()
+                if (count != postedCount) {
+                    (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(count))
+                    postedCount = count
+                }
                 val elapsed = SystemClock.elapsedRealtime()
                 if (elapsed - lastSaveAt >= 5_000L) { coordinator.checkpoint(ownedId, serviceInstanceId); lastSaveAt = elapsed }
                 delay(1_000L)
@@ -137,7 +144,7 @@ class SweepScanService : Service() {
     private fun end(interrupted: Boolean = false) {
         if (!ending.compareAndSet(false, true)) return
         ticker?.cancel()
-        runCatching { wifi?.stop() }; runCatching { ble?.stop() }; runCatching { nan?.stop() }
+        runCatching { wifi?.stop() }; ble?.stop(); runCatching { nan?.stop() }
         inbound.close()
         val ownedId = sessionId
         scope.launch {
@@ -154,23 +161,25 @@ class SweepScanService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) { end(); super.onTaskRemoved(rootIntent) }
 
     override fun onDestroy() {
-        ticker?.cancel(); runCatching { wifi?.close() }; runCatching { ble?.stop() }; runCatching { nan?.close() }
+        ticker?.cancel(); runCatching { wifi?.close() }; runCatching { nan?.close() }
+        val stopBluetooth = ble?.takeUnless { it.stop() }?.let { radio -> radio::stop }
         inbound.cancel(); scope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
-        sessionId?.let { coordinator.serviceDestroyed(it, serviceInstanceId) }
+        sessionId?.let { coordinator.serviceDestroyed(it, serviceInstanceId, stopBluetooth) }
     }
 
-    private fun notification(): Notification {
+    private fun observationCount() = coordinator.current.value?.takeIf { it.id == sessionId }?.findings?.size ?: 0
+
+    private fun notification(count: Int): Notification {
         val launch = PendingIntent.getActivity(this, 0, Intent(this, SweepActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 1, Intent(this, SweepScanService::class.java).setAction(ACTION_STOP)
             .setData(Uri.parse("sweep:session/$sessionId")).putExtra(EXTRA_SESSION_ID, sessionId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val session = coordinator.current.value?.takeIf { it.id == sessionId }
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_fieldwatch)
             .setContentTitle("SWEEP is scanning")
-            .setContentText("${session?.findings?.size ?: 0} radio observations · results stay on this phone")
+            .setContentText("$count radio observations · results stay on this phone")
             .setContentIntent(launch).setOngoing(true).setOnlyAlertOnce(true)
             .addAction(0, "End session", stop).setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE).build()
     }

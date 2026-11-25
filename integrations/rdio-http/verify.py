@@ -21,7 +21,7 @@ def main() -> None:
         run("git", "init", "--quiet", cwd=checkout)
         run("git", "remote", "add", "origin", "https://github.com/chuot/rdio-scanner.git", cwd=checkout)
         run("git", "fetch", "--quiet", "--depth=1", "origin", revision, cwd=checkout)
-        run("git", "checkout", "--quiet", "--detach", "FETCH_HEAD", cwd=checkout)
+        run("git", "-c", "core.autocrlf=false", "checkout", "--quiet", "--detach", "FETCH_HEAD", cwd=checkout)
         patch = str(package / "rdio-http-v1.patch")
         run("git", "apply", "--check", patch, cwd=checkout)
         run("git", "apply", patch, cwd=checkout)

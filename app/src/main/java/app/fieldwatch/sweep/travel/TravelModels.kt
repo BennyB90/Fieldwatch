@@ -49,6 +49,7 @@ import kotlinx.serialization.Serializable
     val droppedSamples: Long = 0,
     val status: String = "Starting Bluetooth observation",
     val error: String? = null,
+    val lowPowerBluetooth: Boolean = false,
 )
 
 @Serializable data class TravelArchive(

@@ -5,6 +5,8 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.io.IOException
 
 class TravelStoreAndLeaseTest {
@@ -24,6 +26,24 @@ class TravelStoreAndLeaseTest {
             assertTrue(recovered.sessions.single().error!!.contains("Start it explicitly"))
             assertEquals(archive().ignoredAddresses, recovered.ignoredAddresses)
             assertFalse(TravelServiceLease(SweepRadioGate()).held())
+        } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun persistedRevocationHidesLocationsOnRestartBeforeArchiveRewrite() {
+        val directory = Files.createTempDirectory("travel-erasure-restart").toFile()
+        try {
+            val store = TravelStore(directory)
+            store.save(archive(), now)
+            store.markLocationErasurePending()
+
+            val reopened = TravelStore(directory)
+            assertTrue(reopened.locationErasurePending())
+            assertTrue(TravelPrivacy.coordinateFree(reopened.load(now)))
+            assertTrue(File(directory, "observations.json").readText().contains("40.1"))
+            assertTrue(reopened.save(reopened.load(now), now))
+            reopened.completeLocationErasure()
+            assertFalse(reopened.locationErasurePending())
+            assertFalse(File(directory, "observations.json").readText().contains("40.1"))
         } finally { directory.deleteRecursively() }
     }
 
@@ -62,7 +82,10 @@ class TravelStoreAndLeaseTest {
             TravelStore(directory).save(archive(), now)
             var failReplacement = true
             val store = TravelStore(directory) { pending, destination ->
-                if (failReplacement) false else pending.renameTo(destination)
+                if (failReplacement) false else {
+                    Files.move(pending.toPath(), destination.toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+                    true
+                }
             }
             store.markLocationErasurePending()
             val redacted = archive().copy(sessions = archive().sessions.map { TravelPrivacy.withoutLocations(it) })

@@ -34,6 +34,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import app.fieldwatch.domain.Fleet
 import app.fieldwatch.domain.MatchRule
 import app.fieldwatch.domain.SignatureClass
@@ -51,6 +54,18 @@ private enum class SweepTab(val label: String, val icon: ImageVector) {
     LISTEN("Listen", Icons.Outlined.Headphones),
     RADAR("Radar", Icons.Outlined.Radar),
     TRAVEL("Travel", Icons.Outlined.Route),
+}
+
+@Composable
+internal fun visibleClockTime(): Long {
+    val owner = LocalLifecycleOwner.current
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(owner) {
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { now = System.currentTimeMillis(); delay(1_000L) }
+        }
+    }
+    return now
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,9 +102,8 @@ fun SweepRoot(
     var deleteSession by remember { mutableStateOf<SweepSession?>(null) }
     var clearAll by rememberSaveable { mutableStateOf(false) }
     var comparing by rememberSaveable { mutableStateOf(false) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val now = visibleClockTime()
     val tabState = rememberSaveableStateHolder()
-    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
 
     val selectedSession = selectedSessionId?.let { id -> history.find { it.id == id } ?: current?.takeIf { it.id == id } }
     val findingSession = selectedSession ?: current

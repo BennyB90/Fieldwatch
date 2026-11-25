@@ -12,8 +12,12 @@ import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import app.fieldwatch.domain.Observation
+import app.fieldwatch.sweep.BLUETOOTH_CLEANUP_FAILED
+import app.fieldwatch.sweep.BLUETOOTH_CLEANUP_PENDING
+import app.fieldwatch.sweep.CheckpointWriter
 import app.fieldwatch.sweep.SweepRadioGate
 import app.fieldwatch.sweep.SessionTimeWindow
+import app.fieldwatch.sweep.retryBluetoothCleanup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,6 +76,7 @@ class TravelController(
 
     init {
         scope.launch(Dispatchers.IO) {
+            val checkpoints = CheckpointWriter<Pair<Long, TravelArchive>>()
             for (signal in writes) {
                 val mutation = synchronized(lock) {
                     if (clearRequested) {
@@ -85,6 +90,7 @@ class TravelController(
                 }
                 try {
                     if (mutation.second) {
+                        checkpoints.clear()
                         store.deleteAll()
                         synchronized(lock) {
                             if (generation == mutation.first) {
@@ -94,15 +100,20 @@ class TravelController(
                             }
                         }
                     } else if (mutation.third != null) {
-                        if (synchronized(lock) { _locationErasurePending.value && generation == mutation.first }) store.markLocationErasurePending()
-                        val saved = store.save(mutation.third!!, System.currentTimeMillis()) { replace ->
-                            synchronized(lock) {
-                                if (mutation.first != generation || clearRequested || _clearing.value) false
-                                else { replace(); true }
+                        synchronized(lock) {
+                            if (_locationErasurePending.value && generation == mutation.first) store.markLocationErasurePending()
+                        }
+                        val archive = mutation.third!!
+                        val saved = checkpoints.writeIfChanged(mutation.first to archive) {
+                            store.save(archive, System.currentTimeMillis()) { replace ->
+                                synchronized(lock) {
+                                    if (mutation.first != generation || clearRequested || _clearing.value) false
+                                    else { replace(); true }
+                                }
                             }
                         }
                         synchronized(lock) {
-                            if (saved && generation == mutation.first && _locationErasurePending.value && TravelPrivacy.coordinateFree(mutation.third!!)) {
+                            if (saved && generation == mutation.first && _locationErasurePending.value && TravelPrivacy.coordinateFree(archive)) {
                                 store.completeLocationErasure()
                                 _locationErasurePending.value = false
                                 if (_error.value in setOf(ERASURE_FAILED, ERASURE_UNCONFIRMED, ERASURE_BEFORE_START)) _error.value = null
@@ -110,6 +121,7 @@ class TravelController(
                         }
                     }
                 } catch (_: Exception) {
+                    checkpoints.clear()
                     synchronized(lock) {
                         if (generation == mutation.first) {
                             _error.value = if (mutation.second) "Travel observations could not be deleted. Try clearing them again."
@@ -180,7 +192,7 @@ class TravelController(
 
     fun locationAllowed(): Boolean = current.value?.let { it.locationConsent && travelWindowOpen(it, SystemClock.elapsedRealtime()) } == true && locationAccessAvailable()
 
-    fun start(locationConsent: Boolean = false) {
+    fun start(locationConsent: Boolean = false, lowPowerBluetooth: Boolean = false) {
         val available = availability()
         if (!available.ready) { _error.value = available.message; return }
         // Caller UI checks are outside our lock. The shared atomic gate is authoritative.
@@ -189,13 +201,19 @@ class TravelController(
             if (initializing || _clearing.value) { _error.value = "Travel history is loading or being cleared. Try again shortly."; return }
             if (!historyAvailable) { _error.value = HISTORY_UNAVAILABLE; return }
             if (_locationErasurePending.value) { _error.value = ERASURE_BEFORE_START; return }
-            if (lease.held()) { _error.value = "Travel is running or still stopping. Wait for teardown before restarting."; return }
+            if (lease.held()) {
+                if (_error.value != BLUETOOTH_CLEANUP_FAILED && _error.value != BLUETOOTH_CLEANUP_PENDING) {
+                    _error.value = "Travel is running or still stopping. Wait for teardown before restarting."
+                }
+                return
+            }
             val sessionId = UUID.randomUUID().toString()
             if (!lease.reserve(sessionId)) { _error.value = "End the RF scan or radar mode before starting Travel."; return }
             _error.value = null
             qualifier = TravelTrackerQualifier()
             timingEndState = null
-            _current.value = TravelSession(sessionId, System.currentTimeMillis(), SystemClock.elapsedRealtime(), locationConsent = locationConsent)
+            _current.value = TravelSession(sessionId, System.currentTimeMillis(), SystemClock.elapsedRealtime(),
+                locationConsent = locationConsent, lowPowerBluetooth = lowPowerBluetooth)
             _starting.value = true
             startupWatchdog = scope.launch { delay(10_000L); startupTimedOut(sessionId) }
             checkpointLocked()
@@ -310,8 +328,7 @@ class TravelController(
 
     internal fun reconcileLocationConsent() = synchronized(lock) {
         if (_current.value?.locationConsent == true && !locationAccessAvailable()) {
-            redactLocationLocked()
-            _error.value = "GPS correlation stopped because location access changed."
+            if (redactLocationLocked()) _error.value = "GPS correlation stopped because location access changed."
         }
     }
 
@@ -350,11 +367,27 @@ class TravelController(
         checkpointLocked()
     }
 
-    internal fun destroyed(id: String, instanceId: String) = synchronized(lock) {
+    internal fun destroyed(id: String, instanceId: String, stopBluetooth: (() -> Boolean)? = null) = synchronized(lock) {
         if (!lease.owns(id, instanceId)) return@synchronized
         finishLocked(id, true, "Android ended Travel observation. Nothing will resume until you start it again.")
-        lease.release(id, instanceId)
         stopService = null
+        if (stopBluetooth == null) {
+            releaseDestroyedService(id, instanceId)
+        } else {
+            _error.value = BLUETOOTH_CLEANUP_PENDING
+            scope.launch {
+                val stopped = retryBluetoothCleanup(stopBluetooth)
+                synchronized(lock) {
+                    if (stopped) releaseDestroyedService(id, instanceId)
+                    else _error.value = BLUETOOTH_CLEANUP_FAILED
+                }
+            }
+        }
+    }
+
+    private fun releaseDestroyedService(id: String, instanceId: String) {
+        lease.release(id, instanceId)
+        if (_error.value == BLUETOOTH_CLEANUP_PENDING) _error.value = null
     }
 
     fun setIgnored(address: String, ignored: Boolean) = synchronized(lock) {
@@ -373,21 +406,26 @@ class TravelController(
     }
 
     /** Revoking this separate consent erases saved phone coordinates and stops future correlation. */
-    fun disableLocation() = synchronized(lock) {
+    fun disableLocation(): Unit = synchronized(lock) {
         if (initializing) { _error.value = "Travel history is loading. Wait before erasing saved locations."; return@synchronized }
         if (!historyAvailable) { _error.value = HISTORY_UNAVAILABLE; return@synchronized }
         _error.value = null
         redactLocationLocked()
     }
 
-    private fun redactLocationLocked() {
+    private fun redactLocationLocked(): Boolean {
         generation++
         desiredArchive = null
+        // Journal the request before exposing a redacted state. Startup can
+        // then honor revocation even if the process dies before the rewrite.
+        val recorded = runCatching { store.markLocationErasurePending() }.isSuccess
         _locationErasurePending.value = true
         _current.value = _current.value?.let { TravelPrivacy.withoutLocations(it, ignored) }
         _history.value = _history.value.map { TravelPrivacy.withoutLocations(it, ignored) }
         TravelObservationService.clearNotice(context)
+        if (!recorded) _error.value = ERASURE_FAILED
         checkpointLocked()
+        return recorded
     }
 
     fun deleteAll() {

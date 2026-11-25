@@ -1,11 +1,25 @@
 package app.fieldwatch.sweep
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 
 class SweepRadioGateTest {
+    @Test fun bluetoothCleanupRetriesUntilSuccessOrBudgetIsExhausted() = runBlocking {
+        var attempts = 0
+        val waits = mutableListOf<Long>()
+        assertTrue(retryBluetoothCleanup({ ++attempts == 2 }, { waits.add(it) }))
+        assertEquals(listOf(500L, 1_000L), waits)
+
+        attempts = 0
+        waits.clear()
+        assertFalse(retryBluetoothCleanup({ attempts++; false }, { waits.add(it) }))
+        assertEquals(3, attempts)
+        assertEquals(listOf(500L, 1_000L, 1_500L), waits)
+    }
+
     @Test fun differentModesCannotReserveSimultaneously() {
         val gate = SweepRadioGate()
         assertTrue(gate.acquire("scan:first"))

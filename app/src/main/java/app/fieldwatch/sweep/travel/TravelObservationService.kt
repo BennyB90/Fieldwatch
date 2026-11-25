@@ -52,6 +52,7 @@ class TravelObservationService : Service() {
     private var active = false
     private var locating = false
     private var gpsAvailable = false
+    private var postedStatus: String? = null
     @Volatile private var lastFix: TravelLocation? = null
     private val notified = HashMap<String, TravelEvidenceKind>()
     private val locations get() = getSystemService(LOCATION_SERVICE) as LocationManager
@@ -92,7 +93,9 @@ class TravelObservationService : Service() {
             manager.createNotificationChannel(NotificationChannel(ALERT_CHANNEL, "Repeated tracker observations", NotificationManager.IMPORTANCE_DEFAULT))
             val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
                 (if (controller.locationAllowed()) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
-            startForeground(NOTIFICATION_ID, notification(), types)
+            val status = notificationStatus()
+            startForeground(NOTIFICATION_ID, notification(status), types)
+            postedStatus = status
         } catch (_: Exception) {
             end(true, "Android could not start the Travel foreground service. Start again explicitly after checking permissions.")
             return START_NOT_STICKY
@@ -125,17 +128,17 @@ class TravelObservationService : Service() {
                     if (ble?.isRunning() == true) {
                         ble?.stop()
                         updateReceptionStatus(id)
-                        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification())
+                        updateNotification()
                         delay(ble?.restartBackoffMs() ?: 1_200L)
                     }
                     if (!controller.collectionWindowOpen(id, instanceId)) { end(); break }
-                    if (!ending.get()) ble?.start(ScanIntensity.BALANCED)
+                    if (!ending.get()) ble?.start(if (session.lowPowerBluetooth) ScanIntensity.SAVER else ScanIntensity.BALANCED)
                 }
                 val elapsed = SystemClock.elapsedRealtime()
                 if (!travelWindowOpen(session, elapsed)) { end(false, "The four-hour observation window ended. Start another Travel session explicitly if needed."); break }
                 updateReceptionStatus(id)
                 if (elapsed - lastSave >= 5_000L) { controller.checkpoint(id, instanceId); lastSave = elapsed }
-                (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification())
+                updateNotification()
                 notifyAssessments()
                 delay(1_000L)
             }
@@ -169,7 +172,7 @@ class TravelObservationService : Service() {
 
     private fun end(interrupted: Boolean = false, reason: String? = null) {
         if (!ending.compareAndSet(false, true)) return
-        ticker?.cancel(); runCatching { ble?.stop() }; stopLocation(); inbound.close()
+        ticker?.cancel(); ble?.stop(); stopLocation(); inbound.close()
         scope.launch {
             pump?.join()
             sessionId?.let { controller.finish(it, instanceId, interrupted, reason) }
@@ -179,22 +182,33 @@ class TravelObservationService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) { end(); super.onTaskRemoved(rootIntent) }
     override fun onDestroy() {
-        ticker?.cancel(); runCatching { ble?.stop() }; stopLocation()
+        ticker?.cancel(); stopLocation()
+        val stopBluetooth = ble?.takeUnless { it.stop() }?.let { radio -> radio::stop }
         inbound.cancel(); scope.cancel()
         stopForeground(STOP_FOREGROUND_REMOVE)
         clearNotice(this)
-        sessionId?.let { controller.destroyed(it, instanceId) }
+        sessionId?.let { controller.destroyed(it, instanceId, stopBluetooth) }
         super.onDestroy()
     }
 
     private fun openTravel() = PendingIntent.getActivity(this, NOTIFICATION_ID, Intent(this, SweepTravelActivity::class.java)
         .setAction("app.fieldwatch.sweep.travel.OPEN"), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    private fun notification(): Notification {
+    private fun notificationStatus(): String {
+        val session = controller.current.value
+        val count = session?.trackers?.sumOf { it.samples.size } ?: 0
+        return "$count spaced observations · ${session?.status ?: "Starting Bluetooth observation"}"
+    }
+
+    private fun updateNotification() {
+        val status = notificationStatus()
+        if (status == postedStatus) return
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIFICATION_ID, notification(status))
+        postedStatus = status
+    }
+
+    private fun notification(status: String): Notification {
         val stop = PendingIntent.getService(this, 0, Intent(this, TravelObservationService::class.java).setAction(ACTION_STOP)
             .setData(Uri.parse("sweep:travel/$sessionId")).putExtra(EXTRA_SESSION_ID, sessionId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val session = controller.current.value
-        val sampleCount = session?.trackers?.sumOf { it.samples.size } ?: 0
-        val status = "$sampleCount spaced observations · ${session?.status ?: "Starting Bluetooth observation"}"
         return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_stat_fieldwatch)
             .setContentTitle("SWEEP Travel is enabled")
             .setContentText(status).setStyle(NotificationCompat.BigTextStyle().bigText(status))
@@ -204,6 +218,7 @@ class TravelObservationService : Service() {
 
     private fun notifyAssessments() {
         val id = sessionId ?: return
+        if (controller.current.value?.assessments.isNullOrEmpty()) return
         if (!controller.notificationsAvailable().ready) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         controller.publishAssessments(id, instanceId) { assessment ->

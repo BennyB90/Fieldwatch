@@ -13,10 +13,10 @@ index 872b9f8..aa248a6 100644
  
 diff --git a/server/sweep_http.go b/server/sweep_http.go
 new file mode 100644
-index 0000000..c0a980c
+index 0000000..caa3057
 --- /dev/null
 +++ b/server/sweep_http.go
-@@ -0,0 +1,435 @@
+@@ -0,0 +1,461 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +// Copyright 2026 SWEEP contributors.
 +// Original opt-in HTTP companion, compiled with Rdio Scanner's GPL server.
@@ -32,6 +32,7 @@ index 0000000..c0a980c
 +	"mime"
 +	"net"
 +	"net/http"
++	"net/netip"
 +	"os"
 +	"strings"
 +	"sync"
@@ -41,6 +42,7 @@ index 0000000..c0a980c
 +
 +const sweepMaxAudio = 8 * 1024 * 1024
 +const sweepMaxJSON = 1024 * 1024
++const sweepClientIPHeader = "X-Sweep-Client-IP"
 +
 +type sweepHTTPRequest struct {
 +	Pin    string `json:"pin"`
@@ -69,10 +71,11 @@ index 0000000..c0a980c
 +	Until time.Time
 +}
 +type sweepHTTP struct {
-+	controller *Controller
-+	mutex      sync.Mutex
-+	failures   map[string]sweepPeerFailures
-+	busy       chan struct{}
++	controller         *Controller
++	mutex              sync.Mutex
++	failures           map[string]sweepPeerFailures
++	busy               chan struct{}
++	trustLoopbackProxy bool
 +}
 +
 +// Only the operator can enable this companion; normal upstream behavior is unchanged.
@@ -80,7 +83,10 @@ index 0000000..c0a980c
 +	if os.Getenv("SWEEP_RDIO_HTTP") != "1" {
 +		return
 +	}
-+	h := &sweepHTTP{controller: controller, failures: map[string]sweepPeerFailures{}, busy: make(chan struct{}, 8)}
++	h := &sweepHTTP{
++		controller: controller, failures: map[string]sweepPeerFailures{}, busy: make(chan struct{}, 8),
++		trustLoopbackProxy: os.Getenv("SWEEP_RDIO_TRUST_LOOPBACK_PROXY") == "1",
++	}
 +	for _, route := range []string{"config", "calls", "audio"} {
 +		route := route
 +		bounded := http.TimeoutHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.serve(w, r, route) }), 20*time.Second, `{"apiVersion":1,"error":"request_timeout"}`)
@@ -116,10 +122,30 @@ index 0000000..c0a980c
 +		sweepHTTPError(w, 400, "invalid_request")
 +		return
 +	}
-+	ip := net.ParseIP(peer)
-+	if r.TLS == nil && (ip == nil || !ip.IsLoopback()) {
++	ip, err := netip.ParseAddr(peer)
++	if err != nil {
++		sweepHTTPError(w, 400, "invalid_request")
++		return
++	}
++	ip = ip.Unmap()
++	if r.TLS == nil && !ip.IsLoopback() {
 +		sweepHTTPError(w, 403, "https_required")
 +		return
++	}
++	if h.trustLoopbackProxy && ip.IsLoopback() {
++		// The configured proxy must replace this header with the actual client
++		// address. Accept exactly one address, never a forwarded chain.
++		values := r.Header.Values(sweepClientIPHeader)
++		if len(values) != 1 {
++			sweepHTTPError(w, 400, "invalid_proxy_client")
++			return
++		}
++		client, err := netip.ParseAddr(values[0])
++		if err != nil || client.Zone() != "" {
++			sweepHTTPError(w, 400, "invalid_proxy_client")
++			return
++		}
++		ip = client.Unmap()
 +	}
 +	if r.URL.RawQuery != "" {
 +		sweepHTTPError(w, 400, "body_required")
@@ -146,7 +172,7 @@ index 0000000..c0a980c
 +		sweepHTTPError(w, 400, "invalid_request")
 +		return
 +	}
-+	access, status := h.authorizePeer(peer, request.Pin)
++	access, status := h.authorizePeer(ip.String(), request.Pin)
 +	request.Pin = "" // Never put a PIN in a URL, error, response, or application log.
 +	if status != 0 {
 +		code := "invalid_or_expired_access"
@@ -454,10 +480,10 @@ index 0000000..c0a980c
 +}
 diff --git a/server/sweep_http_test.go b/server/sweep_http_test.go
 new file mode 100644
-index 0000000..1725d3a
+index 0000000..3798978
 --- /dev/null
 +++ b/server/sweep_http_test.go
-@@ -0,0 +1,338 @@
+@@ -0,0 +1,372 @@
 +// SPDX-License-Identifier: GPL-3.0-or-later
 +// Copyright 2026 SWEEP contributors.
 +package main
@@ -662,6 +688,40 @@ index 0000000..1725d3a
 +	}
 +	if w := sweepRequest(h, "config", `{"pin":"PRIVATE-PIN"}`); w.Code != 429 {
 +		t.Fatalf("rate limit status %d", w.Code)
++	}
++}
++
++func TestSweepHTTPTrustedProxyUsesIndependentClientBudgets(t *testing.T) {
++	h := sweepFixture(t)
++	h.trustLoopbackProxy = true
++	h.failures["192.0.2.4"] = sweepPeerFailures{Count: 5, Until: time.Now().Add(time.Minute)}
++
++	for _, tc := range []struct {
++		name, peer string
++		header     []string
++		status     int
++	}{
++		{"blocked client", "127.0.0.1:49152", []string{"::ffff:192.0.2.4"}, 429},
++		{"another client", "[::1]:49152", []string{"192.0.2.5"}, 200},
++		{"direct connection ignores header", "192.0.2.4:49152", []string{"192.0.2.5"}, 429},
++		{"direct IPv6 with zone", "[fe80::1%eth0]:49152", nil, 200},
++		{"missing header", "127.0.0.1:49152", nil, 400},
++		{"forwarded chain", "127.0.0.1:49152", []string{"192.0.2.4, 192.0.2.5"}, 400},
++		{"duplicate headers", "127.0.0.1:49152", []string{"192.0.2.4", "192.0.2.5"}, 400},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			r := httptest.NewRequest(http.MethodPost, "https://example.test/sweep-rdio/v1/config", strings.NewReader(`{"pin":"PRIVATE-PIN"}`))
++			r.RemoteAddr = tc.peer
++			r.Header.Set("Content-Type", "application/json")
++			for _, value := range tc.header {
++				r.Header.Add(sweepClientIPHeader, value)
++			}
++			w := httptest.NewRecorder()
++			h.serve(w, r, "config")
++			if w.Code != tc.status {
++				t.Fatalf("status %d, want %d", w.Code, tc.status)
++			}
++		})
 +	}
 +}
 +

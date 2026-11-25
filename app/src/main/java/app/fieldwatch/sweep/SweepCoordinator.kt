@@ -46,6 +46,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
     private val lock = Any()
     private val store = SweepSessionStore(File(context.filesDir, "sweep-sessions"))
     private val persistence = SweepPersistenceQueue(scope)
+    private val checkpoints = CheckpointWriter<SweepSession>()
     private val serviceOwnership = SweepServiceOwnership()
     private var serviceStopper: Pair<String, (Boolean) -> Unit>? = null
     private var startupWatchdog: Pair<String, Job>? = null
@@ -152,7 +153,9 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
         val sessionId = synchronized(lock) {
             if (_starting.value || _current.value?.state == SweepSessionState.ACTIVE) return
             if (serviceOwnership.isHeld()) {
-                _error.value = SCANNER_STOPPING_MESSAGE
+                if (_error.value != BLUETOOTH_CLEANUP_FAILED && _error.value != BLUETOOTH_CLEANUP_PENDING) {
+                    _error.value = SCANNER_STOPPING_MESSAGE
+                }
                 return
             }
             if (!health.wifiReady && !health.bleReady) {
@@ -300,7 +303,10 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
             if (snapshot.demo || snapshot.state != SweepSessionState.ACTIVE) return
             val generation = historyGeneration
             persistence.enqueue(onFailure = { _error.value = "Session saving is unavailable. You can still share the current report." }) {
-                if (mayPersist(generation, snapshot.id)) store.save(snapshot)
+                if (mayPersist(generation, snapshot.id)) checkpoints.writeIfChanged(snapshot) {
+                    store.save(snapshot)
+                    true
+                }
             }
         }
     }
@@ -327,6 +333,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
             ).also { _current.value = it; if (actualReason != null) _error.value = actualReason }
             val generation = historyGeneration
             persistence.enqueue(onFailure = { _error.value = "This session could not be saved. Share its report before closing SWEEP." }) {
+                checkpoints.clear()
                 if (!mayPersist(generation, finished.id)) return@enqueue
                 store.save(finished)
                 synchronized(lock) {
@@ -340,14 +347,29 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
     }
 
     /** Release only after the owning service has cancelled callbacks and removed its foreground notification. */
-    fun serviceDestroyed(sessionId: String, serviceInstanceId: String) = synchronized(lock) {
+    internal fun serviceDestroyed(sessionId: String, serviceInstanceId: String, stopBluetooth: (() -> Boolean)? = null) = synchronized(lock) {
         if (!serviceOwnership.owns(sessionId, serviceInstanceId)) return@synchronized
         finish(sessionId, true, "Android ended scanning unexpectedly. This session may be incomplete.")
+        serviceStopper = null
+        if (stopBluetooth == null) {
+            releaseDestroyedService(sessionId, serviceInstanceId)
+        } else {
+            _error.value = BLUETOOTH_CLEANUP_PENDING
+            scope.launch {
+                val stopped = retryBluetoothCleanup(stopBluetooth)
+                synchronized(lock) {
+                    if (stopped) releaseDestroyedService(sessionId, serviceInstanceId)
+                    else _error.value = BLUETOOTH_CLEANUP_FAILED
+                }
+            }
+        }
+    }
+
+    private fun releaseDestroyedService(sessionId: String, serviceInstanceId: String) {
         serviceOwnership.release(sessionId, serviceInstanceId)
         radioGate.release("scan:$sessionId")
-        serviceStopper = null
         cancelStartupWatchdog(sessionId)
-        if (_error.value == SCANNER_STOPPING_MESSAGE) _error.value = null
+        if (_error.value == SCANNER_STOPPING_MESSAGE || _error.value == BLUETOOTH_CLEANUP_PENDING) _error.value = null
     }
 
     fun reportServiceError(sessionId: String, serviceInstanceId: String, message: String) = synchronized(lock) {

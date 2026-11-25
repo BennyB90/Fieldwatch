@@ -1,6 +1,7 @@
 package app.fieldwatch.radio
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
@@ -67,7 +68,11 @@ class BleRadio(
     @Synchronized fun start(intensity: ScanIntensity) {
         val now = SystemClock.elapsedRealtime()
         if (now < nextRetryAt.get()) return
-        clearActiveScan()
+        if (!clearActiveScan()) {
+            hint = "Waiting for Bluetooth cleanup"
+            nextRetryAt.set(now + 2_000L)
+            return
+        }
         val adapter = manager.adapter
         if (adapter == null || !adapter.isEnabled) {
             running.set(false)
@@ -121,18 +126,21 @@ class BleRadio(
     }
 
     @SuppressLint("MissingPermission")
-    @Synchronized fun stop() { clearActiveScan() }
+    @Synchronized fun stop(): Boolean = clearActiveScan()
 
     @SuppressLint("MissingPermission")
-    private fun clearActiveScan() {
+    private fun clearActiveScan(): Boolean {
         val active = scanner
         val callback = activeCallback
-        // Invalidate before touching Android; queued failures/results belong to the old scan.
+        // Fence callbacks before asking Android to stop; keep the native handle
+        // if Android throws so the same registration can be stopped again.
         evidence.cancel()
+        running.set(false)
+        if (active != null && callback != null && runCatching { active.stopScan(callback) }.isFailure &&
+            runCatching { manager.adapter?.state }.getOrNull() != BluetoothAdapter.STATE_OFF) return false
         activeCallback = null
         scanner = null
-        running.set(false)
-        if (active != null && callback != null) runCatching { active.stopScan(callback) }
+        return true
     }
 
     fun isRunning(): Boolean = running.get()
