@@ -104,11 +104,24 @@ object ValentineEspProtocol {
         if (value and 0x80 != 0) add(RadarDirection.REAR)
     }
 
-    private fun sevenSegment(value: Int): String = when (value and 0x7F) {
-        0x00 -> " "; 0x3F -> "0"; 0x06 -> "1"; 0x5B -> "2"; 0x4F -> "3"; 0x66 -> "4"
-        0x6D -> "5"; 0x7D -> "6"; 0x07 -> "7"; 0x7F -> "8"; 0x6F -> "9"
-        0x77 -> "A"; 0x38 -> "L"; 0x18 -> "l"; 0x79 -> "E"; 0x40 -> "-"; else -> "?"
-    } + if (value and 0x80 != 0) "." else ""
+    private fun sevenSegment(value: Int): String {
+        val glyph = when (value and 0x7F) {
+            0x00 -> ""
+            0x3F -> "0"; 0x06 -> "1"; 0x5B -> "2"; 0x4F -> "3"; 0x66 -> "4"
+            0x6D -> "5"; 0x7D -> "6"; 0x07 -> "7"; 0x7F -> "8"; 0x6F -> "9"
+            0x77 -> "A"; 0x7C -> "b"; 0x39 -> "C"; 0x58 -> "c"; 0x5E -> "d"
+            0x79 -> "E"; 0x71 -> "F"; 0x76 -> "H"; 0x1E, 0x0E -> "J"; 0x38 -> "L"
+            0x18 -> "l"; 0x54 -> "n"; 0x5C -> "o"; 0x73 -> "P"; 0x50 -> "r"
+            0x78 -> "t"; 0x3E -> "U"; 0x1C -> "u"; 0x40 -> "-"
+            else -> "?"
+        }
+        return when {
+            glyph.isEmpty() && (value and 0x80) != 0 -> "."
+            glyph.isEmpty() -> " "
+            (value and 0x80) != 0 -> "$glyph."
+            else -> glyph
+        }
+    }
 }
 
 /** Publish complete, bounded tables only; prevent old and new cycles from being mixed. */

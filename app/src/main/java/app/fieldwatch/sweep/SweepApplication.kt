@@ -10,6 +10,9 @@ import app.fieldwatch.sweep.travel.TravelModeHost
 
 open class SweepApplication : Application(), TravelModeHost, NetworkModeHost {
     val radioGate = SweepRadioGate()
+    @Volatile var activeStreamPlayback: Boolean = false
+    @Volatile var activeRdioPlayback: Boolean = false
+    val isAudioPlaying: Boolean get() = activeStreamPlayback || activeRdioPlayback
     internal val batteryTest by lazy { HandsetBatteryTest(this) }
     lateinit var coordinator: SweepCoordinator
         private set

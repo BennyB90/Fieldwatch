@@ -163,9 +163,11 @@ object SweepComparisons {
         unresolved: MutableList<SweepUnresolvedObservation>,
     ): ComparisonIndex {
         val end = session.endedAt!!
+        val maxWall = if (Long.MAX_VALUE - end < CLOCK_DRIFT_TOLERANCE_MS) Long.MAX_VALUE else end + CLOCK_DRIFT_TOLERANCE_MS
         val candidates = session.findings.groupBy { finding ->
-            if (finding.observations <= 0 || finding.firstSeenAt !in session.startedAt..end ||
-                finding.lastSeenAt !in session.startedAt..end) null else key(finding)
+            if (finding.observations <= 0 || finding.firstSeenAt > finding.lastSeenAt ||
+                finding.firstSeenAt !in session.startedAt..maxWall ||
+                finding.lastSeenAt !in session.startedAt..maxWall) null else key(finding)
         }
         val result = linkedMapOf<String, SweepFinding>()
         val ambiguous = mutableSetOf<String>()
@@ -212,5 +214,6 @@ object SweepComparisons {
         "This address may have changed since the other scan or be reused; physical identity is unverified."
     } else "An advertised radio address, not a verified physical device."
 
+    private const val CLOCK_DRIFT_TOLERANCE_MS = 5_000L
     private val ADDRESS_PATTERN = Regex("(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}")
 }

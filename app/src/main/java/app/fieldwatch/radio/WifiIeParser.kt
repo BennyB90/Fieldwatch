@@ -73,10 +73,13 @@ object WifiIeParser {
         }
         val cap = capabilities.orEmpty()
         if (sec.isEmpty() && cap.isNotBlank()) sec += cap
+        val prioritizedVendor = vendor.distinctBy { it.oui to it.type }.sortedByDescending {
+            it.oui == OpenDroneId.WIFI_OUI && it.type == OpenDroneId.WIFI_TYPE
+        }.take(12)
         return Parsed(
             rates = rates.distinct().joinToString(" ").ifBlank { null },
             security = sec.distinct().joinToString(" · ").ifBlank { cap.ifBlank { null } },
-            vendorIes = vendor.distinctBy { it.oui to it.type }.take(12),
+            vendorIes = prioritizedVendor,
             channelFromDs = ds,
         )
     }

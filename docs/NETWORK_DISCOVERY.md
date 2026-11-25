@@ -31,7 +31,7 @@ Several services can belong to one physical device. Addresses and advertised nam
 
 ## Generic router JSON import
 
-**Import router JSON inventory** opens Android's document picker only after a separate authorization confirmation. It reads a UTF-8 JSON file no larger than **1 MiB**. This is an owner-supplied **generic schema**, not a promise to accept arbitrary router exports or an integration that logs into a router. An export may need conversion outside SWEEP. No router credentials, URL or API token are accepted.
+**Import router JSON inventory** opens Android's document picker only after a separate authorization confirmation. It reads a UTF-8 JSON file no larger than **1 MiB**. This is an owner-supplied **generic schema**, not a promise to accept arbitrary router exports or an integration that logs into a router. Use `python scripts/convert_router_inventory.py <export> -o sweep-inventory.json` offline on a computer to convert common `dnsmasq` (`dhcp.leases`), ISC `dhcpd.leases`, UniFi JSON, OPNsense/pfSense/Asuswrt/FRITZ!Box CSV, `arp`, or `ip neigh` exports into this schema. No router credentials, URL or API token are accepted.
 
 Schema version 1 has exactly these root fields:
 

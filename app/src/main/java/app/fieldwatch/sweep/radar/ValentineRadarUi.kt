@@ -60,12 +60,12 @@ fun ValentineRadarScreen(
     val canConnect = phoneSupported && !blockedBySweep && !connected && state.status !in listOf(RadarConnectionStatus.CONNECTING, RadarConnectionStatus.SUBSCRIBING)
     val display = if (sample) sampleDisplay else state.display.takeIf { connected }
     val alerts = if (sample) sampleAlerts else state.alerts.takeIf { connected }.orEmpty()
-    BackHandler { onBack() }
 
     Scaffold(
         containerColor = SweepCream,
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowBack, "Back to SWEEP") }
                 Text("Valentine", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = { info = true }, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Info, "Accessory compatibility and privacy") }

@@ -156,6 +156,23 @@ class ValentineEspProtocolTest {
         assertNotNull(ValentineEspProtocol.decode(checksummedDisplay))
     }
 
+    @Test
+    fun extendedSevenSegmentModeCharactersAndRestingDotDecodeCleanly() {
+        fun bogey(seg: Int): String {
+            val payload = listOf(0xAA, 0xD6, 0xEA, 0x31, 9, seg, 0, 0, 0, 0, 0x04, 0, 0)
+            val frame = (payload + (payload.sum() and 0xFF) + 0xAB).map { it.toByte() }.toByteArray()
+            return ValentineEspProtocol.display(ValentineEspProtocol.decode(frame)!!, 1_000L)!!.bogeyText
+        }
+        assertEquals(".", bogey(0x80))
+        assertEquals(" ", bogey(0x00))
+        assertEquals("c", bogey(0x58))
+        assertEquals("C.", bogey(0x39 or 0x80))
+        assertEquals("u", bogey(0x1C))
+        assertEquals("U", bogey(0x3E))
+        assertEquals("J", bogey(0x1E))
+        assertEquals("P", bogey(0x73))
+    }
+
     private fun alert(index: Int, count: Int) = RadarAlert(index, count, 34_700, 120, 20,
         listOf(RadarBand.KA), listOf(RadarDirection.FRONT), false, 1_000)
 

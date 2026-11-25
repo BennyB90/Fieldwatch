@@ -106,7 +106,8 @@ object SweepReports {
         id = if (identifiers) exportedText(session.id, coordinates) else "session",
         // Free-form metadata and error strings can themselves contain SSIDs, addresses or GPS.
         phone = "Withheld",
-        androidVersion = session.androidVersion.takeIf { it.matches(Regex("\\d{1,2}(?:\\.\\d{1,2})?")) } ?: "Unknown",
+        androidVersion = Regex("^(\\d{1,2}(?:\\.\\d{1,2}){0,2})(?:$|\\s+\\(API\\s+\\d{2}\\b)")
+            .find(session.androidVersion.trim())?.groupValues?.get(1) ?: "Unknown",
         error = session.error?.let { "Session reported an error; details remain on the device." },
         coverage = session.coverage.copy(
             wifiStatus = coverageStatus(session.coverage.wifiSupported, session.coverage.wifiReady, session.coverage.wifiSamples),

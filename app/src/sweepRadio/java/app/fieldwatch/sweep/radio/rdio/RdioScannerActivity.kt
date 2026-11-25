@@ -3,7 +3,6 @@ package app.fieldwatch.sweep.radio.rdio
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -14,7 +13,9 @@ import androidx.media3.common.util.Log
 import androidx.media3.datasource.ByteArrayDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import app.fieldwatch.sweep.SweepApplication
 import app.fieldwatch.sweep.SweepTheme
+import app.fieldwatch.sweep.enableSweepEdgeToEdge
 import app.fieldwatch.sweep.radio.ScannerRadioApplication
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,7 @@ class RdioScannerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableSweepEdgeToEdge()
         Log.setLogLevel(Log.LOG_LEVEL_OFF)
         lifecycleScope.launch {
             repository.networkConsent.collect { allowed -> if (!allowed) disconnect() }
@@ -50,7 +51,7 @@ class RdioScannerActivity : ComponentActivity() {
                     state = current, networkConsent = consent, loading = loading, onBack = ::finish,
                     onServer = { state.value = state.value.copy(server = it) },
                     onPin = { state.value = state.value.copy(pin = it) },
-                    onConnect = ::connect, onRefresh = ::refresh, onDisconnect = ::disconnect,
+                    onConnect = ::connect, onRefresh = ::refresh, onLoadMore = ::loadMore, onDisconnect = ::disconnect,
                     onPlay = ::playCall, onStop = ::stopPlayback,
                     onPause = { player?.pause() }, onResume = { if (allowed()) player?.play() },
                     onConsent = { if (!it) disconnect(); repository.setConsent(it) },
@@ -62,8 +63,12 @@ class RdioScannerActivity : ComponentActivity() {
     override fun onStart() { super.onStart(); foreground = true }
     override fun onStop() {
         foreground = false
-        disconnect()
+        if (!isChangingConfigurations) disconnect()
         super.onStop()
+    }
+    override fun onDestroy() {
+        if (!isChangingConfigurations || isFinishing) disconnect()
+        super.onDestroy()
     }
 
     private fun allowed() = foreground && !repository.loading.value && repository.networkConsent.value
@@ -78,7 +83,9 @@ class RdioScannerActivity : ComponentActivity() {
             fetch {
                 val config = next.config()
                 val calls = next.calls()
-                val update: (RdioScreenState) -> RdioScreenState = { old -> old.copy(config = config, calls = calls.calls, connected = true) }
+                val update: (RdioScreenState) -> RdioScreenState = { old ->
+                    old.copy(config = config, calls = calls.calls, nextOffset = calls.nextOffset, totalCount = calls.count, connected = true)
+                }
                 update
             }
         }.onFailure { showError(it) }
@@ -90,7 +97,27 @@ class RdioScannerActivity : ComponentActivity() {
         stopAudio()
         fetch {
             val calls = current.calls()
-            val update: (RdioScreenState) -> RdioScreenState = { old -> old.copy(calls = calls.calls, connected = true) }
+            val update: (RdioScreenState) -> RdioScreenState = { old ->
+                old.copy(calls = calls.calls, nextOffset = calls.nextOffset, totalCount = calls.count, connected = true)
+            }
+            update
+        }
+    }
+
+    private fun loadMore() {
+        val current = client ?: return
+        val offset = state.value.nextOffset ?: return
+        if (!allowed() || state.value.busy) return
+        fetch {
+            val page = current.calls(offset = offset)
+            val update: (RdioScreenState) -> RdioScreenState = { old ->
+                old.copy(
+                    calls = (old.calls + page.calls).distinctBy { it.id },
+                    nextOffset = page.nextOffset,
+                    totalCount = page.count,
+                    connected = true,
+                )
+            }
             update
         }
     }
@@ -126,6 +153,8 @@ class RdioScannerActivity : ComponentActivity() {
                 nextPlayer.addListener(object : Player.Listener {
                     override fun onEvents(source: Player, events: Player.Events) {
                         if (player !== nextPlayer) return
+                        val active = source.isPlaying || source.playbackState == Player.STATE_BUFFERING
+                        (application as? SweepApplication)?.activeRdioPlayback = active
                         state.value = state.value.copy(playing = source.isPlaying, buffering = source.playbackState == Player.STATE_BUFFERING)
                         if (source.playbackState == Player.STATE_ENDED) stopAudio()
                     }
@@ -150,6 +179,7 @@ class RdioScannerActivity : ComponentActivity() {
     }
 
     private fun stopAudio() {
+        (application as? SweepApplication)?.activeRdioPlayback = false
         val previous = player
         player = null
         previous?.release()
@@ -170,7 +200,8 @@ class RdioScannerActivity : ComponentActivity() {
         client?.close(); client = null
         stopAudio()
         state.value = state.value.copy(pin = if (clearPin) "" else state.value.pin, connected = false,
-            config = null, calls = emptyList(), busy = false, error = null, connectionIntent = state.value.connectionIntent + 1)
+            config = null, calls = emptyList(), nextOffset = null, totalCount = 0,
+            busy = false, error = null, connectionIntent = state.value.connectionIntent + 1)
     }
 
     private fun showError(problem: Throwable) {
@@ -185,6 +216,7 @@ class RdioScannerActivity : ComponentActivity() {
 data class RdioScreenState(
     val server: String = "", val pin: String = "", val connected: Boolean = false,
     val config: RdioConfig? = null, val calls: List<RdioCall> = emptyList(),
+    val nextOffset: Int? = null, val totalCount: Long = 0,
     val busy: Boolean = false, val selectedCallId: Long? = null,
     val playing: Boolean = false, val buffering: Boolean = false, val error: String? = null,
     val connectionIntent: Long = 0,

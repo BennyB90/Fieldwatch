@@ -1,6 +1,5 @@
 package app.fieldwatch.sweep.radio.rdio
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -25,12 +25,12 @@ import java.time.format.DateTimeFormatter
 fun RdioScannerScreen(
     state: RdioScreenState, networkConsent: Boolean, loading: Boolean,
     onBack: () -> Unit, onServer: (String) -> Unit, onPin: (String) -> Unit,
-    onConnect: () -> Unit, onRefresh: () -> Unit, onDisconnect: () -> Unit,
+    onConnect: () -> Unit, onRefresh: () -> Unit, onLoadMore: () -> Unit = {}, onDisconnect: () -> Unit,
     onPlay: (Long) -> Unit, onStop: () -> Unit, onPause: () -> Unit, onResume: () -> Unit,
     onConsent: (Boolean) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var consentDialog by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var consentDialog by rememberSaveable { mutableStateOf(false) }
     var pendingConnect by remember { mutableStateOf<Long?>(null) }
     val labels = remember(state.config) { state.config?.systems.orEmpty().associateBy { it.id } }
     fun callLabel(call: RdioCall): String {
@@ -44,11 +44,11 @@ fun RdioScannerScreen(
         if (pendingConnect != null && pendingConnect != state.connectionIntent) pendingConnect = null
         if (networkConsent && pendingConnect == state.connectionIntent) { pendingConnect = null; onConnect() }
     }
-    BackHandler { onBack() }
     Scaffold(
         containerColor = SweepCream,
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowBack, "Back to Listen") }
                 Text("Rdio Scanner", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 Text("RECORDED CALLS", style = MaterialTheme.typography.labelSmall, color = SweepTeal)
@@ -100,7 +100,10 @@ fun RdioScannerScreen(
                     OutlinedTextField(query, { query = it.take(200) }, singleLine = true, label = { Text("Filter system or channel") },
                         leadingIcon = { Icon(Icons.Outlined.Search, null) }, modifier = Modifier.fillMaxWidth())
                 }
-                item { Text("${state.calls.size} RECENT CALLS · REFRESH TO UPDATE", color = SweepMuted, style = MaterialTheme.typography.labelSmall) }
+                item {
+                    val summary = if (state.totalCount > state.calls.size) "${state.calls.size} OF ${state.totalCount} CALLS" else "${state.calls.size} RECENT CALLS"
+                    Text("$summary · REFRESH TO UPDATE", color = SweepMuted, style = MaterialTheme.typography.labelSmall)
+                }
                 if (calls.isEmpty()) item { Text(if (state.calls.isEmpty()) "No accessible calls were returned by this server." else "No calls match this filter.", color = SweepMuted) }
                 items(calls, key = { it.id }) { call ->
                     val selected = state.selectedCallId == call.id
@@ -115,6 +118,17 @@ fun RdioScannerScreen(
                                 Icon(if (selected && state.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null)
                                 Text(if (selected && state.playing) "Pause" else "Play")
                             }
+                        }
+                    }
+                }
+                if (state.nextOffset != null) {
+                    item(key = "load_older_calls") {
+                        OutlinedButton(
+                            onClick = onLoadMore,
+                            enabled = !state.busy && networkConsent,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) {
+                            Text("Load older calls")
                         }
                     }
                 }

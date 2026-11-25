@@ -75,6 +75,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
         synchronized(lock) {
             val generation = historyGeneration
             persistence.enqueue(onFailure = { _error.value = "Saved sessions could not be loaded." }) {
+                pruneExpiredExports()
                 val savedSessions = store.load()
                 if (!mayPersist(generation)) return@enqueue
                 val recovered = savedSessions.map { saved ->
@@ -171,7 +172,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
             _error.value = null
             val id = UUID.randomUUID().toString()
             if (!radioGate.acquire("scan:$id")) {
-                _error.value = "End travel mode or disconnect the radar accessory before starting a room scan."
+                _error.value = "End Travel, network discovery or the radar accessory before starting a room scan."
                 return
             }
             check(serviceOwnership.reserve(id))
@@ -260,8 +261,14 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
             if (observationsSinceRefresh >= 80) refreshDevices()
         }
         if (SystemClock.elapsedRealtime() - lastDeviceRefreshAt >= 1_000L) refreshDevices()
-        // Explicit capacity and dropped count rather than unbounded session memory.
-        while (findings.size > 1_000) { findings.remove(findings.minByOrNull { it.value.lastSeenAt }!!.key); noteDropped() }
+        // Explicit capacity and dropped count rather than unbounded session memory; evict unmatched OTHER rows first.
+        while (findings.size > 1_000) {
+            val victim = findings.values.minWithOrNull(
+                compareByDescending<SweepFinding> { it.category == SweepCategory.OTHER }.thenBy { it.lastSeenAt },
+            ) ?: break
+            findings.remove(victim.id)
+            noteDropped()
+        }
         fun Observation.isNan() = facts.serviceData.any { it.uuid == OpenDroneId.NAN_SERVICE_NAME }
         val wifiCount = observations.count { it.kind == RadioKind.WIFI && !it.isNan() }
         val nanCount = observations.count { it.isNan() }
@@ -290,8 +297,11 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
         val session = _current.value ?: return@synchronized
         if (session.state != SweepSessionState.ACTIVE) return@synchronized
         if (wifiStatus != null || bleStatus != null) _coverage.update { it.copy(wifiStatus = wifiStatus ?: it.wifiStatus, bleStatus = bleStatus ?: it.bleStatus) }
-        _current.value = session.copy(findings = findings.values.sortedWith(compareBy<SweepFinding> { it.category == SweepCategory.OTHER }.thenByDescending { it.lastSeenAt }), coverage = _coverage.value)
+        _current.value = session.copy(findings = sortedFindings(), coverage = _coverage.value)
     }
+
+    private fun sortedFindings(): List<SweepFinding> =
+        findings.values.sortedWith(compareBy<SweepFinding> { it.category == SweepCategory.OTHER }.thenByDescending { it.lastSeenAt })
 
     fun checkpoint(sessionId: String, serviceInstanceId: String) = synchronized(lock) {
         if (activeServiceMatches(sessionId, serviceInstanceId)) checkpoint()
@@ -329,7 +339,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
                 // Keep actual cleanup time, including any Android scheduling delay after the evidence cutoff.
                 endedAt = if (clockChanged) null else now,
                 state = if (interrupted || clockChanged) SweepSessionState.INTERRUPTED else SweepSessionState.COMPLETE,
-                findings = findings.values.toList(), coverage = _coverage.value, endBattery = battery(), error = actualReason,
+                findings = sortedFindings(), coverage = _coverage.value, endBattery = battery(), error = actualReason,
             ).also { _current.value = it; if (actualReason != null) _error.value = actualReason }
             val generation = historyGeneration
             persistence.enqueue(onFailure = { _error.value = "This session could not be saved. Share its report before closing SWEEP." }) {
@@ -487,10 +497,7 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
                 val contents = SweepReports.text(session, identifiers, coordinates)
                 val directory = File(context.cacheDir, "export")
                 if (!directory.isDirectory && !directory.mkdirs()) throw java.io.IOException("Unable to create report cache")
-                val cutoff = System.currentTimeMillis() - 24 * 60 * 60_000L
-                directory.listFiles().orEmpty().filter { it.lastModified() < cutoff }.forEach {
-                    if (!it.delete()) throw java.io.IOException("Unable to remove an expired report")
-                }
+                pruneExpiredExports(throwOnFailure = true)
                 val report = File(directory, "SWEEP-report-${System.currentTimeMillis()}-${UUID.randomUUID()}.txt")
                 try {
                     report.writeText(contents, Charsets.UTF_8)
@@ -512,6 +519,15 @@ class SweepCoordinator(private val context: Context, private val radioGate: Swee
         devices.refresh(catalog, 45)
         observationsSinceRefresh = 0
         lastDeviceRefreshAt = SystemClock.elapsedRealtime()
+    }
+
+    private fun pruneExpiredExports(throwOnFailure: Boolean = false) {
+        val directory = File(context.cacheDir, "export")
+        if (!directory.isDirectory) return
+        val cutoff = System.currentTimeMillis() - 24 * 60 * 60_000L
+        directory.listFiles().orEmpty().filter { it.lastModified() < cutoff }.forEach {
+            if (!it.delete() && throwOnFailure) throw java.io.IOException("Unable to remove an expired report")
+        }
     }
 
     private fun clearExportCache() {
@@ -587,9 +603,44 @@ internal fun sweepFindingForObservation(
 ): SweepFinding {
     val mapped = SweepMapper.finding(devices.ingest(observation, catalog, 45), catalog)
     val decoded = OpenDroneId.fromFacts(observation.facts)
-    return SweepSignalHistory.record(mapped, previous, observation.at, observation.rssi, observation.fresh).copy(dronePins = mapped.dronePins.map { pin ->
+    val updatedPins = mapped.dronePins.map { pin ->
         pin.copy(observedAt = sweepPinObservationTime(pin, decoded, previous?.dronePins.orEmpty(), observation.at))
-    })
+    }
+    val mergedPins = if (previous == null || (mapped.category != SweepCategory.DRONE && previous.category != SweepCategory.DRONE)) {
+        updatedPins
+    } else {
+        buildList {
+            val aircraft = updatedPins.firstOrNull { it.kind == SweepPinKind.AIRCRAFT }
+                ?: previous.dronePins.firstOrNull { it.kind == SweepPinKind.AIRCRAFT }
+            val operator = updatedPins.firstOrNull { it.kind != SweepPinKind.AIRCRAFT }
+                ?: previous.dronePins.firstOrNull { it.kind != SweepPinKind.AIRCRAFT }
+            if (aircraft != null) add(aircraft)
+            if (operator != null) add(operator)
+        }
+    }
+    val mergedCategory = if (mapped.category == SweepCategory.OTHER && previous != null && previous.category != SweepCategory.OTHER) {
+        previous.category
+    } else mapped.category
+    val defaultMappedLabel = SweepMapper.categoryLabel(mapped.category)
+    val mergedName = if (previous != null && mapped.name == defaultMappedLabel && previous.name != SweepMapper.categoryLabel(previous.category)) {
+        previous.name
+    } else if (mergedCategory != mapped.category && mapped.name == defaultMappedLabel) {
+        SweepMapper.categoryLabel(mergedCategory)
+    } else mapped.name
+    val firstSeen = if (previous != null) minOf(mapped.firstSeenAt, previous.firstSeenAt) else mapped.firstSeenAt
+    val observations = if (previous != null && (mapped.firstSeenAt > previous.firstSeenAt || mapped.observations <= previous.observations)) {
+        previous.observations + 1
+    } else mapped.observations
+    val base = SweepSignalHistory.record(mapped, previous, observation.at, observation.rssi, observation.fresh)
+    return base.copy(
+        name = mergedName,
+        category = mergedCategory,
+        firstSeenAt = firstSeen,
+        observations = observations,
+        signatureNames = (mapped.signatureNames + previous?.signatureNames.orEmpty()).distinct(),
+        dronePins = mergedPins,
+        droneId = mapped.droneId ?: previous?.droneId?.takeIf { mergedCategory == SweepCategory.DRONE },
+    )
 }
 
 /** A retained coordinate does not become newer when a different message is received. */

@@ -182,6 +182,24 @@ class SweepCoordinatorHelpersTest {
         }
     }
 
+    @Test
+    fun evictedDeviceStoreSightingPreservesFirstSeenObservationCountAndDronePins() {
+        val catalog = DefaultCatalog.fleets()
+        val firstStore = DeviceStore()
+        val first = sweepFindingForObservation(firstStore, observation(OpenDroneIdReferenceFixtures.PACK_A, 1_000L), catalog, null)
+        assertEquals(1_000L, first.firstSeenAt)
+        assertEquals(1, first.observations)
+        assertEquals(2, first.dronePins.size)
+
+        // Simulate DeviceStore eviction mid-20-minute room scan by ingesting into a fresh empty DeviceStore.
+        val freshStoreAfterEviction = DeviceStore()
+        val basicOnly = sweepFindingForObservation(freshStoreAfterEviction, observation(OpenDroneIdReferenceFixtures.BASIC, 960_000L), catalog, first)
+        assertEquals(1_000L, basicOnly.firstSeenAt)
+        assertEquals(2, basicOnly.observations)
+        assertEquals("1581F3YTDJ1D0031Z530", basicOnly.droneId)
+        assertEquals(first.dronePins, basicOnly.dronePins)
+    }
+
     private fun observation(payload: String, at: Long) = Observation(
         kind = RadioKind.BLE,
         mac = "AA:BB:CC:DD:EE:01",

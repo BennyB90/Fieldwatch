@@ -158,7 +158,7 @@ class SweepScanService : Service() {
         }
     }
 
-    override fun onTaskRemoved(rootIntent: Intent?) { end(); super.onTaskRemoved(rootIntent) }
+    override fun onTaskRemoved(rootIntent: Intent?) { end(interrupted = true); super.onTaskRemoved(rootIntent) }
 
     override fun onDestroy() {
         ticker?.cancel(); runCatching { wifi?.close() }; runCatching { nan?.close() }

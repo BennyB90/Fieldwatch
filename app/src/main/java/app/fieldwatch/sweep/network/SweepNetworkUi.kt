@@ -43,23 +43,33 @@ fun SweepNetworkScreen(
     var selectedEndpointId by rememberSaveable { mutableStateOf<String?>(null) }
     var startConsent by rememberSaveable { mutableStateOf(false) }
     var importConsent by rememberSaveable { mutableStateOf(false) }
-    var sharing by remember { mutableStateOf<NetworkSession?>(null) }
-    var deleting by remember { mutableStateOf<NetworkSession?>(null) }
+    var sharingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     var clearAll by rememberSaveable { mutableStateOf(false) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val now = visibleClockTime()
     val routes = rememberSaveableStateHolder()
-    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
-    val snapshot = selectedSnapshotId?.let { id -> current?.takeIf { it.id == id } ?: history.find { it.id == id } }
+    fun resolveSnapshot(id: String?): NetworkSession? =
+        id?.let { target -> current?.takeIf { it.id == target } ?: history.find { it.id == target } }
+    val snapshot = resolveSnapshot(selectedSnapshotId)
+    val sharing = resolveSnapshot(sharingId)
+    val deleting = resolveSnapshot(deletingId)
     val detail = snapshot?.endpoints?.find { it.id == selectedEndpointId }
-    fun back() {
-        when { selectedEndpointId != null -> selectedEndpointId = null; selectedSnapshotId != null -> selectedSnapshotId = null; else -> onBack() }
+    LaunchedEffect(selectedEndpointId, detail) {
+        if (selectedEndpointId != null && detail == null) selectedEndpointId = null
     }
-    BackHandler { back() }
+    LaunchedEffect(selectedSnapshotId, snapshot) {
+        if (selectedSnapshotId != null && snapshot == null) selectedSnapshotId = null
+    }
+    fun back() {
+        when { detail != null -> selectedEndpointId = null; snapshot != null -> selectedSnapshotId = null; else -> onBack() }
+    }
+    BackHandler(enabled = detail != null || snapshot != null) { back() }
 
     Scaffold(
         containerColor = SweepCream,
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { back() }, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowBack, "Back") }
                 Text(if (detail != null) "Record evidence" else if (snapshot != null) "Network snapshot" else "Network", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 if (snapshot == null) Text("LOCAL REVIEW", style = MaterialTheme.typography.labelSmall, color = SweepTeal, modifier = Modifier.background(SweepPale, RoundedCornerShape(7.dp)).padding(8.dp))
@@ -70,7 +80,7 @@ fun SweepNetworkScreen(
             when {
                 detail != null -> EndpointDetail(detail, snapshot!!, now)
                 snapshot != null -> routes.SaveableStateProvider("snapshot_${snapshot.id}") {
-                    SnapshotDetail(snapshot, now, { selectedEndpointId = it.id }, { sharing = snapshot }, { deleting = snapshot })
+                    SnapshotDetail(snapshot, now, { selectedEndpointId = it.id }, { sharingId = snapshot.id }, { deletingId = snapshot.id })
                 }
                 else -> routes.SaveableStateProvider("network_home") {
                     NetworkHome(current, history, availability, initializing, busy, error, now,
@@ -95,12 +105,12 @@ fun SweepNetworkScreen(
         confirmation = "I am authorized to use and inspect this inventory.", action = "Choose JSON file",
         onDismiss = { importConsent = false }, onConfirm = { importConsent = false; onImport() },
     )
-    sharing?.let { report -> NetworkShareDialog(report, { sharing = null }) { identifiers -> onShare(report, identifiers); sharing = null } }
+    sharing?.let { report -> NetworkShareDialog(report, { sharingId = null }) { identifiers -> onShare(report, identifiers); sharingId = null } }
     deleting?.let { report -> AlertDialog(
-        onDismissRequest = { deleting = null }, title = { Text("Delete this snapshot?") },
+        onDismissRequest = { deletingId = null }, title = { Text("Delete this snapshot?") },
         text = { Text("Removes this saved network snapshot from this phone. Any copies you shared remain with their recipients.") },
-        confirmButton = { TextButton(onClick = { onDelete(report.id); deleting = null; selectedSnapshotId = null; selectedEndpointId = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep snapshot") } },
+        confirmButton = { TextButton(onClick = { onDelete(report.id); deletingId = null; selectedSnapshotId = null; selectedEndpointId = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { deletingId = null }) { Text("Keep snapshot") } },
     ) }
     if (clearAll) AlertDialog(
         onDismissRequest = { clearAll = false }, title = { Text("Clear saved network snapshots?") },
@@ -322,7 +332,7 @@ private fun EndpointDetail(endpoint: NetworkEndpoint, session: NetworkSession, n
 
 @Composable
 private fun AuthorizedActionDialog(title: String, explanation: String, confirmation: String, action: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    var checked by remember { mutableStateOf(false) }
+    var checked by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss, title = { Text(title) },
         text = {
@@ -340,7 +350,7 @@ private fun AuthorizedActionDialog(title: String, explanation: String, confirmat
 
 @Composable
 private fun NetworkShareDialog(session: NetworkSession, onDismiss: () -> Unit, onShare: (Boolean) -> Unit) {
-    var identifiers by remember(session.id) { mutableStateOf(false) }
+    var identifiers by rememberSaveable(session.id) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss, title = { Text("Share snapshot summary") },
         text = {

@@ -38,7 +38,13 @@ class ScannerRadioService : MediaSessionService() {
         val audio = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(http))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
-            .setHandleAudioBecomingNoisy(true).setWakeMode(C.WAKE_MODE_LOCAL).build()
+            .setHandleAudioBecomingNoisy(true).setWakeMode(C.WAKE_MODE_NETWORK).build()
+        audio.addListener(object : Player.Listener {
+            override fun onEvents(source: Player, events: Player.Events) {
+                (application as? ScannerRadioApplication)?.activeStreamPlayback =
+                    source.isPlaying || source.playbackState == Player.STATE_BUFFERING
+            }
+        })
         player = audio
         val launch = PendingIntent.getActivity(this, 409, Intent(this, ScannerRadioActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         session = MediaSession.Builder(this, audio).setSessionActivity(launch)
@@ -75,6 +81,7 @@ class ScannerRadioService : MediaSessionService() {
     override fun onTaskRemoved(rootIntent: Intent?) { pauseAllPlayersAndStopSelf() }
 
     override fun onDestroy() {
+        (application as? ScannerRadioApplication)?.activeStreamPlayback = false
         scope.cancel()
         player?.stop(); player?.release(); player = null
         session?.release(); session = null

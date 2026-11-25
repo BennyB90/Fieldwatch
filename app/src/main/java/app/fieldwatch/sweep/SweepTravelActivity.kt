@@ -8,8 +8,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -49,7 +50,7 @@ class SweepTravelActivity : ComponentActivity() {
             pendingLocation = savedInstanceState.getBoolean("pendingLocation")
             pendingLowPower = savedInstanceState.getBoolean("pendingLowPower")
         }
-        enableEdgeToEdge()
+        enableSweepEdgeToEdge()
         setContent {
             val current by travel.current.collectAsStateWithLifecycle()
             val history by travel.history.collectAsStateWithLifecycle()
@@ -62,7 +63,8 @@ class SweepTravelActivity : ComponentActivity() {
                 TravelScreen(current, history, starting, clearing, locationErasePending, ignored, uiError ?: error,
                     onBack = ::finish, onStart = ::requestStart, onStop = travel::stop,
                     onDeleteAll = travel::deleteAll, onDisableLocation = travel::disableLocation,
-                    onIgnored = travel::setIgnored, onShare = ::share, onSettings = ::openSettings)
+                    onIgnored = travel::setIgnored, onShare = ::share,
+                    onShareBatteryReport = ::shareBatteryReport, onSettings = ::openSettings)
             }
         }
     }
@@ -101,6 +103,13 @@ class SweepTravelActivity : ComponentActivity() {
                 .putExtra(Intent.EXTRA_SUBJECT, "SWEEP travel observation report"), "Share redacted travel report"))
         }.onFailure { uiError = "No sharing app is available." }
     }
+    private fun shareBatteryReport(reportText: String) {
+        runCatching {
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, reportText)
+                .putExtra(Intent.EXTRA_SUBJECT, "SWEEP battery trial report"), "Share battery trial report"))
+        }.onFailure { uiError = "No sharing app is available." }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,20 +118,25 @@ private fun TravelScreen(
     current: TravelSession?, history: List<TravelSession>, starting: Boolean, clearing: Boolean, locationErasePending: Boolean,
     ignored: Set<String>, error: String?, onBack: () -> Unit, onStart: (Boolean, Boolean) -> Unit,
     onStop: () -> Unit, onDeleteAll: () -> Unit, onDisableLocation: () -> Unit,
-    onIgnored: (String, Boolean) -> Unit, onShare: (TravelSession) -> Unit, onSettings: () -> Unit,
+    onIgnored: (String, Boolean) -> Unit, onShare: (TravelSession) -> Unit,
+    onShareBatteryReport: (String) -> Unit, onSettings: () -> Unit,
 ) {
     var locationConsent by rememberSaveable { mutableStateOf(false) }
     var lowPower by rememberSaveable { mutableStateOf(false) }
     var showBattery by rememberSaveable { mutableStateOf(false) }
-    var clearDialog by remember { mutableStateOf(false) }
-    var selectedId by remember { mutableStateOf<String?>(null) }
+    var clearDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val now = visibleClockTime()
     val active = current?.state == TravelSessionState.ACTIVE
     val selected = selectedId?.let { id -> history.find { it.id == id } } ?: current
     val clock = remember { SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault()) }
-    Scaffold(containerColor = SweepCream, topBar = {
+    LaunchedEffect(selectedId, history) {
+        if (selectedId != null && history.none { it.id == selectedId }) selectedId = null
+    }
+    BackHandler(enabled = selectedId != null) { selectedId = null }
+    Scaffold(containerColor = SweepCream, contentWindowInsets = WindowInsets.safeDrawing, topBar = {
         TopAppBar(title = { Text("Travel observations") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, "Back to SWEEP") }
+            IconButton(onClick = { if (selectedId != null) selectedId = null else onBack() }) { Icon(Icons.Outlined.ArrowBack, "Back to SWEEP") }
         })
     }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -130,16 +144,16 @@ private fun TravelScreen(
             Text("This optional mode observes supported tracker broadcasts while its foreground service runs. Android can interrupt reception. A repeated sighting is not proof of unwanted tracking.", color = SweepMuted)
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
             if (!active) {
-                Row(Modifier.fillMaxWidth().clickable { locationConsent = !locationConsent }) {
+                Row(Modifier.fillMaxWidth().clickable { locationConsent = !locationConsent }, verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = locationConsent, onCheckedChange = { locationConsent = it })
                     Column(Modifier.weight(1f)) {
                         Text("Also compare my phone's locations", style = MaterialTheme.typography.titleSmall)
                         Text("Off by default. Records GPS fixes locally for this mode to compare sightings at different places. It does not locate a tracker.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
                     }
                 }
-                Row(Modifier.fillMaxWidth().clickable { lowPower = !lowPower }) {
-                    Checkbox(checked = lowPower, onCheckedChange = null)
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Row(Modifier.fillMaxWidth().clickable { lowPower = !lowPower }, verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = lowPower, onCheckedChange = { lowPower = it })
+                    Column(Modifier.weight(1f)) {
                         Text("Use low-power Bluetooth", style = MaterialTheme.typography.titleSmall)
                         Text("Scans less often and may miss brief sightings. Leave off for balanced scanning.", style = MaterialTheme.typography.bodySmall, color = SweepMuted)
                     }
@@ -158,6 +172,9 @@ private fun TravelScreen(
             }
             selected?.let { session ->
                 HorizontalDivider()
+                if (active && selectedId != null) {
+                    TextButton(onClick = { selectedId = null }) { Text("Return to live Travel observations") }
+                }
                 Text(if (session.state == TravelSessionState.ACTIVE) "Current observations" else "Saved travel report", style = MaterialTheme.typography.titleMedium)
                 Text("${clock.format(Date(session.startedAt))} · ${session.state.name.lowercase(Locale.getDefault())}", style = MaterialTheme.typography.bodySmall)
                 Text("Bluetooth: ${if (session.lowPowerBluetooth) "low power" else "balanced"}", style = MaterialTheme.typography.bodySmall)
@@ -194,7 +211,7 @@ private fun TravelScreen(
             TextButton(onClick = { clearDialog = true }, enabled = !clearing) { Text(if (clearing) "Clearing…" else "Clear all travel observations", color = MaterialTheme.colorScheme.error) }
         }
     }
-    if (showBattery) BatteryTestDialog(onClose = { showBattery = false })
+    if (showBattery) BatteryTestDialog(onClose = { showBattery = false }, onShare = onShareBatteryReport)
     if (clearDialog) AlertDialog(onDismissRequest = { clearDialog = false },
         title = { Text("Clear travel observations?") }, text = { Text("Stops travel mode and removes local sightings, phone locations and familiar addresses. Shared copies stay in the receiving apps.") },
         confirmButton = { TextButton(onClick = { clearDialog = false; selectedId = null; locationConsent = false; onDeleteAll() }) { Text("Clear all") } },

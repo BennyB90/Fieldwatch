@@ -141,7 +141,9 @@ class RdioHttpClient(
             403 -> throw RdioException("This access code cannot use the HTTP companion. Ask the operator about its permissions and connection limit.")
             404 -> throw RdioException("This server does not provide the requested HTTP companion endpoint or call.")
             413 -> throw RdioException("This call or request exceeds the allowed size.")
+            415 -> throw RdioException("The selected call uses an unsupported audio format.")
             429 -> throw RdioException("The server has limited requests. Wait before trying again.")
+            503 -> throw RdioException("The Rdio server is busy or timed out. Try again shortly.")
             in 300..399 -> throw RdioException("The server redirected this request. Enter its final HTTPS address.")
             else -> throw RdioException("The Rdio server could not complete this request.")
         }
@@ -223,7 +225,7 @@ internal object RdioParser {
         fun sync(): Boolean = bytes.size >= 2 && bytes[0].toInt() and 255 == 255 && bytes[1].toInt() and 0xE0 == 0xE0
         val valid = when (mime) {
             "audio/mpeg", "audio/mp3" -> starts("ID3") || sync()
-            "audio/aac" -> sync()
+            "audio/aac" -> starts("ID3") || sync()
             "audio/wav", "audio/x-wav", "audio/wave" -> starts("RIFF") && starts("WAVE", 8)
             "audio/mp4", "audio/x-m4a" -> starts("ftyp", 4)
             "audio/ogg" -> starts("OggS")

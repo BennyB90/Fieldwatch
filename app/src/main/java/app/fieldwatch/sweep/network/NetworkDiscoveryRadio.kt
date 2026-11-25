@@ -315,7 +315,9 @@ class NetworkDiscoveryRadio(
             NetworkDiscoveryTypes.canonical(info.serviceType.orEmpty()) != candidate.row.serviceType)) { drop(); return }
         val addresses = if (info == null) emptyList() else {
             val hosts = if (Build.VERSION.SDK_INT >= 34) info.hostAddresses else listOfNotNull(info.host)
-            hosts.mapNotNull { it.hostAddress }.distinct().take(MAX_ADDRESSES)
+            hosts.mapNotNull { host ->
+                host.hostAddress?.let { raw -> runCatching { NetworkAddressValidator.validate(raw) }.getOrNull() }
+            }.distinct().take(MAX_ADDRESSES)
         }
         val row = candidate.row.copy(addresses = addresses,
             port = info?.port?.takeIf { it in 1..65_535 }, resolved = info != null,

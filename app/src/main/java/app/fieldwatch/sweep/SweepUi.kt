@@ -95,28 +95,45 @@ fun SweepRoot(
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var comparisonSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedFindingId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedFleetId by rememberSaveable { mutableStateOf<String?>(null) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
-    var shareSession by remember { mutableStateOf<SweepSession?>(null) }
-    var deleteSession by remember { mutableStateOf<SweepSession?>(null) }
+    var shareSessionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var clearAll by rememberSaveable { mutableStateOf(false) }
     var comparing by rememberSaveable { mutableStateOf(false) }
     val now = visibleClockTime()
     val tabState = rememberSaveableStateHolder()
 
-    val selectedSession = selectedSessionId?.let { id -> history.find { it.id == id } ?: current?.takeIf { it.id == id } }
-    val findingSession = selectedSession ?: current
+    fun resolveSession(id: String?): SweepSession? =
+        id?.let { target -> history.find { it.id == target } ?: current?.takeIf { it.id == target } }
+
+    val selectedSession = resolveSession(selectedSessionId)
+    val comparisonSession = resolveSession(comparisonSessionId)
+    val shareSession = resolveSession(shareSessionId)
+    val deleteSession = resolveSession(deleteSessionId)
+    val findingSession = selectedSession ?: comparisonSession ?: current
     val finding = findingSession?.findings?.find { it.id == selectedFindingId }
     val fleet = catalog.find { it.id == selectedFleetId }
     val inDetail = finding != null || selectedSession != null || fleet != null || comparing
 
+    LaunchedEffect(finding, selectedFindingId) {
+        if (selectedFindingId != null && finding == null) {
+            selectedFindingId = null
+            comparisonSessionId = null
+        }
+    }
+    LaunchedEffect(selectedSession, selectedSessionId) {
+        if (selectedSessionId != null && selectedSession == null) selectedSessionId = null
+    }
+
     fun back() {
         when {
-            selectedFindingId != null -> selectedFindingId = null
-            selectedSessionId != null -> selectedSessionId = null
-            selectedFleetId != null -> selectedFleetId = null
-            comparing -> comparing = false
+            finding != null -> { selectedFindingId = null; comparisonSessionId = null }
+            selectedSession != null -> selectedSessionId = null
+            fleet != null -> selectedFleetId = null
+            comparing -> { comparing = false; comparisonSessionId = null }
             tab != SweepTab.SCAN -> tab = SweepTab.SCAN
         }
     }
@@ -124,9 +141,10 @@ fun SweepRoot(
 
     Scaffold(
         containerColor = SweepCream,
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 9.dp),
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 20.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (inDetail) {
@@ -158,7 +176,7 @@ fun SweepRoot(
                             if (item == SweepTab.LISTEN) onRadio()
                             else if (item == SweepTab.RADAR) onRadar()
                             else if (item == SweepTab.TRAVEL) onTravel()
-                            else { tab = item; comparing = false; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
+                            else { tab = item; comparing = false; comparisonSessionId = null; selectedSessionId = null; selectedFindingId = null; selectedFleetId = null }
                         },
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
@@ -171,12 +189,21 @@ fun SweepRoot(
         Box(Modifier.padding(inset).fillMaxSize()) {
             when {
                 finding != null -> FindingDetail(finding, findingSession!!.demo, now, onMap)
-                selectedSession != null -> SessionReport(selectedSession, now, { selectedFindingId = it.id }, { shareSession = selectedSession }, { deleteSession = selectedSession })
+                selectedSession != null -> SessionReport(selectedSession, now, { selectedFindingId = it.id }, { shareSessionId = selectedSession.id }, { deleteSessionId = selectedSession.id })
                 fleet != null -> CatalogDetail(fleet)
-                comparing -> SweepComparisonScreen(history) { session, selected -> selectedSessionId = session.id; selectedFindingId = selected.id }
+                comparing -> SweepComparisonScreen(history) { session, selected -> comparisonSessionId = session.id; selectedFindingId = selected.id }
                 else -> tabState.SaveableStateProvider(tab.name) {
                     when (tab) {
-                        SweepTab.SCAN -> ScanScreen(current, coverage, starting, error, now, onStart, onStop, { selectedFindingId = it.id }, { shareSession = it }, onDemo, onClearDemo, onSettings)
+                        SweepTab.SCAN -> ScanScreen(
+                            current, coverage, starting, error, now,
+                            onStart = { selectedFindingId = null; comparisonSessionId = null; onStart() },
+                            onStop = onStop,
+                            onFinding = { selectedFindingId = it.id },
+                            onShare = { shareSessionId = it.id },
+                            onDemo = { selectedFindingId = null; comparisonSessionId = null; onDemo() },
+                            onClearDemo = { selectedFindingId = null; onClearDemo() },
+                            onSettings = onSettings,
+                        )
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true }, { comparing = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
                         SweepTab.LISTEN -> Unit // Listen is an external route owned by the radio activity.
@@ -189,21 +216,21 @@ fun SweepRoot(
     }
 
     if (showInfo) InfoDialog(radioEnabled) { showInfo = false }
-    shareSession?.let { session -> ShareDialog(session, { shareSession = null }) { identifiers, coordinates -> onShare(session, identifiers, coordinates); shareSession = null } }
+    shareSession?.let { session -> ShareDialog(session, { shareSessionId = null }) { identifiers, coordinates -> onShare(session, identifiers, coordinates); shareSessionId = null } }
     deleteSession?.let { session ->
         AlertDialog(
-            onDismissRequest = { deleteSession = null },
+            onDismissRequest = { deleteSessionId = null },
             title = { Text("Delete this session?") },
             text = { Text("This removes the report from this phone. Copies you have shared remain in other apps.") },
-            confirmButton = { TextButton(onClick = { onDelete(session.id); deleteSession = null; selectedSessionId = null; selectedFindingId = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { deleteSession = null }) { Text("Keep session") } },
+            confirmButton = { TextButton(onClick = { onDelete(session.id); deleteSessionId = null; selectedSessionId = null; comparisonSessionId = null; selectedFindingId = null }) { Text("Delete", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { deleteSessionId = null }) { Text("Keep session") } },
         )
     }
     if (clearAll) AlertDialog(
         onDismissRequest = { clearAll = false },
         title = { Text("Clear all local sessions?") },
         text = { Text("All ${history.size} saved session reports will be removed from this phone. Shared copies are unaffected.") },
-        confirmButton = { TextButton(onClick = { onDeleteAll(); clearAll = false; selectedSessionId = null; selectedFindingId = null }) { Text("Clear all", color = MaterialTheme.colorScheme.error) } },
+        confirmButton = { TextButton(onClick = { onDeleteAll(); clearAll = false; selectedSessionId = null; comparisonSessionId = null; selectedFindingId = null }) { Text("Clear all", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { clearAll = false }) { Text("Cancel") } },
     )
 }
@@ -678,8 +705,8 @@ private fun GeographicPlot(pins: List<SweepPin>) {
 
 @Composable
 private fun ShareDialog(session: SweepSession, onDismiss: () -> Unit, onShare: (Boolean, Boolean) -> Unit) {
-    var identifiers by remember(session.id) { mutableStateOf(false) }
-    var coordinates by remember(session.id) { mutableStateOf(false) }
+    var identifiers by rememberSaveable(session.id) { mutableStateOf(false) }
+    var coordinates by rememberSaveable(session.id) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (session.demo) "Share sample report" else "Share session report") },

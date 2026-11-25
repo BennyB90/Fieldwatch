@@ -8,6 +8,7 @@ The predeclared matrix is part of the protocol, not inferred from submitted rows
 import argparse
 import json
 import math
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from statistics import median
@@ -168,8 +169,16 @@ def present(value):
 def utc_timestamp(value):
     if not present(value):
         return None
+    normalized = value.strip()
+    if normalized.endswith(("Z", "z")):
+        normalized = normalized[:-1] + "+00:00"
+    normalized = re.sub(
+        r"\.(\d+)(?=[+-]\d{2}:\d{2}$)",
+        lambda match: "." + match.group(1)[:6].ljust(6, "0"),
+        normalized,
+    )
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         return None
     return parsed if parsed.utcoffset() == timedelta(0) else None
@@ -542,7 +551,7 @@ def summarize(document):
         if remote_result["synthetic_ble_decoder"]["status"] == "pass":
             remote_result["synthetic_ble_decoder"]["status"] = "invalid_document"
     trial_issues = [{"id": item["id"], "validity": item["validity"], "errors": item["errors"]}
-                    for item in entries + baseline_entries if item["errors"]]
+                    for item in entries + baseline_entries + battery_results if item["errors"]]
     gate_states = ([item["status"] for item in trackers] + [camera_status, camera_positive_status,
                    remote_result["synthetic_ble_decoder"]["status"]] +
                    [item["status"] for item in battery_results + per_phone_battery])

@@ -17,14 +17,16 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 
 ## Installation
 
-Build with JDK 17 or 21 and Android SDK platform 35:
+Build with JDK 17 or 21 and Android SDK platform 36:
 
 ```sh
 ./gradlew --no-daemon :app:testSweepUnitTest :app:assembleSweep
 adb install -r app/build/outputs/apk/sweep/app-sweep.apk
 ```
 
-The app is labeled **SWEEP** and uses the separate package `app.fieldwatch.sweep`. It requires Android 10+ and targets API 35. This alpha is locally debug-signed and non-debuggable, not a Play Store release. Unused library code/resources are shrunk; the verified installer is about 9 MB.
+*(On Windows PowerShell, use `.\gradlew.bat` and `python` in place of `./gradlew` and `python3`.)*
+
+The app is labeled **SWEEP** and uses the separate package `app.fieldwatch.sweep`. It requires Android 10+ and targets API 36 (Android 16). Without release keystore credentials configured, this alpha is locally debug-signed and non-debuggable; supplying `SWEEP_STORE_*` credentials produces publisher-signed APKs and Google Play `.aab` bundles (`:app:bundleSweep`, `:app:bundleSweepRadio`). Unused library code/resources are shrunk; the verified installer is about 9.8 MB.
 
 Open SWEEP and tap **Start scan**. Android requests Location, Bluetooth and applicable Nearby Wi-Fi permissions; notifications allow the visible scan notification. Android's Wi-Fi scan API requires Location access and enabled Location services. Room scans do not request phone GPS fixes or retain the phone's location. Travel location correlation is a separate opt-in choice. An available radio may continue when another radio is missing, off or denied; the coverage panel describes the limitation. Use Settings to enable missing permissions/radios, then return to SWEEP.
 
@@ -86,6 +88,14 @@ A fresh review checked the fixes together and closed the NAN validation inconsis
 
 All four APK variants assembled. Both SWEEP variants have zero lint errors and 49 warnings. Version code 38 / Alpha 4 installers passed the compiled artifact checks below, including signature verification and backup/transfer exclusions. The prior Alpha 3 installer was independently rejected by the new exclusion check as a negative control.
 
+## Alpha 5 audit, Windows parity and API 36 migration
+
+A full codebase and Android 16 (API 36) audit upgraded AGP to 8.9.1 and migrated `compileSdk` and `targetSdk` to 36 (version code 39). Key fixes and additions:
+
+- **Private storage & Windows parity**: `NetworkSessionStore` and `ScannerFeedStore` now apply `0700`/`0600` atomically through `PosixFileAttributeView` on Android/POSIX (closing a `0000` mid-write crash window and temp-file umask race) while verifying readable/writable access cleanly on Windows NTFS. All 770 JVM tests in Debug, Spike and Sweep and all 797 JVM tests in SweepRadio pass with zero failures on Windows as well as Linux, alongside 20 spike Python tests and 5 router-converter Python tests.
+- **Session, Travel & radio hardening**: Room scans preserve `firstSeenAt`, monotonic observation counts, and sticky Remote ID pins across `DeviceStore` refreshes, prioritize matched findings over `OTHER` rows at the 1,000-finding cap, sort saved findings consistently, and mark Recents task-dismissals `INTERRUPTED`. `TravelObservationService` includes `FOREGROUND_SERVICE_TYPE_LOCATION` while scanning BLE beacons (keeping GPS strictly opt-in) and preserves active tracker alerts when unrelated phones or ignored trackers are filtered. `ScannerRadioService` uses `C.WAKE_MODE_NETWORK` for screen-off Wi-Fi streaming, `RdioScannerActivity` wires older-call pagination and ID3-tagged AAC support, `NetworkDiscoveryRadio` validates `InetAddress` literals before state updates, and `ValentineBleController` retries dropped detailed-alert requests up to three times.
+- **Android 16 UX, Play AABs, tools & static site**: All six SWEEP Activities enforce legible light edge-to-edge system bars (`enableSweepEdgeToEdge`), native predictive back on root screens, `WindowInsets.safeDrawing` cutout/landscape padding, and configuration-change resilience. `HandsetBatteryTest` verifies active audio state, enforces a one-minute minimum run, and exports redacted measurement summaries with Travel sighting/GPS counts. `scripts/convert_router_inventory.py` converts common router exports into `schemaVersion: 1` JSON; `scripts/verify_sweep_apks.py` verifies both APKs and Play `.aab` bundles cross-platform; and `site/` + `scripts/stage_pages_site.py` provide a zero-tracker Cloudflare Pages download and privacy site.
+
 ## Handset battery and permission trials
 
 Install the current SWEEP APK on an Android 10+ phone. Both variants include the meter under **Travel → Battery test**. Run the first permission checks before collecting battery readings. Start Travel, deny a requested permission and check the explanation. Grant precise location and, when requested, Nearby devices and Notifications, then start again. Switch off Android Location during a GPS-enabled test and check that collection stops. Check the notification Stop action and restart Room and Travel in turn. After a force-stop and reopen, starting another session requires an explicit tap. If testing location erasure, use **Stop location correlation and erase saved locations** and verify the report after reopening.
@@ -94,7 +104,7 @@ Install the current SWEEP APK on an Android 10+ phone. Both variants include the
 2. Repeat on the same route with the same phone and a supported tracker you own. Start Travel before starting the meter. Run balanced Bluetooth with GPS off, then **Use low-power Bluetooth** with GPS off. For the GPS comparison, repeat balanced Travel with **Also compare my phone's locations** checked. Finish each measurement before stopping Travel. Keep screen use, Android battery saver, connectivity and other apps consistent.
 3. Compare whole-phone percentage points lost per hour with the idle baseline. The meter takes two battery readings and uses elapsed time including deep sleep. A drop from 84% to 81% in 90 minutes is 2.0 points/hour. Android rounds the displayed battery level, so short runs can be noisy. Repeat close results, compare spaced sightings for the same tracker, and record the fraction of sightings with a usable GPS fix. Repeat on another Android brand before choosing a default.
 
-The meter keeps the latest 12 completed readings locally and provides **Clear measurements**. It checks power at the endpoints. Discard the run if the phone charged or if scanning or playback was interrupted at any time between readings. Use a separate trial for permission changes. These exploratory measurements are separate from the [20-minute hardware acceptance control](../spike/README.md#battery-controls).
+The meter keeps the latest 12 completed readings locally, offers **Share measurements** (with phone model/Android version withheld unless opted in, and Travel sighting/GPS-fix counts included without addresses or coordinates), and provides **Clear measurements**. It checks power and active audio/scan state at the endpoints and requires at least one minute of elapsed time before finishing. Discard the run if the phone charged or if scanning or playback was interrupted at any time between readings. Use a separate trial for permission changes. These exploratory measurements are separate from the [20-minute hardware acceptance control](../spike/README.md#battery-controls).
 
 For an audio smoke test, install **SWEEP + Radio**. Serve the repository's [30-second test tone](../app/src/testSweepRadio/resources/fixtures/sweep-radio-test-tone.wav) from a direct HTTPS URL you control. Open **Listen → Add a feed**, save that URL, allow internet audio, and press Play. Check playback on the speaker, lock the screen, and exercise the notification controls. For an hour-long playback battery run, use a continuous authorized feed, begin playback before opening the meter, select **Label this run as radio playback**, and finish the measurement while it is still playing.
 
@@ -110,4 +120,4 @@ The verifier reads the compiled APK manifests and backup resources, checks the e
 
 ## Play release work
 
-The current alpha still targets API 35. Google Play's [current submission requirement](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en), verified October 14, 2026, is API 36 or higher for new phone apps. A release needs a separate target/SDK/toolchain migration with Android 16 behavior checks, production signing and AAB packaging, developer-account setup, privacy/store disclosures, and handset acceptance. Alpha sideload testing can proceed before those release steps.
+Both SWEEP variants now compile against and target **API 36 (Android 16)**, assemble Play `.aab` bundles (`:app:bundleSweep`, `:app:bundleSweepRadio`), wire release keystore signing (`SWEEP_STORE_*`), enforce light edge-to-edge system bars and predictive back, and strip unused `<queries>` and sideload `DEPENDENCY_INFO_BLOCK` metadata. See [docs/PLAY_STORE_RELEASE.md](PLAY_STORE_RELEASE.md) for Play Console Data Safety, foreground-service declarations, signing commands, and remaining physical-handset acceptance checks, and [docs/CLOUDFLARE_PAGES.md](CLOUDFLARE_PAGES.md) for static APK distribution.

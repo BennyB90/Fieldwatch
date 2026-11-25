@@ -118,7 +118,7 @@ class WifiNanRadio(
         val missing = listOf(Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.CHANGE_WIFI_STATE,
             Manifest.permission.ACCESS_FINE_LOCATION) + if (Build.VERSION.SDK_INT >= 33) listOf(Manifest.permission.NEARBY_WIFI_DEVICES) else emptyList()
         if (missing.any { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }) {
-            fail("Wi-Fi NAN needs Wi-Fi and precise-location permissions")
+            fail(if (Build.VERSION.SDK_INT >= 33) "Wi-Fi NAN needs nearby-Wi-Fi and precise-location permissions" else "Wi-Fi NAN needs Wi-Fi and precise-location permissions")
             return
         }
         val token = gate.begin()

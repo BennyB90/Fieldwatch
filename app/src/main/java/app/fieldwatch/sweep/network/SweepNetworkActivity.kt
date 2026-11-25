@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -14,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import app.fieldwatch.sweep.SweepTheme
+import app.fieldwatch.sweep.enableSweepEdgeToEdge
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +47,7 @@ class SweepNetworkActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (application !is NetworkModeHost) { finish(); return }
-        enableEdgeToEdge()
+        enableSweepEdgeToEdge()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (isActive) { refreshAvailability(); delay(2_000) }
@@ -93,11 +93,13 @@ class SweepNetworkActivity : ComponentActivity() {
 
     override fun onStop() {
         foreground = false
-        ++importGeneration
-        importJob?.cancel(); importJob = null
-        readingDocument.value = false
-        pendingDocument = null
-        if (application is NetworkModeHost) controller.onHidden()
+        if (!isChangingConfigurations) {
+            ++importGeneration
+            importJob?.cancel(); importJob = null
+            readingDocument.value = false
+            pendingDocument = null
+            if (application is NetworkModeHost) controller.onHidden()
+        }
         super.onStop()
     }
 

@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
@@ -19,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.fieldwatch.sweep.SweepApplication
 import app.fieldwatch.sweep.SweepTheme
+import app.fieldwatch.sweep.enableSweepEdgeToEdge
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
@@ -59,7 +59,7 @@ class ValentineRadarActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableSweepEdgeToEdge()
         setContent {
             val state by radar.collectAsStateWithLifecycle()
             val availability by phoneStatus.collectAsStateWithLifecycle()
@@ -77,9 +77,11 @@ class ValentineRadarActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         foreground = true
-        val connection = ValentineBleController(this)
-        controller = connection
-        controllerJob = lifecycleScope.launch { connection.state.collect { radar.value = it } }
+        if (controller == null) {
+            val connection = ValentineBleController(this)
+            controller = connection
+            controllerJob = lifecycleScope.launch { connection.state.collect { radar.value = it } }
+        }
         refreshPlatform()
     }
 
@@ -94,11 +96,13 @@ class ValentineRadarActivity : ComponentActivity() {
 
     override fun onStop() {
         foreground = false
-        pendingDiscover = false; pendingAccessory = null
-        controllerJob?.cancel(); controllerJob = null
-        controller?.close(); controller = null
-        releaseRadio()
-        radar.value = ValentineRadarState()
+        if (!isChangingConfigurations) {
+            pendingDiscover = false; pendingAccessory = null
+            controllerJob?.cancel(); controllerJob = null
+            controller?.close(); controller = null
+            releaseRadio()
+            radar.value = ValentineRadarState()
+        }
         super.onStop()
     }
 
@@ -133,6 +137,7 @@ class ValentineRadarActivity : ComponentActivity() {
         pendingDiscover = false; pendingAccessory = null
         actionError.value = null
         controller?.disconnect()
+        releaseRadio()
     }
 
     private fun ensurePermissions(discover: Boolean, accessoryId: String? = null): Boolean {
@@ -205,5 +210,5 @@ class ValentineRadarActivity : ComponentActivity() {
         runCatching { startActivity(intent) }.onFailure { actionError.value = "Open Android settings to check Bluetooth and app permissions." }
     }
 
-    companion object { private const val SWEEP_GATE = "End the room scan or travel mode before connecting a radar accessory." }
+    companion object { private const val SWEEP_GATE = "End the room scan, Travel or network discovery before connecting a radar accessory." }
 }

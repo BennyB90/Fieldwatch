@@ -9,7 +9,12 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
+import java.util.EnumSet
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -141,11 +146,12 @@ class NetworkSessionStore internal constructor(
         if (bytes.size > NetworkLimits.MAX_FILE_BYTES) throw IOException("Network history exceeds the storage limit.")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Network history could not be saved.")
         makePrivate(directory, isDirectory = true)
-        val temporary = File.createTempFile(TEMP_PREFIX, ".tmp", directory)
+        val temporary = createPrivateTempFile(directory.toPath())
         try {
             makePrivate(temporary, isDirectory = false)
             FileOutputStream(temporary).use { output -> output.write(bytes); output.fd.sync() }
             replaceFile(temporary, database)
+            makePrivate(database, isDirectory = false)
         } finally {
             Files.deleteIfExists(temporary.toPath())
         }
@@ -157,10 +163,31 @@ class NetworkSessionStore internal constructor(
         files.filter { it.name.startsWith(TEMP_PREFIX) }.forEach { Files.deleteIfExists(it.toPath()) }
     }
 
+    private fun createPrivateTempFile(dir: Path): File = try {
+        val posix = Files.getFileAttributeView(dir, PosixFileAttributeView::class.java)
+        if (posix != null) {
+            Files.createTempFile(dir, TEMP_PREFIX, ".tmp", PosixFilePermissions.asFileAttribute(OWNER_FILE_PERMS)).toFile()
+        } else {
+            Files.createTempFile(dir, TEMP_PREFIX, ".tmp").toFile()
+        }
+    } catch (_: Exception) {
+        throw IOException("Network history could not be kept private.")
+    }
+
     private fun makePrivate(file: File, isDirectory: Boolean) {
-        val removed = file.setReadable(false, false) && file.setWritable(false, false) && (!isDirectory || file.setExecutable(false, false))
-        val restored = file.setReadable(true, true) && file.setWritable(true, true) && (!isDirectory || file.setExecutable(true, true))
-        if (!removed || !restored) throw IOException("Network history could not be kept private.")
+        if (!file.exists()) return
+        val posix = runCatching { Files.getFileAttributeView(file.toPath(), PosixFileAttributeView::class.java) }.getOrNull()
+        if (posix != null) {
+            try {
+                posix.setPermissions(if (isDirectory) OWNER_DIR_PERMS else OWNER_FILE_PERMS)
+            } catch (_: Exception) {
+                throw IOException("Network history could not be kept private.")
+            }
+        } else {
+            val path = file.toPath()
+            val accessible = Files.isReadable(path) && Files.isWritable(path) && (!isDirectory || Files.isDirectory(path))
+            if (!accessible) throw IOException("Network history could not be kept private.")
+        }
     }
 
     private fun damagedHistory() = IOException("Saved network history is damaged. Clear network history explicitly to reset it.")
@@ -171,6 +198,8 @@ class NetworkSessionStore internal constructor(
     private companion object {
         const val DATABASE_NAME = "network-sessions.json"
         const val TEMP_PREFIX = ".network-sessions-"
+        val OWNER_FILE_PERMS: Set<PosixFilePermission> = EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
+        val OWNER_DIR_PERMS: Set<PosixFilePermission> = EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)
         val locks = ConcurrentHashMap<String, Any>()
         val json = Json { ignoreUnknownKeys = false; encodeDefaults = true }
     }

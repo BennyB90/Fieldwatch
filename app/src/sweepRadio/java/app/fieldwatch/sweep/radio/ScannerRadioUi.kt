@@ -70,7 +70,6 @@ fun ScannerRadioScreen(
         val id = pendingFeedId
         if (networkConsent && id != null) { pendingFeedId = null; onPlay(id) }
     }
-    BackHandler { onBack() }
 
     fun play(feed: ScannerFeed) {
         if (networkConsent) onPlay(feed.id)
@@ -79,8 +78,9 @@ fun ScannerRadioScreen(
 
     Scaffold(
         containerColor = SweepCream,
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowBack, "Back to RF scanner") }
                 Text("Listen", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 Text("INTERNET AUDIO", style = MaterialTheme.typography.labelSmall, color = SweepTeal, modifier = Modifier.background(SweepPale, RoundedCornerShape(7.dp)).padding(8.dp))
@@ -238,7 +238,7 @@ private fun FeedCard(feed: ScannerFeed, playback: RadioPlaybackState, onFavorite
 
 @Composable
 private fun PlaybackPanel(feed: ScannerFeed?, playback: RadioPlaybackState, onPause: () -> Unit, onStop: () -> Unit, onPlay: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(SweepInk).navigationBarsPadding().padding(horizontal = 22.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(Modifier.fillMaxWidth().background(SweepInk).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).padding(horizontal = 22.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             if (playback.status == RadioPlaybackStatus.BUFFERING) CircularProgressIndicator(Modifier.size(17.dp), color = Color(0xFFC3F1D4), strokeWidth = 2.dp)
             else Icon(Icons.Outlined.GraphicEq, null, tint = Color(0xFFC3F1D4), modifier = Modifier.size(20.dp))
@@ -251,7 +251,7 @@ private fun PlaybackPanel(feed: ScannerFeed?, playback: RadioPlaybackState, onPa
             }
             IconButton(onClick = onStop, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.StopCircle, "Stop audio", tint = Color.White, modifier = Modifier.size(28.dp)) }
         }
-        if (playback.status == RadioPlaybackStatus.ERROR || playback.error != null) Text("Audio could not be played. Check the feed link, provider availability and connection.", style = MaterialTheme.typography.bodySmall, color = Color(0xFFF1D4CC))
+        if (playback.status == RadioPlaybackStatus.ERROR || playback.error != null) Text(safeMessage(playback.error ?: "Audio could not be played. Check the feed link, provider availability and connection."), style = MaterialTheme.typography.bodySmall, color = Color(0xFFF1D4CC))
     }
 }
 

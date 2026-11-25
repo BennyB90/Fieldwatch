@@ -5,8 +5,18 @@ object TravelReports {
     fun text(session: TravelSession, includeIdentifiers: Boolean = false, includeLocations: Boolean = false): String = buildString {
         appendLine("SWEEP Travel observations")
         appendLine("State: ${session.state}")
+        appendLine("Bluetooth scanning: ${if (session.lowPowerBluetooth) "low power" else "balanced"}")
+        if (session.state == TravelSessionState.INTERRUPTED) {
+            appendLine("Session ended early or was interrupted; reception evidence may be incomplete.")
+        }
+        if (session.droppedSamples > 0) {
+            appendLine("Dropped samples: ${session.droppedSamples} (not all received advertisements were retained).")
+        }
         appendLine("Observed signals are indicators; identity, ownership, and unwanted tracking are unverified.")
         appendLine("A quiet interval cannot establish that no tracker is present. Android may interrupt scanning.")
+        if (session.trackers.isEmpty()) {
+            appendLine("No eligible tracker broadcasts recorded.")
+        }
         session.trackers.forEach { tracker ->
             appendLine("${tracker.label}: ${tracker.samples.size} spaced observations")
             if (includeIdentifiers) appendLine("Observed address: ${tracker.address}")

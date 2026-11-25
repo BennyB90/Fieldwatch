@@ -156,7 +156,7 @@ class TravelController(
                     else HISTORY_UNAVAILABLE
                 }
                 initializing = false
-                if (archive.isSuccess) checkpointLocked()
+                if (archive.isSuccess && pendingErasure) checkpointLocked()
             }
         }
     }
@@ -284,7 +284,9 @@ class TravelController(
                 val cleaned = TravelPhoneEvidence.removeGenericRow(session, observation, qualifier)
                 if (cleaned != session) {
                     _current.value = cleaned
-                    TravelObservationService.clearNotice(context)
+                    if (cleaned.assessments.none { it.address !in ignored }) {
+                        TravelObservationService.clearNotice(context)
+                    }
                     checkpointLocked()
                 }
                 return
@@ -400,7 +402,9 @@ class TravelController(
             fun without(session: TravelSession) = session.copy(trackers = session.trackers.filterNot { it.address == identity }, assessments = session.assessments.filterNot { it.address == identity })
             _current.value = _current.value?.let(::without)
             _history.value = _history.value.map(::without)
-            TravelObservationService.clearNotice(context)
+            if (_current.value?.assessments.orEmpty().none { it.address !in this.ignored }) {
+                TravelObservationService.clearNotice(context)
+            }
         }
         checkpointLocked()
     }

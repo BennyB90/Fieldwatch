@@ -109,6 +109,14 @@ class SweepReportsTest {
         assertEquals(SweepPinKind.TAKEOFF, session.findings.single { it.category == SweepCategory.DRONE }.dronePins.last().kind)
     }
 
+    @Test
+    fun androidReleasePrefixIsPreservedWhileBuildFingerprintIsWithheld() {
+        val realOs = privateSession().copy(androidVersion = "16 (API 36, BP2A.250605.031.A2)")
+        val exported = Json.parseToJsonElement(SweepReports.json(realOs)).jsonObject
+        assertEquals("16", exported["androidVersion"]!!.jsonPrimitive.content)
+        assertFalse(SweepReports.json(realOs).contains("BP2A"))
+    }
+
     private fun privateSession(): SweepSession {
         val secret = "$mac $ssid $uas $latitude, $longitude"
         return SweepSession(

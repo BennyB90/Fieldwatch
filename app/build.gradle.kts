@@ -20,25 +20,37 @@ fun localProp(name: String): String? {
     return null
 }
 
+fun releaseProp(sweepName: String, legacyName: String): String? =
+    System.getenv(sweepName)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: localProp(sweepName)
+        ?: System.getenv(legacyName)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: localProp(legacyName)
+
 android {
     namespace = "app.fieldwatch"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.fieldwatch"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 38
+        targetSdk = 36
+        versionCode = 39
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
         buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "false")
     }
 
-    val releaseStore = localProp("FIELDWATCH_STORE_FILE")
-    val releaseStorePassword = localProp("FIELDWATCH_STORE_PASSWORD")
-    val releaseKeyAlias = localProp("FIELDWATCH_KEY_ALIAS")
-    val releaseKeyPassword = localProp("FIELDWATCH_KEY_PASSWORD")
+    dependenciesInfo {
+        // Keep sideloaded APKs free of Play's encrypted dependency block while retaining it in Play AABs.
+        includeInApk = false
+        includeInBundle = true
+    }
+
+    val releaseStore = releaseProp("SWEEP_STORE_FILE", "FIELDWATCH_STORE_FILE")
+    val releaseStorePassword = releaseProp("SWEEP_STORE_PASSWORD", "FIELDWATCH_STORE_PASSWORD")
+    val releaseKeyAlias = releaseProp("SWEEP_KEY_ALIAS", "FIELDWATCH_KEY_ALIAS")
+    val releaseKeyPassword = releaseProp("SWEEP_KEY_PASSWORD", "FIELDWATCH_KEY_PASSWORD")
     val hasReleaseSigning =
         releaseStore != null &&
             releaseStorePassword != null &&
@@ -91,18 +103,24 @@ android {
         create("sweep") {
             initWith(getByName("spike"))
             applicationIdSuffix = ".sweep"
-            versionNameSuffix = "-sweep-alpha.4"
+            versionNameSuffix = "-sweep-alpha.5"
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             matchingFallbacks += listOf("spike", "debug")
         }
         create("sweepRadio") {
             initWith(getByName("sweep"))
             applicationIdSuffix = ".sweep.radio"
-            versionNameSuffix = "-sweep-radio-alpha.4"
+            versionNameSuffix = "-sweep-radio-alpha.5"
             buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
             buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "true")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             matchingFallbacks += listOf("sweep", "spike", "debug")
         }
     }

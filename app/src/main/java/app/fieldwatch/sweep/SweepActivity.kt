@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,7 +27,7 @@ class SweepActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableSweepEdgeToEdge()
         setContent {
             val current by coordinator.current.collectAsStateWithLifecycle()
             val history by coordinator.history.collectAsStateWithLifecycle()
@@ -80,7 +79,8 @@ class SweepActivity : ComponentActivity() {
     }
 
     private fun openSettings() {
-        val intent = if (!coordinator.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) || !coordinator.bluetoothPermissions()) {
+        val missingNearbyWifi = Build.VERSION.SDK_INT >= 33 && !coordinator.hasPermission(Manifest.permission.NEARBY_WIFI_DEVICES)
+        val intent = if (!coordinator.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) || !coordinator.bluetoothPermissions() || missingNearbyWifi) {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
         } else if (!coordinator.locationEnabled()) Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) else Intent(Settings.ACTION_WIRELESS_SETTINGS)
         runCatching { startActivity(intent) }.onFailure { coordinator.reportError("Open Android Settings to check Location, Wi-Fi, Bluetooth, and app permissions.") }

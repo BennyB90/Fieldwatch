@@ -53,6 +53,7 @@ class TravelObservationService : Service() {
     private var locating = false
     private var gpsAvailable = false
     private var postedStatus: String? = null
+    private var postedAlertDetail: String? = null
     @Volatile private var lastFix: TravelLocation? = null
     private val notified = HashMap<String, TravelEvidenceKind>()
     private val locations get() = getSystemService(LOCATION_SERVICE) as LocationManager
@@ -91,10 +92,12 @@ class TravelObservationService : Service() {
             val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(NotificationChannel(CHANNEL, "Travel observation", NotificationManager.IMPORTANCE_LOW))
             manager.createNotificationChannel(NotificationChannel(ALERT_CHANNEL, "Repeated tracker observations", NotificationManager.IMPORTANCE_DEFAULT))
-            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                (if (controller.locationAllowed()) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0)
             val status = notificationStatus()
-            startForeground(NOTIFICATION_ID, notification(status), types)
+            startForeground(
+                NOTIFICATION_ID,
+                notification(status),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+            )
             postedStatus = status
         } catch (_: Exception) {
             end(true, "Android could not start the Travel foreground service. Start again explicitly after checking permissions.")
@@ -180,7 +183,10 @@ class TravelObservationService : Service() {
         }
     }
 
-    override fun onTaskRemoved(rootIntent: Intent?) { end(); super.onTaskRemoved(rootIntent) }
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        end(true, "Travel stopped when SWEEP was closed from recent apps.")
+        super.onTaskRemoved(rootIntent)
+    }
     override fun onDestroy() {
         ticker?.cancel(); stopLocation()
         val stopBluetooth = ble?.takeUnless { it.stop() }?.let { radio -> radio::stop }
@@ -218,23 +224,50 @@ class TravelObservationService : Service() {
 
     private fun notifyAssessments() {
         val id = sessionId ?: return
-        if (controller.current.value?.assessments.isNullOrEmpty()) return
-        if (!controller.notificationsAvailable().ready) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        controller.publishAssessments(id, instanceId) { assessment ->
+        val eligible = ArrayList<TravelAssessment>(4)
+        controller.publishAssessments(id, instanceId) { eligible += it }
+        if (eligible.isEmpty()) {
+            notified.clear()
+            if (postedAlertDetail != null) {
+                manager.cancel(ALERT_TAG, ALERT_NOTIFICATION_ID)
+                postedAlertDetail = null
+            }
+            return
+        }
+        val activeAddresses = eligible.map { it.address }.toSet()
+        notified.keys.retainAll(activeAddresses)
+        if (!controller.locationAllowed()) {
+            for ((addr, kind) in notified.entries.toList()) {
+                if (kind == TravelEvidenceKind.DISTINCT_PHONE_LOCATIONS) notified.remove(addr)
+            }
+        }
+        if (!controller.notificationsAvailable().ready) return
+        var latestDetail: String? = null
+        for (assessment in eligible) {
             val previous = notified[assessment.address]
-            if (previous == assessment.kind || previous == TravelEvidenceKind.DISTINCT_PHONE_LOCATIONS) return@publishAssessments
+            if (previous == assessment.kind || previous == TravelEvidenceKind.DISTINCT_PHONE_LOCATIONS) continue
             notified[assessment.address] = assessment.kind
             // Address and phone coordinates are intentionally absent from the shade.
-            val detail = if (assessment.kind == TravelEvidenceKind.DISTINCT_PHONE_LOCATIONS)
-                "Observed at ${assessment.distinctPhoneLocations} phone locations over ${assessment.spanMinutes} minutes; ownership is unverified."
-            else "Observed ${assessment.observations} times over ${assessment.spanMinutes} minutes; movement is unverified."
+            latestDetail = assessmentNoticeDetail(assessment)
+        }
+        // If an earlier clearNotice wiped the shared alert while another eligible tracker remains, restore its notice.
+        if (latestDetail == null && postedAlertDetail == null) {
+            latestDetail = assessmentNoticeDetail(eligible.first())
+        }
+        if (latestDetail != null && latestDetail != postedAlertDetail) {
             manager.notify(ALERT_TAG, ALERT_NOTIFICATION_ID, NotificationCompat.Builder(this, ALERT_CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_fieldwatch).setContentTitle("Repeated tracker signal observations")
-                .setContentText(detail).setStyle(NotificationCompat.BigTextStyle().bigText("$detail This does not establish unwanted tracking."))
+                .setContentText(latestDetail).setStyle(NotificationCompat.BigTextStyle().bigText("$latestDetail This does not establish unwanted tracking."))
                 .setContentIntent(openTravel()).setAutoCancel(true).build())
+            postedAlertDetail = latestDetail
         }
     }
+
+    private fun assessmentNoticeDetail(assessment: TravelAssessment): String =
+        if (assessment.kind == TravelEvidenceKind.DISTINCT_PHONE_LOCATIONS)
+            "Observed at ${assessment.distinctPhoneLocations} phone locations over ${assessment.spanMinutes} minutes; ownership is unverified."
+        else "Observed ${assessment.observations} times over ${assessment.spanMinutes} minutes; movement is unverified."
 
     companion object {
         internal fun clearNotice(context: android.content.Context) {

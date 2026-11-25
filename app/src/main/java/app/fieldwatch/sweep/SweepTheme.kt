@@ -1,5 +1,8 @@
 package app.fieldwatch.sweep
 
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
@@ -58,4 +61,12 @@ private val SweepType = Typography(
 @Composable
 fun SweepTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = SweepColors, typography = SweepType, content = content)
+}
+
+/** SWEEP uses a warm light surface regardless of system night mode; keep system bar icons dark and legible. */
+fun ComponentActivity.enableSweepEdgeToEdge() {
+    enableEdgeToEdge(
+        statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+    )
 }

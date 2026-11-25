@@ -6,7 +6,12 @@ import java.io.IOException
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
+import java.nio.file.attribute.PosixFilePermissions
+import java.util.EnumSet
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.Serializable
@@ -166,26 +171,48 @@ class ScannerFeedStore internal constructor(
         if (bytes.size > MAX_FILE_BYTES) throw IOException("Radio settings exceed the storage limit.")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("Radio settings could not be saved.")
         makePrivate(directory, isDirectory = true)
-        val temporary = File.createTempFile(TEMP_PREFIX, ".tmp", directory)
+        val temporary = createPrivateTempFile(directory.toPath())
         try {
             makePrivate(temporary, isDirectory = false)
             FileOutputStream(temporary).use { output -> output.write(bytes); output.fd.sync() }
             replaceFile(temporary, database)
+            makePrivate(database, isDirectory = false)
         } finally {
             Files.deleteIfExists(temporary.toPath())
         }
     }
 
     private fun deleteAbandonedWrites() {
-        directory.listFiles().orEmpty().filter { it.name.startsWith(TEMP_PREFIX) }.forEach { Files.deleteIfExists(it.toPath()) }
+        if (!directory.exists()) return
+        val files = directory.listFiles() ?: throw IOException("Radio settings files could not be accessed.")
+        files.filter { it.name.startsWith(TEMP_PREFIX) }.forEach { Files.deleteIfExists(it.toPath()) }
+    }
+
+    private fun createPrivateTempFile(dir: Path): File = try {
+        val posix = Files.getFileAttributeView(dir, PosixFileAttributeView::class.java)
+        if (posix != null) {
+            Files.createTempFile(dir, TEMP_PREFIX, ".tmp", PosixFilePermissions.asFileAttribute(OWNER_FILE_PERMS)).toFile()
+        } else {
+            Files.createTempFile(dir, TEMP_PREFIX, ".tmp").toFile()
+        }
+    } catch (_: Exception) {
+        throw IOException("Radio settings could not be kept private.")
     }
 
     private fun makePrivate(file: File, isDirectory: Boolean) {
-        val removed = file.setReadable(false, false) && file.setWritable(false, false) &&
-            (!isDirectory || file.setExecutable(false, false))
-        val restored = file.setReadable(true, true) && file.setWritable(true, true) &&
-            (!isDirectory || file.setExecutable(true, true))
-        if (!removed || !restored) throw IOException("Radio settings could not be kept private.")
+        if (!file.exists()) return
+        val posix = runCatching { Files.getFileAttributeView(file.toPath(), PosixFileAttributeView::class.java) }.getOrNull()
+        if (posix != null) {
+            try {
+                posix.setPermissions(if (isDirectory) OWNER_DIR_PERMS else OWNER_FILE_PERMS)
+            } catch (_: Exception) {
+                throw IOException("Radio settings could not be kept private.")
+            }
+        } else {
+            val path = file.toPath()
+            val accessible = Files.isReadable(path) && Files.isWritable(path) && (!isDirectory || Files.isDirectory(path))
+            if (!accessible) throw IOException("Radio settings could not be kept private.")
+        }
     }
 
     private fun damagedPreferences() = IOException("Saved radio settings are damaged. Clear radio settings to reset them.")
@@ -194,6 +221,8 @@ class ScannerFeedStore internal constructor(
         const val MAX_FEEDS = 200
         const val MAX_FILE_BYTES = 1_048_576L
         const val TEMP_PREFIX = ".scanner-feeds-"
+        val OWNER_FILE_PERMS: Set<PosixFilePermission> = EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
+        val OWNER_DIR_PERMS: Set<PosixFilePermission> = EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)
         val locks = ConcurrentHashMap<String, Any>()
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     }

@@ -51,6 +51,7 @@ class ValentineBleController(context: Context) : Closeable {
     private var requestCharacteristic: BluetoothGattCharacteristic? = null
     private var notificationsReady = false
     private var alertRequestSent = false
+    private var alertRequestAttempts = 0
     private var pendingAlertRequest: ByteArray? = null
     private var lastDisplayElapsed = 0L
     private var lastAlertTableElapsed = 0L
@@ -197,6 +198,7 @@ class ValentineBleController(context: Context) : Closeable {
 
         override fun onCharacteristicWrite(connection: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) = onMain {
             if (current(token) && gatt === connection && characteristic.uuid == ValentineEspProtocol.REQUEST_UUID && status != BluetoothGatt.GATT_SUCCESS) {
+                alertRequestSent = false
                 _state.update { it.copy(error = "Display data is connected, but the detailed alert request was not accepted.") }
             }
         }
@@ -214,7 +216,7 @@ class ValentineBleController(context: Context) : Closeable {
             lastDisplayElapsed = SystemClock.elapsedRealtime()
             _state.update { it.copy(display = display) }
             if (display.legacy) _state.update { it.copy(error = "Legacy detector display only. Detailed alert data requires an ESP-capable detector.") }
-            if (!display.legacy && display.systemStatus && packet.payload[5] and 0x02 == 0 && !alertRequestSent) {
+            if (!display.legacy && display.systemStatus && packet.payload[5] and 0x02 == 0 && !alertRequestSent && alertRequestAttempts < MAX_ALERT_REQUEST_ATTEMPTS) {
                 pendingAlertRequest = ValentineEspProtocol.startAlertRequest(packet.withChecksum)
                 requestAlertsIfReady()
             }
@@ -226,9 +228,17 @@ class ValentineBleController(context: Context) : Closeable {
             }
         }
         if (packet.packetId == 0x64 && packet.payload.firstOrNull() == 0x41) {
+            alertRequestAttempts = MAX_ALERT_REQUEST_ATTEMPTS
             _state.update { it.copy(error = "This detector does not support the detailed alert stream. Display data remains available.") }
         }
-        if (packet.packetId in listOf(0x65, 0x67) && packet.payload.firstOrNull() == 0x41) {
+        if (packet.packetId == 0x65 && packet.payload.firstOrNull() == 0x41) {
+            alertRequestSent = false
+            if (alertRequestAttempts >= MAX_ALERT_REQUEST_ATTEMPTS) {
+                _state.update { it.copy(error = "The detector declined the detailed alert request. Display data remains available.") }
+            }
+        }
+        if (packet.packetId == 0x67 && packet.payload.firstOrNull() == 0x41) {
+            alertRequestAttempts = MAX_ALERT_REQUEST_ATTEMPTS
             _state.update { it.copy(error = "The detector declined the detailed alert request. Display data remains available.") }
         }
     }
@@ -237,13 +247,14 @@ class ValentineBleController(context: Context) : Closeable {
     private fun requestAlertsIfReady() {
         val bytes = pendingAlertRequest ?: return
         val connection = gatt ?: return
-        if (!notificationsReady || alertRequestSent) return
-        alertRequestSent = true
+        if (!notificationsReady || alertRequestSent || alertRequestAttempts >= MAX_ALERT_REQUEST_ATTEMPTS) return
         val target = requestCharacteristic
         if (target == null || target.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) == 0) {
+            alertRequestAttempts = MAX_ALERT_REQUEST_ATTEMPTS
             _state.update { it.copy(error = "Display data is connected. This accessory does not offer detailed alert requests.") }
             return
         }
+        alertRequestAttempts++
         val type = if (target.properties and BluetoothGattCharacteristic.PROPERTY_WRITE != 0) BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             else BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
         val accepted = runCatching {
@@ -256,8 +267,12 @@ class ValentineBleController(context: Context) : Closeable {
                 connection.writeCharacteristic(target)
             }
         }.getOrDefault(false)
-        if (accepted) lastAlertRequestElapsed = SystemClock.elapsedRealtime()
-        if (!accepted) _state.update { it.copy(error = "Display data is connected, but the detailed alert request could not be sent.") }
+        if (accepted) {
+            alertRequestSent = true
+            lastAlertRequestElapsed = SystemClock.elapsedRealtime()
+        } else {
+            _state.update { it.copy(error = "Display data is connected, but the detailed alert request could not be sent.") }
+        }
     }
 
     private fun checkFreshData(token: Long) {
@@ -318,7 +333,7 @@ class ValentineBleController(context: Context) : Closeable {
         val old = gatt
         gatt = null
         if (old != null) { runCatching { old.disconnect() }; runCatching { old.close() } }
-        requestCharacteristic = null; notificationsReady = false; alertRequestSent = false
+        requestCharacteristic = null; notificationsReady = false; alertRequestSent = false; alertRequestAttempts = 0
         pendingAlertRequest = null; lastDisplayElapsed = 0L; lastAlertTableElapsed = 0L; lastAlertRequestElapsed = 0L; assembler.reset()
         displayChecksumMode = null
     }
@@ -329,6 +344,7 @@ class ValentineBleController(context: Context) : Closeable {
 
     private companion object {
         const val MAX_DEVICES = 32
+        const val MAX_ALERT_REQUEST_ATTEMPTS = 3
         const val DISCOVERY_MS = 15_000L
         const val CONNECTION_MS = 20_000L
         const val DATA_TIMEOUT_MS = 12_000L

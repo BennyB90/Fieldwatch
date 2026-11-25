@@ -163,7 +163,8 @@ object OpenDroneId {
         val vspeed = (if (vRaw > 127) vRaw - 256 else vRaw) * 0.5
         val lat = i32le(m, 5) * 1e-7
         val lon = i32le(m, 9) * 1e-7
-        val altGeo = (u16le(m, 15) * 0.5) - 1000.0
+        val altRaw = u16le(m, 15)
+        val altGeo = if (altRaw == 0) null else (altRaw * 0.5) - 1000.0
         return PayloadLocation(
             lat = lat,
             lon = lon,
@@ -176,13 +177,31 @@ object OpenDroneId {
 
     private fun basicId(m: ByteArray): PayloadLocation {
         val idType = (m[1].toInt() and 0xFF) shr 4
-        val id = m.copyOfRange(2, 22).toString(Charsets.US_ASCII).trim('\u0000', ' ')
+        if (idType == 0) return PayloadLocation()
+        val raw = m.copyOfRange(2, 22)
+        val id = when (idType) {
+            3 -> if (raw.take(16).all { it.toInt() == 0 }) "" else formatUuid16(raw)
+            4 -> {
+                val trimmed = raw.dropLastWhile { it.toInt() == 0 }
+                if (trimmed.isEmpty()) ""
+                else if (trimmed.all { it.toInt() in 0x20..0x7E }) ByteArray(trimmed.size) { trimmed[it] }.toString(Charsets.US_ASCII).trim()
+                else trimmed.joinToString("") { "%02X".format(it.toInt() and 0xFF) }
+            }
+            else -> raw.toString(Charsets.US_ASCII).trim('\u0000', ' ')
+        }
         val maker = if (idType == ID_SERIAL) Cta2063.label(id).orEmpty() else ""
         return PayloadLocation(
             uasId = id.takeIf { it.isNotEmpty() },
             aircraft = maker,
             basicId = true,
         )
+    }
+
+    private fun formatUuid16(raw: ByteArray): String = buildString(36) {
+        for (index in 0 until 16) {
+            if (index == 4 || index == 6 || index == 8 || index == 10) append('-')
+            append("%02x".format(raw[index].toInt() and 0xFF))
+        }
     }
 
     private fun selfId(m: ByteArray): PayloadLocation {

@@ -149,6 +149,21 @@ class RdioHttpClientTest {
         assertEquals("https://example.test/rdio/", RdioServerAddress.normalizeBaseUrl("https://EXAMPLE.test:443/rdio"))
     }
 
+    @Test fun id3TaggedAacAudioAndSpecificErrorStatusesAreHandled() {
+        val transport = FakeTransport("{}")
+        val client = RdioHttpClient("https://example.test", "1234", { true }, transport)
+        transport.mime = "audio/aac"
+        transport.bytes = "ID3".toByteArray(Charsets.US_ASCII) + byteArrayOf(4, 0, 0, 0, 0, 0, 0, 0xFF.toByte(), 0xF1.toByte())
+        assertEquals("audio/aac", client.audio(5).mimeType)
+
+        transport.mime = "application/json"
+        transport.bytes = "{}".toByteArray()
+        transport.status = 415
+        assertTrue(expectError { client.audio(5) }.message!!.contains("unsupported audio format"))
+        transport.status = 503
+        assertTrue(expectError { client.calls() }.message!!.contains("busy or timed out"))
+    }
+
     private fun expectError(action: () -> Unit): RdioException {
         try { action(); fail("Expected a sanitized RdioException") }
         catch (failure: RdioException) { return failure }
