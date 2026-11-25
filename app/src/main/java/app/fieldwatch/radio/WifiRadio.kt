@@ -10,6 +10,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import app.fieldwatch.domain.Observation
 import app.fieldwatch.domain.RadioKind
@@ -28,7 +29,7 @@ class WifiRadio(
     private val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private val main = Handler(Looper.getMainLooper())
     private var registered = false
-    private val lastEmitAt = AtomicLong(0L)
+    @Volatile private var evidence: WifiScanEvidence? = null
     private val awaitingScan = AtomicBoolean(false)
     private val nextAllowedAt = AtomicLong(0L)
     private val failStreak = AtomicInteger(0)
@@ -40,25 +41,26 @@ class WifiRadio(
         override fun onReceive(ctx: Context?, intent: Intent?) {
             if (intent?.action != WifiManager.SCAN_RESULTS_AVAILABLE_ACTION) return
             val updated = intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)
-            emitResults(fresh = updated || awaitingScan.get())
+            emitResults(fresh = updated)
         }
     }
 
     private val resultsCallback = if (Build.VERSION.SDK_INT >= 30) {
         object : WifiManager.ScanResultsCallback() {
             override fun onScanResultsAvailable() {
-                // Only a scan we asked for is "fresh". Spontaneous callbacks are often a
-                // partial or cached set; treating those as fresh ages every other AP off.
-                emitResults(fresh = awaitingScan.get())
+                // This callback carries no success flag. Per-AP OS timestamps,
+                // rather than an outstanding request, establish reception.
+                emitResults(fresh = false)
             }
         }
     } else null
 
-    private val poll = Runnable { emitResults(fresh = awaitingScan.get()) }
+    private val poll = Runnable { emitResults(fresh = false) }
 
     @SuppressLint("MissingPermission")
     fun start() {
         if (registered) return
+        evidence = WifiScanEvidence(SystemClock.elapsedRealtimeNanos() / 1_000L)
         ContextCompat.registerReceiver(
             context,
             receiver,
@@ -83,12 +85,19 @@ class WifiRadio(
             runCatching { wifi.unregisterScanResultsCallback(resultsCallback!!) }
         }
         registered = false
+        evidence = null
         awaitingScan.set(false)
+    }
+
+    /** Dispose a service-owned instance. stop() remains restartable for radio toggles. */
+    fun close() {
+        stop()
+        callbackExecutor.shutdownNow()
     }
 
     @SuppressLint("MissingPermission")
     fun requestScan(minIntervalMs: Long = 30_000L, unthrottled: Boolean = false): Boolean {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         val quotaWait = if (unthrottled) 0L else synchronized(quotaLock) { pruneAndQuotaWait(now) }
         val gate = maxOf(nextAllowedAt.get(), quotaWait)
         if (now < gate) {
@@ -120,7 +129,7 @@ class WifiRadio(
     fun waitingOnOs(): Boolean = failStreak.get() > 0
 
     fun throttleHint(): String {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         return when {
             failStreak.get() > 0 -> "Wi-Fi waiting on OS"
             awaitingScan.get() -> "Wi-Fi scanning"
@@ -141,31 +150,29 @@ class WifiRadio(
     }
 
     @SuppressLint("MissingPermission")
+    @Synchronized
     private fun emitResults(fresh: Boolean) {
-        val nowWall = System.currentTimeMillis()
+        val sessionEvidence = evidence ?: return
         val results = runCatching { wifi.scanResults }.getOrDefault(emptyList())
-        if (results.isEmpty()) {
-            if (awaitingScan.get()) {
-                main.removeCallbacks(poll)
-                main.postDelayed(poll, 1_200L)
-            }
-            return
-        }
-        if (nowWall - lastEmitAt.get() < 350L) return
-        lastEmitAt.set(nowWall)
-        val isFresh = fresh || awaitingScan.get()
-        awaitingScan.set(false)
-        var count = 0
+        val nowWall = System.currentTimeMillis()
+        val nowElapsedUs = SystemClock.elapsedRealtimeNanos() / 1_000L
         val batch = ArrayList<Observation>(results.size)
         results.forEach { result ->
-            if (result.BSSID.isNullOrBlank()) return@forEach
-            count++
-            val obs = toObservation(result, nowWall, isFresh)
+            val observedAt = sessionEvidence.observationTimeMs(
+                result.BSSID.orEmpty(), result.timestamp, nowElapsedUs, nowWall,
+            ) ?: return@forEach
+            val obs = toObservation(result, observedAt, fresh = true)
             batch += obs
             onObservation(obs)
         }
-        onScanFinished(count, isFresh)
-        if (isFresh && batch.isNotEmpty()) onFreshScan(batch)
+        if (fresh || batch.isNotEmpty()) {
+            awaitingScan.set(false)
+            main.removeCallbacks(poll)
+        }
+        onScanFinished(batch.size, batch.isNotEmpty())
+        // Flood detection needs a confirmed complete scan; a poll/callback may
+        // expose a partial set. Both paths can still contribute new AP samples.
+        if (fresh && batch.isNotEmpty()) onFreshScan(batch)
     }
 
     private fun toObservation(result: ScanResult, nowWall: Long, fresh: Boolean): Observation {
@@ -199,6 +206,7 @@ class WifiRadio(
             extras = "",
             at = nowWall,
             fresh = fresh,
+            elapsedRealtimeMs = result.timestamp / 1_000L,
             vendorIeOuis = ies.vendorIes.map { it.oui }.ifEmpty { vendorIeOuisOf(result) }.distinct(),
             facts = facts,
         )
@@ -244,8 +252,8 @@ class WifiRadio(
         }
 
         fun channelOf(freq: Int): Int = when {
-            freq in 2412..2484 -> (freq - 2407) / 5
             freq == 2484 -> 14
+            freq in 2412..2472 -> (freq - 2407) / 5
             freq in 5000..5895 -> (freq - 5000) / 5
             freq in 5955..7115 -> (freq - 5955) / 5 + 1
             else -> 0

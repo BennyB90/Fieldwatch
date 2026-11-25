@@ -2,6 +2,7 @@ package app.fieldwatch.data
 
 import app.fieldwatch.domain.DefaultCatalog
 import app.fieldwatch.domain.Observation
+import app.fieldwatch.domain.OpenDroneIdReferenceFixtures
 import app.fieldwatch.domain.OperatorLoc
 import app.fieldwatch.domain.RadioFacts
 import app.fieldwatch.domain.RadioKind
@@ -272,7 +273,7 @@ class DeviceStoreTest {
         assertNull(module.payloadAircraft)
 
         val packMac = "AA:BB:CC:DD:EE:15"
-        val pack = "0D00" + basicIdService(1, "1914CL2D230001").removePrefix("0D00") + location.removePrefix("0D00")
+        val pack = "0D00F21902" + basicIdService(1, "1914CL2D230001").removePrefix("0D00") + location.removePrefix("0D00")
         store.ingestBatch(
             listOf(ble(packMac, name = "", facts = RadioFacts(serviceData = listOf(ServiceDataRecord("FFFA", pack))))),
             fleets,
@@ -338,6 +339,53 @@ class DeviceStoreTest {
         assertEquals(-74.0, device.payloadLon!!, 1e-6)
         assertEquals(90.0, device.payloadHeading!!, 1e-6)
         assertEquals(10.0, device.payloadSpeed!!, 1e-6)
+    }
+
+    @Test
+    fun bleRemoteIdShorterMessagesUpdatePackAndKeepOtherStickyFields() {
+        val store = DeviceStore()
+        val mac = "AA:BB:CC:DD:EE:14"
+        fun ingest(payload: String) {
+            store.ingestBatch(listOf(ble(mac, name = "", facts = RadioFacts(serviceData = listOf(
+                ServiceDataRecord("FFFA", payload),
+            )))), fleets, 30)
+        }
+        ingest("0D00" + OpenDroneIdReferenceFixtures.PACK_A)
+        ingest("0D01" + OpenDroneIdReferenceFixtures.LOCATION_B)
+        val moved = store.find("BLE:$mac")!!
+        assertEquals(40.001, moved.payloadLat!!, 1e-7)
+        assertEquals(-74.002, moved.payloadLon!!, 1e-7)
+        assertEquals("1581F3YTDJ1D0031Z530", moved.payloadUasId)
+        assertEquals(39.9, moved.payloadOpLat!!, 1e-7)
+        ingest("0D02" + OpenDroneIdReferenceFixtures.SYSTEM_B)
+        val operatorMoved = store.find("BLE:$mac")!!
+        assertEquals(40.001, operatorMoved.payloadLat!!, 1e-7)
+        assertEquals(39.901, operatorMoved.payloadOpLat!!, 1e-7)
+        assertEquals(-73.902, operatorMoved.payloadOpLon!!, 1e-7)
+        assertEquals(OperatorLoc.LIVE, operatorMoved.payloadOpKind)
+    }
+
+    @Test
+    fun wifiRemoteIdPayloadChangesUpdatePinAfterManyBroadcasts() {
+        val store = DeviceStore()
+        val mac = "AA:BB:CC:DD:EE:15"
+        for (counter in 0..20) {
+            val body = when (counter) {
+                0 -> OpenDroneIdReferenceFixtures.PACK_A
+                20 -> OpenDroneIdReferenceFixtures.LOCATION_B
+                else -> OpenDroneIdReferenceFixtures.LOCATION_A
+            }
+            store.ingestBatch(listOf(wifi(mac, name = "RID-REFERENCE", ies = listOf("FA:0B:BC")).copy(
+                facts = RadioFacts(vendorIes = listOf(
+                    VendorIeRecord("FA:0B:BC", 0x0D, "%02X".format(counter) + body),
+                )),
+            )), fleets, 30)
+        }
+        val moved = store.find("WIFI:$mac")!!
+        assertEquals(40.001, moved.payloadLat!!, 1e-7)
+        assertEquals(-74.002, moved.payloadLon!!, 1e-7)
+        assertEquals("1581F3YTDJ1D0031Z530", moved.payloadUasId)
+        assertEquals(39.9, moved.payloadOpLat!!, 1e-7)
     }
 
     @Test
@@ -463,6 +511,54 @@ class DeviceStoreTest {
         store.refresh(fleets, 30)
         val published = store.devices.value.first { it.mac == mac }
         assertTrue("fleet-cisco" in published.fleetIds)
+    }
+
+    @Test
+    fun explicitNewSessionClearsOldSightingsPinsHistoryAndRadioStats() {
+        val store = DeviceStore()
+        val mac = "AA:BB:CC:DD:EE:25"
+        val old = ble(mac, name = "", facts = RadioFacts(serviceData = listOf(
+            ServiceDataRecord("FFFA", "0D00" + OpenDroneIdReferenceFixtures.PACK_A),
+        ))).copy(at = 1_000L, latitude = 37.0, longitude = -122.0)
+        store.ingestBatch(listOf(old, wifi("00:11:22:33:44:55", name = "Old camera AP")), fleets, 30)
+        assertEquals(40.0, store.find("BLE:$mac")!!.payloadLat!!, 1e-7)
+        store.setScanning(true, "old hold")
+        store.setRadioHold(wifi = true, ble = true)
+        store.setScanRadio(true, true, true, true, true, true, true, 20)
+        store.bumpLogs(100)
+
+        store.resetForNewSession()
+        assertNull(store.find("BLE:$mac"))
+        assertNull(store.find("WIFI:00:11:22:33:44:55"))
+        assertTrue(store.devices.value.isEmpty())
+        assertEquals(app.fieldwatch.domain.ScanStats(logLines = 100), store.stats.value)
+
+        // The same address begins a new sighting; Basic ID alone cannot inherit
+        // the prior trial's aircraft/operator pin, GPS trail, or hit history.
+        val next = ble(mac, name = "", facts = RadioFacts(serviceData = listOf(
+            ServiceDataRecord("FFFA", "0D01" + OpenDroneIdReferenceFixtures.BASIC),
+        ))).copy(at = 2_000L)
+        store.ingestBatch(listOf(next), fleets, 30)
+        val restarted = store.find("BLE:$mac")!!
+        assertEquals(2_000L, restarted.firstSeen)
+        assertEquals(1, restarted.hitCount)
+        assertNull(restarted.payloadLat)
+        assertNull(restarted.payloadOpLat)
+        assertNull(restarted.latitude)
+        assertTrue(restarted.gpsTrail.isEmpty())
+        assertEquals(1, restarted.rssiHistory.size)
+        assertTrue("fleet-remote-id" in restarted.fleetIds)
+    }
+
+    @Test
+    fun ordinaryScanStatusChangesPreserveExistingSightings() {
+        val store = DeviceStore()
+        val mac = "00:00:0C:11:22:33"
+        store.ingestBatch(listOf(wifi(mac, name = "Campus")), fleets, 30)
+        val original = store.find("WIFI:$mac")
+        store.setScanning(false)
+        store.setScanning(true)
+        assertEquals(original, store.find("WIFI:$mac"))
     }
 
     private fun wifi(

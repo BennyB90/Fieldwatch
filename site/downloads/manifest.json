@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "installers": {
+    "sweep": {
+      "filename": "app-sweep.apk",
+      "url": "/downloads/app-sweep.apk",
+      "package": "app.fieldwatch.sweep",
+      "versionName": "1.1.26-sweep-alpha.5",
+      "versionCode": "39",
+      "targetSdk": "36",
+      "bytes": 9840939,
+      "sha256": "6105c3c6c782c984af564f15c0e5db1b80f69b3c1f0e7548561d2353bdca7fc8"
+    },
+    "sweepRadio": {
+      "filename": "app-sweepRadio.apk",
+      "url": "/downloads/app-sweepRadio.apk",
+      "package": "app.fieldwatch.sweep.radio",
+      "versionName": "1.1.26-sweep-radio-alpha.5",
+      "versionCode": "39",
+      "targetSdk": "36",
+      "bytes": 12928389,
+      "sha256": "1fd794239da8c427522266878ee10f03298394341d22dbea573f859594f8fe2e"
+    }
+  }
+}

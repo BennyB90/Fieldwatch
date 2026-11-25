@@ -12,6 +12,7 @@ import app.fieldwatch.domain.DetectionPolicy
 import app.fieldwatch.domain.FastPair
 import app.fieldwatch.domain.Fleet
 import app.fieldwatch.domain.PayloadLocation
+import app.fieldwatch.domain.OpenDroneId
 import app.fieldwatch.domain.Rssi
 import app.fieldwatch.domain.withLiveDecode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -234,6 +235,12 @@ class DeviceStore(
             mfg.forEach { append(it.companyId); append('='); append(it.dataHex); append(',') }
             append('\u0001')
             sd.forEach { append(it.uuid); append('='); append(it.dataHex); append(',') }
+            append('\u0001')
+            // The OUI stays fixed while a Wi-Fi Remote ID position changes.
+            // Re-decode new payloads even when the signature is unchanged.
+            device.facts.vendorIes.filter {
+                it.oui.equals(OpenDroneId.WIFI_OUI, ignoreCase = true) && it.type == OpenDroneId.WIFI_TYPE
+            }.forEach { append(it.dataHex); append(',') }
         }
     }
 
@@ -341,6 +348,19 @@ class DeviceStore(
 
     fun setScanning(on: Boolean, throttleHint: String = "") {
         _stats.update { it.copy(scanning = on, throttleHint = throttleHint) }
+    }
+
+    /** Explicit rig-session boundary. Settings, catalog, and disk logs live elsewhere. */
+    fun resetForNewSession() = synchronized(lock) {
+        live.clear()
+        matchStamp.clear()
+        catalogRef = null
+        lastWifiBatchAt = 0L
+        wifiHold = false
+        bleHold = false
+        _devices.value = emptyList()
+        // This count describes persistent log files, not the new live buffer.
+        _stats.value = ScanStats(logLines = _stats.value.logLines)
     }
 
     fun setScanRadio(

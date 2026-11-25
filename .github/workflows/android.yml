@@ -27,23 +27,78 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           SM=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
           yes | "$SM" --licenses >/dev/null || true
-          "$SM" --install "platforms;android-35" "build-tools;35.0.0"
+          "$SM" --install "platforms;android-36" "build-tools;36.0.0"
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest testSweepRadioUnitTest lintSweep lintSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
+
+      - name: Spike and converter Python tests
+        run: |
+          python3 -m unittest discover -s spike/tests -v
+          python3 -m unittest discover -s scripts/tests -v
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/tests/testSpikeUnitTest/
+            app/build/reports/tests/testSweepUnitTest/
+            app/build/reports/tests/testSweepRadioUnitTest/
           if-no-files-found: ignore
 
-  build:
-    name: APK
+  windows-test:
+    name: Windows unit tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Android SDK
+        shell: pwsh
+        run: |
+          $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }
+          "ANDROID_HOME=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $sm = Get-ChildItem -Path "$sdk\cmdline-tools" -Filter "sdkmanager.bat" -Recurse | Select-Object -Last 1
+          ("y`n" * 20) | & $sm.FullName --licenses | Out-Null
+          & $sm.FullName --install "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Windows JVM and Python tests
+        shell: pwsh
+        run: |
+          .\gradlew.bat testSweepUnitTest testSweepRadioUnitTest --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
+          python -m unittest discover -s spike/tests -v
+          python -m unittest discover -s scripts/tests -v
+
+  rdio-http:
+    name: Rdio HTTP extension
     runs-on: ubuntu-latest
-    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          cache: false
+      - name: Verify pinned operator extension
+        run: python3 integrations/rdio-http/verify.py
+
+  build:
+    name: APK and AAB
+    runs-on: ubuntu-latest
+    needs: [test, windows-test, rdio-http]
     steps:
       - uses: actions/checkout@v4
 
@@ -62,14 +117,59 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           SM=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
           yes | "$SM" --licenses >/dev/null || true
-          "$SM" --install "platforms;android-35" "build-tools;35.0.0"
+          "$SM" --install "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Assemble APKs and Play AABs
+        run: ./gradlew assembleDebug assembleSpike assembleSweep assembleSweepRadio bundleSweep bundleSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: fieldwatch-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP spike APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-spike-apk
+          path: app/build/outputs/apk/spike/app-spike.apk
+          if-no-files-found: error
+
+      - name: Verify SWEEP installer privacy and packaging
+        run: python3 scripts/verify_sweep_apks.py --bundle-dir app/build/outputs/bundle > sweep-apk-verification.json
+
+      - name: Upload installer verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-apk-verification
+          path: sweep-apk-verification.json
+          if-no-files-found: error
+
+      - name: Upload SWEEP alpha APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-alpha-apk
+          path: app/build/outputs/apk/sweep/app-sweep.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP with radio APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-radio-alpha-apk
+          path: app/build/outputs/apk/sweepRadio/app-sweepRadio.apk
+          if-no-files-found: error
+
+      - name: Upload SWEEP Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-bundle-aab
+          path: app/build/outputs/bundle/sweep/app-sweep.aab
+          if-no-files-found: error
+
+      - name: Upload SWEEP with radio Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: sweep-radio-bundle-aab
+          path: app/build/outputs/bundle/sweepRadio/app-sweepRadio.aab
           if-no-files-found: error

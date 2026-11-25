@@ -43,7 +43,16 @@ data class PayloadLocation(
     fun mergeSticky(prev: PayloadLocation?): PayloadLocation {
         val p = prev ?: PayloadLocation()
         val nextPin = if (validCoord(lat, lon)) lat to lon else p.lat to p.lon
-        val nextOp = if (validCoord(opLat, opLon)) opLat to opLon else p.opLat to p.opLon
+        val hasNewOperatorPosition = validCoord(opLat, opLon)
+        val nextOp = if (hasNewOperatorPosition) opLat to opLon else p.opLat to p.opLon
+        // The operator type describes the position in that same System message.
+        // A new "live" message with an unavailable position must not relabel a
+        // retained takeoff/fixed point as the control station's location.
+        val nextOpKind = when {
+            hasNewOperatorPosition -> opKind
+            validCoord(p.opLat, p.opLon) -> p.opKind
+            else -> opKind ?: p.opKind
+        }
         val nextAlt = alt?.takeIf { it.isFinite() } ?: p.alt
         val nextAircraft = when {
             basicId -> aircraft?.takeIf { it.isNotBlank() }
@@ -55,7 +64,7 @@ data class PayloadLocation(
             alt = nextAlt,
             opLat = nextOp.first,
             opLon = nextOp.second,
-            opKind = opKind ?: p.opKind,
+            opKind = nextOpKind,
             opAlt = opAlt?.takeIf { OperatorLoc.knownAlt(it) } ?: p.opAlt,
             uasId = uasId?.takeIf { it.isNotBlank() } ?: p.uasId,
             selfId = selfId?.takeIf { it.isNotBlank() } ?: p.selfId,

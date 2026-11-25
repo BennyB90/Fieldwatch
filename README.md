@@ -1,4 +1,18 @@
-# Fieldwatch
+# SWEEP — on-device wireless scanner
+
+SWEEP is a native Android scanner built from Fieldwatch's radio wrappers, signature engine and catalog. It provides an on-demand Room scan interface, room scan comparisons, opt-in Travel tracker observations with handset battery trials, evidence details, local session history, redacted report sharing, and a searchable 254-signature catalog. Detection runs on-device; the SWEEP APK (`app.fieldwatch.sweep`) targets Android 16 (API 36), supports Android 10+, and has no Internet permission. [Alpha features and installation](docs/SWEEP_ALPHA.md) · [Play release & API 36 guide](docs/PLAY_STORE_RELEASE.md) · [Cloudflare Pages site](docs/CLOUDFLARE_PAGES.md).
+
+Build with `./gradlew :app:testSweepUnitTest :app:assembleSweep` (`.\gradlew.bat` on Windows); output is `app/build/outputs/apk/sweep/app-sweep.apk` (and `:app:bundleSweep` for Play `.aab`). It installs separately as `app.fieldwatch.sweep` alongside the upstream and spike instruments.
+
+Scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.md](spike/README.md). Hardware candidates: [docs/PROCUREMENT.md](docs/PROCUREMENT.md). Spike build: [docs/SPIKE_BUILD.md](docs/SPIKE_BUILD.md).
+
+Physical detection rates and battery performance have not yet been measured on physical hardware. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP APK. Sample mode is explicitly synthetic and is excluded from saved scan history.
+
+Optional public-safety listening and authorized LAN review: build `:app:assembleSweepRadio` for **SWEEP + Radio** (`app.fieldwatch.sweep.radio`). It adds Internet playback for operator-authorized HTTPS streams and Rdio recorded calls (with pagination and explicit listening consent), plus authorized local Wi-Fi DNS-SD service discovery (Android 13+) and router inventory JSON review (`scripts/convert_router_inventory.py` converts common router exports). Rdio requires the separate [SWEEP HTTP server extension](integrations/rdio-http/README.md); stock Rdio listener playback uses a different transport. It ships without a police-feed catalog. [Radio module and feed access](docs/SCANNER_RADIO.md) · [Network discovery](docs/NETWORK_DISCOVERY.md).
+
+Both SWEEP installers include a foreground Valentine BLE accessory screen for detector-reported alerts. Real radar sensing requires compatible external hardware; physical connections have not yet been verified. The offline scanner retains no Internet permission. [Valentine integration and test limits](docs/VALENTINE_RADAR.md).
+
+## Original Fieldwatch README
 
 I built Fieldwatch as a personal tool to look at what Wi-Fi access points and Bluetooth LE ads my phone was able to pick up, so that I could better understand what devices were being used around me. It’s passive, it only listens, there’s no dongle, no account, and no backend server. I wanted something that would work offline in the field.
 

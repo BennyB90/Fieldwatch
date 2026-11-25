@@ -1,0 +1,941 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sweep:spike:evidence:v1",
+  "title": "SWEEP spike v1 evidence record",
+  "description": "Record shape only. Use evidence.py summarize for fixed matrix, freshness, ground truth and gate validity. Null values are unfinished measurements, not failures or zero readings.",
+  "type": "object",
+  "properties": {
+    "protocol_version": {
+      "const": "sweep-spike-v1"
+    },
+    "protocol": {
+      "type": "object",
+      "properties": {
+        "trial_window_seconds": {
+          "const": 60
+        },
+        "max_sample_age_seconds": {
+          "const": 5
+        },
+        "tracker_required_fraction": {
+          "const": 0.9
+        },
+        "camera_baseline_gate": {
+          "type": "object",
+          "properties": {
+            "denominator": {
+              "const": "valid_negative_office_sessions"
+            },
+            "max_session_false_alarm_fraction": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.0
+            },
+            "minimum_valid_sessions": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 10,
+              "default": 10
+            },
+            "declared_before_first_trial": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "default": true
+            },
+            "declaration_evidence_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "default": "SCOPE.md#measurement-protocol"
+            }
+          },
+          "required": [
+            "denominator",
+            "max_session_false_alarm_fraction",
+            "minimum_valid_sessions",
+            "declared_before_first_trial",
+            "declaration_evidence_ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "trial_window_seconds",
+        "max_sample_age_seconds",
+        "tracker_required_fraction",
+        "camera_baseline_gate"
+      ],
+      "additionalProperties": false
+    },
+    "trials": {
+      "type": "array",
+      "minItems": 240,
+      "maxItems": 240,
+      "items": {
+        "$ref": "#/$defs/trial"
+      }
+    },
+    "baseline_controls": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/baseline"
+      }
+    },
+    "battery_controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/battery"
+      }
+    }
+  },
+  "required": [
+    "protocol_version",
+    "protocol",
+    "trials",
+    "baseline_controls",
+    "battery_controls"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "location": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "message_location_type": {
+          "enum": [
+            "aircraft",
+            "operator",
+            "takeoff"
+          ]
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "message_location_type"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "properties": {
+          "latitude": {
+            "const": 0
+          },
+          "longitude": {
+            "const": 0
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      }
+    },
+    "trial": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "complete",
+            "invalid"
+          ]
+        },
+        "invalid_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_api": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "model",
+            "android_version",
+            "android_api"
+          ],
+          "additionalProperties": false
+        },
+        "scanner": {
+          "type": "object",
+          "properties": {
+            "build_commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "settings_record": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "build_commit",
+            "settings_record"
+          ],
+          "additionalProperties": false
+        },
+        "started_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "enum": [
+            "airtag",
+            "tile_mate",
+            "wifi_camera_ap",
+            "remote_id_ble_esp32"
+          ]
+        },
+        "distance_m": {
+          "enum": [
+            1,
+            5,
+            10
+          ]
+        },
+        "environment": {
+          "enum": [
+            "quiet",
+            "office"
+          ]
+        },
+        "repeat": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "expected_class": {
+          "enum": [
+            "ble_tracker",
+            "camera_indicator",
+            "remote_id"
+          ]
+        },
+        "expected_physical_item_type": {
+          "enum": [
+            "tracker",
+            "wifi_camera",
+            "esp32_emulator"
+          ]
+        },
+        "expected_source_kind": {
+          "enum": [
+            "real_device",
+            "synthetic"
+          ]
+        },
+        "target_state": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "firmware": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "state": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "model",
+            "firmware",
+            "state"
+          ],
+          "additionalProperties": false
+        },
+        "ground_truth": {
+          "type": "object",
+          "properties": {
+            "target_present": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "physically_confirmed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "physical_item_type": {
+              "enum": [
+                "tracker",
+                "wifi_camera",
+                "esp32_emulator",
+                null
+              ]
+            },
+            "reference_identity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "source_kind": {
+              "enum": [
+                "real_device",
+                "synthetic",
+                null
+              ]
+            }
+          },
+          "required": [
+            "target_present",
+            "physically_confirmed",
+            "physical_item_type",
+            "reference_identity",
+            "source_kind"
+          ],
+          "additionalProperties": false
+        },
+        "scan": {
+          "type": "object",
+          "properties": {
+            "window_seconds": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "live_since_session_start": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "timestamps_verified": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "samples_received": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "max_sample_age_seconds": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "ble_scan_running_verified": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "wifi_scan_completed": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "ble_scan_evidence_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "wifi_scan_evidence_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "window_seconds",
+            "live_since_session_start",
+            "timestamps_verified",
+            "samples_received",
+            "max_sample_age_seconds",
+            "ble_scan_running_verified",
+            "wifi_scan_completed",
+            "ble_scan_evidence_ref",
+            "wifi_scan_evidence_ref"
+          ],
+          "additionalProperties": false
+        },
+        "observation": {
+          "type": "object",
+          "properties": {
+            "signal_available": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "detected": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "classification": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "matches_reference_identity": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "latency_seconds": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "rssi_dbm": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "signal_available",
+            "detected",
+            "classification",
+            "matches_reference_identity",
+            "latency_seconds",
+            "rssi_dbm"
+          ],
+          "additionalProperties": false
+        },
+        "remote_id": {
+          "type": "object",
+          "properties": {
+            "protocol": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "protocol_valid": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "raw_capture_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "locations": {
+              "type": "object",
+              "properties": {
+                "aircraft": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/location"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "operator": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/location"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "takeoff": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/location"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "aircraft",
+                "operator",
+                "takeoff"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "protocol",
+            "protocol_valid",
+            "raw_capture_ref",
+            "locations"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "invalid_reason",
+        "phone",
+        "scanner",
+        "started_at_utc",
+        "evidence_ref",
+        "notes",
+        "target",
+        "distance_m",
+        "environment",
+        "repeat",
+        "expected_class",
+        "expected_physical_item_type",
+        "expected_source_kind",
+        "target_state",
+        "ground_truth",
+        "scan",
+        "observation",
+        "remote_id"
+      ],
+      "additionalProperties": false
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "complete",
+            "invalid"
+          ]
+        },
+        "invalid_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_api": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "model",
+            "android_version",
+            "android_api"
+          ],
+          "additionalProperties": false
+        },
+        "scanner": {
+          "type": "object",
+          "properties": {
+            "build_commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "settings_record": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "build_commit",
+            "settings_record"
+          ],
+          "additionalProperties": false
+        },
+        "started_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "environment": {
+          "const": "office"
+        },
+        "window_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "target_inventory_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "camera_target_absent_confirmed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "live_since_session_start": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "timestamps_verified": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "samples_received": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "max_sample_age_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "camera_alarm_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "wifi_scan_completed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "wifi_scan_evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "invalid_reason",
+        "phone",
+        "scanner",
+        "started_at_utc",
+        "evidence_ref",
+        "notes",
+        "environment",
+        "window_seconds",
+        "target_inventory_ref",
+        "camera_target_absent_confirmed",
+        "live_since_session_start",
+        "timestamps_verified",
+        "samples_received",
+        "max_sample_age_seconds",
+        "camera_alarm_count",
+        "wifi_scan_completed",
+        "wifi_scan_evidence_ref"
+      ],
+      "additionalProperties": false
+    },
+    "battery": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "complete",
+            "invalid"
+          ]
+        },
+        "invalid_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phone": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "android_api": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "model",
+            "android_version",
+            "android_api"
+          ],
+          "additionalProperties": false
+        },
+        "scanner": {
+          "type": "object",
+          "properties": {
+            "build_commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "settings_record": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "build_commit",
+            "settings_record"
+          ],
+          "additionalProperties": false
+        },
+        "started_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ended_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "session_duration_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "start_battery_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "end_battery_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "charging_during_session": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "screen_and_radio_settings": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "invalid_reason",
+        "phone",
+        "scanner",
+        "started_at_utc",
+        "evidence_ref",
+        "notes",
+        "ended_at_utc",
+        "session_duration_seconds",
+        "start_battery_percent",
+        "end_battery_percent",
+        "charging_during_session",
+        "screen_and_radio_settings"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

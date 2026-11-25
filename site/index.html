@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SWEEP — On-Device Wireless Scanner for Android</title>
+  <meta name="description" content="SWEEP is an on-demand, on-device Android wireless scanner for Bluetooth trackers, Wi-Fi AP indicators, and OpenDroneID broadcasts, with zero cloud tracking.">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="nav">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+            <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <circle cx="12" cy="20" r="1"/>
+          </svg>
+        </span>
+        <span>SWEEP</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#downloads">Download APKs</a>
+        <a href="#install">Install Guide</a>
+        <a href="#limits">Capability Limits</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="https://github.com/BennyB90/Fieldwatch" rel="noopener">Source (GitHub)</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <span class="badge">Android 10+ · Targets Android 16 (API 36) · Zero Cloud Accounts</span>
+        <h1>A clearer view of nearby wireless signals — kept on your phone.</h1>
+        <p class="lead">
+          SWEEP is an open-source, on-demand wireless observation tool for Android. Inspect nearby Bluetooth LE tracker broadcasts, Wi-Fi access-point signatures, and self-reported OpenDroneID broadcasts locally, with explicit evidence and honest limits.
+        </p>
+        <div class="btn-row">
+          <a class="btn" href="#downloads">Download Alpha Installers</a>
+          <a class="btn btn-secondary" href="/privacy.html">Read Privacy Policy</a>
+        </div>
+      </section>
+
+      <section id="downloads">
+        <h2>Choose an Installer</h2>
+        <p>Both packages install side-by-side on Android 10 or newer (API 29+, targeting API 36) with cloud backup and device-to-device transfer disabled across all app storage domains.</p>
+        <div class="grid-2">
+          <article class="card">
+            <span class="badge">Offline Default</span>
+            <h3>SWEEP</h3>
+            <p>Pure on-device RF scanner. The compiled manifest removes <code>android.permission.INTERNET</code> entirely — findings, room comparisons, and Travel history cannot leave your phone unless you explicitly share a report.</p>
+            <ul class="meta-list">
+              <li><strong>Package:</strong> <code>app.fieldwatch.sweep</code></li>
+              <li><strong>Version:</strong> <span id="sweep-version">1.1.26-sweep-alpha.5 (code 39)</span></li>
+              <li><strong>Size:</strong> <span id="sweep-size">9.39 MB (9,840,939 bytes)</span></li>
+              <li><strong>SHA-256:</strong> <code class="hash" id="sweep-sha256">6105c3c6c782c984af564f15c0e5db1b80f69b3c1f0e7548561d2353bdca7fc8</code></li>
+            </ul>
+            <div class="btn-row">
+              <a class="btn" href="/downloads/app-sweep.apk" download>Download app-sweep.apk</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="badge">Optional Network Tools</span>
+            <h3>SWEEP + Radio</h3>
+            <p>Everything in SWEEP, plus explicit opt-in HTTPS scanner stream playback, a foreground Rdio recorded-call browser, and authorized local Wi-Fi service discovery (DNS-SD on Android 13+) &amp; generic router JSON review.</p>
+            <ul class="meta-list">
+              <li><strong>Package:</strong> <code>app.fieldwatch.sweep.radio</code></li>
+              <li><strong>Version:</strong> <span id="radio-version">1.1.26-sweep-radio-alpha.5 (code 39)</span></li>
+              <li><strong>Size:</strong> <span id="radio-size">12.33 MB (12,928,389 bytes)</span></li>
+              <li><strong>SHA-256:</strong> <code class="hash" id="radio-sha256">1fd794239da8c427522266878ee10f03298394341d22dbea573f859594f8fe2e</code></li>
+            </ul>
+            <div class="btn-row">
+              <a class="btn btn-secondary" href="/downloads/app-sweepRadio.apk" download>Download app-sweepRadio.apk</a>
+            </div>
+          </article>
+        </div>
+        <p style="font-size:0.9rem;color:var(--muted);">
+          Checksums file: <a href="/downloads/SHA256SUMS.txt">/downloads/SHA256SUMS.txt</a> · Machine-readable metadata: <a href="/downloads/manifest.json">/downloads/manifest.json</a>
+        </p>
+      </section>
+
+      <section>
+        <h2>What SWEEP Includes</h2>
+        <div class="grid-3">
+          <div class="card">
+            <h3>On-Demand Room Scans</h3>
+            <p>Bounded 20-minute foreground sessions showing matched tracker, camera, and drone indicators alongside unmatched radios, signal history charts, and exact rule match reasons.</p>
+          </div>
+          <div class="card">
+            <h3>Room Scan Comparisons</h3>
+            <p>Compare two completed scans side-by-side to review newly observed, not reobserved, shared, and unresolved addresses alongside radio sample coverage.</p>
+          </div>
+          <div class="card">
+            <h3>Opt-In Travel Mode</h3>
+            <p>Foreground Bluetooth tracker observation (up to 4 hours) with familiar-address exclusions, optional phone GPS correlation (off by default, erasable anytime), and a built-in handset battery meter.</p>
+          </div>
+          <div class="card">
+            <h3>OpenDroneID Evidence</h3>
+            <p>Decodes supported BLE, Wi-Fi beacon vendor IE, and Wi-Fi Aware (NAN) Remote ID frames, keeping aircraft, control-station, takeoff, and fixed operator pins distinct.</p>
+          </div>
+          <div class="card">
+            <h3>254-Signature Catalog</h3>
+            <p>Searchable on-device signature catalog inherited from Fieldwatch, plus a clearly labeled synthetic sample session that never touches your radios or saved history.</p>
+          </div>
+          <div class="card">
+            <h3>Redacted Sharing</h3>
+            <p>Shared session, Travel, battery, and network summaries withhold broadcast names, MAC addresses, and coordinates by default unless you explicitly include them.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="limits-box" id="limits">
+        <h2>Important Capability Limits</h2>
+        <ul>
+          <li><strong>Not a safe-room guarantee:</strong> A quiet scan only means no matching Wi-Fi or Bluetooth broadcasts were received by Android during that window.</li>
+          <li><strong>Invisible devices exist:</strong> Offline SD-card audio/video recorders, wired cameras, cellular-only trackers, Bluetooth Classic inquiry devices, and Wi-Fi cameras operating as silent client stations may emit nothing Android scan APIs can observe.</li>
+          <li><strong>Indicators, not verdicts:</strong> A matched vendor OUI, service UUID, or repeated tracker sighting is a clue to check visually — never proof of malicious surveillance or unwanted tracking.</li>
+          <li><strong>Signal strength is not distance:</strong> RSSI varies with walls, antenna orientation, body shielding, and handset hardware.</li>
+          <li><strong>Alpha status:</strong> Current installers are alpha builds undergoing physical handset and RF benchmark validation.</li>
+        </ul>
+      </section>
+
+      <section id="install">
+        <h2>Install &amp; Verify</h2>
+        <ol>
+          <li>Download <code>app-sweep.apk</code> (or <code>app-sweepRadio.apk</code>) onto your Android 10+ phone, and optionally verify its SHA-256 digest:
+            <pre><code># Linux / macOS
+sha256sum app-sweep.apk
+
+# Windows PowerShell
+Get-FileHash .\app-sweep.apk -Algorithm SHA256</code></pre>
+          </li>
+          <li>Open the downloaded APK from your phone's <strong>Files</strong> app and allow installation if prompted. (Google Play Protect may note that alpha sideload builds are not yet registered on Play.)</li>
+          <li>Open <strong>SWEEP</strong> and tap <strong>Start scan</strong>. Android requires Location permission and Location services to deliver Wi-Fi and unfiltered BLE scan results, plus Nearby devices &amp; Notifications on newer Android versions. <strong>Room scans never request or store your phone's GPS coordinates.</strong></li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        SWEEP is built on <a href="https://github.com/OffGridPete/Fieldwatch" rel="noopener">Fieldwatch</a> by Off Grid Pete LLC under the MIT License, with third-party data attributions preserved in <code>NOTICE</code>.
+        This website sets zero cookies, loads zero third-party fonts or scripts, and runs zero analytics.
+        <a href="/privacy.html">Privacy Policy</a>.
+      </p>
+    </footer>
+  </div>
+</body>
+</html>

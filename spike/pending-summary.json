@@ -1,0 +1,739 @@
+{
+  "protocol_version": "sweep-spike-v1",
+  "spike_status": "incomplete",
+  "document_valid": true,
+  "document_errors": [],
+  "trial_coverage": {
+    "planned": 240,
+    "valid": 0,
+    "pending": 240,
+    "invalid": 0,
+    "missing": 0
+  },
+  "matrix_cells": [
+    {
+      "target": "airtag",
+      "distance_m": 1,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "airtag",
+      "distance_m": 1,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "airtag",
+      "distance_m": 5,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "airtag",
+      "distance_m": 5,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "airtag",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "airtag",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 1,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 1,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 5,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 5,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 1,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 1,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 5,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 5,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "wifi_camera_ap",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 1,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 1,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 5,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 5,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    },
+    {
+      "target": "remote_id_ble_esp32",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "matching_hits": 0,
+      "valid_failed_trials": 0,
+      "signal_unavailable_valid_trials": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "valid_trial_match_fraction": null,
+      "matching_hit_latency_seconds": {
+        "minimum": null,
+        "median": null,
+        "maximum": null
+      },
+      "phone_contexts": []
+    }
+  ],
+  "tracker_10m_gates": [
+    {
+      "target": "airtag",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "target_hits_within_60s": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "phone_contexts": [],
+      "context_errors": [],
+      "required_hits": 9,
+      "status": "incomplete"
+    },
+    {
+      "target": "airtag",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "target_hits_within_60s": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "phone_contexts": [],
+      "context_errors": [],
+      "required_hits": 9,
+      "status": "incomplete"
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 10,
+      "environment": "quiet",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "target_hits_within_60s": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "phone_contexts": [],
+      "context_errors": [],
+      "required_hits": 9,
+      "status": "incomplete"
+    },
+    {
+      "target": "tile_mate",
+      "distance_m": 10,
+      "environment": "office",
+      "coverage": {
+        "planned": 10,
+        "valid": 0,
+        "pending": 10,
+        "invalid": 0,
+        "missing": 0
+      },
+      "target_hits_within_60s": 0,
+      "planned_denominator": 10,
+      "fraction_of_planned_trials": 0.0,
+      "phone_contexts": [],
+      "context_errors": [],
+      "required_hits": 9,
+      "status": "incomplete"
+    }
+  ],
+  "camera_positive_trials": {
+    "coverage": {
+      "planned": 60,
+      "valid": 0,
+      "pending": 60,
+      "invalid": 0,
+      "missing": 0
+    },
+    "matching_indicator_hits": 0,
+    "status": "incomplete",
+    "gate": "complete planned camera trials and flag at least one reference camera AP"
+  },
+  "camera_baseline": {
+    "coverage": {
+      "planned": 10,
+      "valid": 0,
+      "pending": 10,
+      "invalid": 0,
+      "missing": 0
+    },
+    "denominator": "valid_negative_office_sessions",
+    "valid_denominator": 0,
+    "false_alarm_sessions": 0,
+    "false_alarm_fraction": null,
+    "gate_declared": true,
+    "status": "incomplete"
+  },
+  "remote_id": {
+    "synthetic_ble_decoder": {
+      "source_kind": "synthetic",
+      "coverage": {
+        "planned": 60,
+        "valid": 0,
+        "pending": 60,
+        "invalid": 0,
+        "missing": 0
+      },
+      "protocol_qualified_map_pins": {
+        "aircraft": 0,
+        "operator": 0,
+        "takeoff": 0
+      },
+      "status": "incomplete",
+      "gate": "complete planned synthetic trials and at least one qualified aircraft map pin"
+    },
+    "real_aircraft_validation": {
+      "status": "not_evaluated",
+      "valid_trials": 0,
+      "reason": "This matrix only includes ESP32 Remote ID emulators."
+    }
+  },
+  "battery_sessions": [
+    {
+      "id": "battery-phone-01",
+      "phone_id": null,
+      "validity": "pending",
+      "errors": [],
+      "drain_percentage_points": null,
+      "status": "incomplete"
+    }
+  ],
+  "battery_per_phone": [],
+  "measurement_issues": [],
+  "claim_limits": [
+    "An RF classification is an indicator; it does not establish a hidden camera or microphone.",
+    "A silent, wired, offline, or unsupported transmitter may not be detected.",
+    "ESP32 decoder results do not validate real-aircraft detection or actual operator identity.",
+    "Aircraft, operator, and takeoff map pins retain distinct decoded semantics.",
+    "No microphone detection or universal camera/distance claim is tested by this matrix."
+  ]
+}

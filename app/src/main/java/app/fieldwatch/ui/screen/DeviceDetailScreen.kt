@@ -101,6 +101,7 @@ fun DeviceDetailScreen(
         .nightIf(LocalNightMode.current)
     val facts = device.facts
     val familyHint by vm.familyHint.collectAsStateWithLifecycle()
+    val ui by vm.ui.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     Scaffold(
@@ -492,8 +493,8 @@ fun DeviceDetailScreen(
             if (device.kind == RadioKind.BLE || device.kind == RadioKind.WIFI) {
                 val aircraft = device.payloadAircraft?.trim().orEmpty()
                 if (aircraft.isNotEmpty()) Meta("Aircraft", aircraft)
-                val fleets = vm.ui.value.fleets
-                val decoded = remember(device.key, device.facts, device.fleetIds) {
+                val fleets = ui.fleets
+                val decoded = remember(device.key, device.facts, device.fleetIds, fleets) {
                     SignatureFieldDecoder.decodeSighting(device, fleets)
                 }
                 val mapped = device.fleetIds.mapNotNull { id -> fleets.find { it.id == id && it.decode != null } }

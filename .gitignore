@@ -24,6 +24,12 @@ docs/ble-signature-decode.md
 docs/ble-signature-decode.schema.json
 docs/GROK_BUILD_PROMPT.md
 research/
+/spike/**/__pycache__/
+/scripts/**/__pycache__/
+/spike/runs/
+/sweep-apk-verification.json
+/site/downloads/*.apk
+/work/
 scripts/.lookup-cache/
 
 # Machine JDK path belongs in JAVA_HOME, not the tree

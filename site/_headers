@@ -1,0 +1,18 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), usb=(), bluetooth=()
+  Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+/downloads/*.apk
+  Content-Type: application/vnd.android.package-archive
+  Cache-Control: public, max-age=300, must-revalidate
+
+/downloads/SHA256SUMS.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=60, must-revalidate
+
+/downloads/manifest.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=60, must-revalidate

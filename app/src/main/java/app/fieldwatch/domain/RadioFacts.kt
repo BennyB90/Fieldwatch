@@ -91,7 +91,19 @@ private fun mergeMfg(old: List<MfgRecord>, extra: List<MfgRecord>): List<MfgReco
 
 private fun mergeVendorIes(old: List<VendorIeRecord>, extra: List<VendorIeRecord>): List<VendorIeRecord> {
     if (extra.isEmpty()) return old
-    return (old + extra).distinctBy { it.oui to it.type to it.dataHex.take(16) }.take(12)
+    val remoteId = extra.filter {
+        it.oui.equals(OpenDroneId.WIFI_OUI, ignoreCase = true) && it.type == OpenDroneId.WIFI_TYPE
+    }
+    val records = if (remoteId.isEmpty()) {
+        old + extra
+    } else {
+        // Remote ID is a changing broadcast, not immutable vendor metadata.
+        // Replace the previous payload and reserve room for the newest one.
+        remoteId + old.filterNot {
+            it.oui.equals(OpenDroneId.WIFI_OUI, ignoreCase = true) && it.type == OpenDroneId.WIFI_TYPE
+        } + extra.filterNot { it in remoteId }
+    }
+    return records.distinctBy { it.oui to it.type to it.dataHex.take(16) }.take(12)
 }
 
 private fun mergeServiceData(old: List<ServiceDataRecord>, extra: List<ServiceDataRecord>): List<ServiceDataRecord> {
@@ -101,23 +113,30 @@ private fun mergeServiceData(old: List<ServiceDataRecord>, extra: List<ServiceDa
     extra.forEach { rec ->
         val key = serviceDataMergeKey(rec)
         val prev = by[key]
-        if (prev == null || rec.dataHex.length >= prev.dataHex.length) by[key] = rec
+        // A pack can be followed by a shorter Location or System message.
+        // Sticky decoded fields preserve the other message types separately.
+        if (key == OpenDroneId.BLE_UUID || key == OpenDroneId.NAN_SERVICE_NAME ||
+            prev == null || rec.dataHex.length >= prev.dataHex.length
+        ) by[key] = rec
     }
     return by.values.toList()
 }
 
 /** Eddystone FEAA rotates UID / URL / TLM; keep one slot per frame type. */
 private fun serviceDataMergeKey(rec: ServiceDataRecord): String {
+    if (rec.uuid == OpenDroneId.NAN_SERVICE_NAME) return OpenDroneId.NAN_SERVICE_NAME
     val uuidHex = rec.uuid.filter { it.isLetterOrDigit() }.uppercase()
     val short = when {
         uuidHex.length == 4 -> uuidHex
-        uuidHex.length == 32 && uuidHex.startsWith("0000") -> uuidHex.substring(4, 8)
+        uuidHex.length == 8 && uuidHex.startsWith("0000") -> uuidHex.substring(4, 8)
+        uuidHex.length == 32 && uuidHex.startsWith("0000") && uuidHex.endsWith("00001000800000805F9B34FB") -> uuidHex.substring(4, 8)
         else -> uuidHex
     }
     if (short == "FEAA") {
         val frame = rec.dataHex.filter { it.isLetterOrDigit() }.uppercase().take(2)
         if (frame.length == 2) return "FEAA:$frame"
     }
+    if (short == OpenDroneId.BLE_UUID) return OpenDroneId.BLE_UUID
     return uuidHex.ifBlank { rec.uuid }
 }
 

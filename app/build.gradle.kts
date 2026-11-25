@@ -20,23 +20,37 @@ fun localProp(name: String): String? {
     return null
 }
 
+fun releaseProp(sweepName: String, legacyName: String): String? =
+    System.getenv(sweepName)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: localProp(sweepName)
+        ?: System.getenv(legacyName)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: localProp(legacyName)
+
 android {
     namespace = "app.fieldwatch"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.fieldwatch"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 36
+        targetSdk = 36
+        versionCode = 39
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
+        buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
+        buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "false")
     }
 
-    val releaseStore = localProp("FIELDWATCH_STORE_FILE")
-    val releaseStorePassword = localProp("FIELDWATCH_STORE_PASSWORD")
-    val releaseKeyAlias = localProp("FIELDWATCH_KEY_ALIAS")
-    val releaseKeyPassword = localProp("FIELDWATCH_KEY_PASSWORD")
+    dependenciesInfo {
+        // Keep sideloaded APKs free of Play's encrypted dependency block while retaining it in Play AABs.
+        includeInApk = false
+        includeInBundle = true
+    }
+
+    val releaseStore = releaseProp("SWEEP_STORE_FILE", "FIELDWATCH_STORE_FILE")
+    val releaseStorePassword = releaseProp("SWEEP_STORE_PASSWORD", "FIELDWATCH_STORE_PASSWORD")
+    val releaseKeyAlias = releaseProp("SWEEP_KEY_ALIAS", "FIELDWATCH_KEY_ALIAS")
+    val releaseKeyPassword = releaseProp("SWEEP_KEY_PASSWORD", "FIELDWATCH_KEY_PASSWORD")
     val hasReleaseSigning =
         releaseStore != null &&
             releaseStorePassword != null &&
@@ -77,6 +91,38 @@ android {
                 "proguard-rules.pro",
             )
         }
+        create("spike") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".sweep.spike"
+            versionNameSuffix = "-sweep-spike"
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            matchingFallbacks += "debug"
+        }
+        create("sweep") {
+            initWith(getByName("spike"))
+            applicationIdSuffix = ".sweep"
+            versionNameSuffix = "-sweep-alpha.5"
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            matchingFallbacks += listOf("spike", "debug")
+        }
+        create("sweepRadio") {
+            initWith(getByName("sweep"))
+            applicationIdSuffix = ".sweep.radio"
+            versionNameSuffix = "-sweep-radio-alpha.5"
+            buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
+            buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "true")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            matchingFallbacks += listOf("sweep", "spike", "debug")
+        }
     }
 
     compileOptions {
@@ -116,4 +162,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the JVM test classpath; the android.jar bundled JSONObject is a stub.
     testImplementation("org.json:json:20240303")
+    // The offline scanner does not include or initialize the online audio stack.
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-exoplayer-hls:1.8.1")
+    add("sweepRadioImplementation", "androidx.media3:media3-session:1.8.1")
 }
