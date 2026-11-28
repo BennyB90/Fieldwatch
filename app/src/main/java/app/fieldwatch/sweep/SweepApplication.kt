@@ -5,8 +5,12 @@ import app.fieldwatch.domain.RadioDb
 import app.fieldwatch.BuildConfig
 import app.fieldwatch.sweep.network.NetworkController
 import app.fieldwatch.sweep.network.NetworkModeHost
+import app.fieldwatch.sweep.spaces.SpaceController
+import app.fieldwatch.sweep.spaces.SpacePdfExporter
+import app.fieldwatch.sweep.spaces.SpaceStore
 import app.fieldwatch.sweep.travel.TravelController
 import app.fieldwatch.sweep.travel.TravelModeHost
+import java.io.File
 
 open class SweepApplication : Application(), TravelModeHost, NetworkModeHost {
     val radioGate = SweepRadioGate()
@@ -15,6 +19,8 @@ open class SweepApplication : Application(), TravelModeHost, NetworkModeHost {
     val isAudioPlaying: Boolean get() = activeStreamPlayback || activeRdioPlayback
     internal val batteryTest by lazy { HandsetBatteryTest(this) }
     lateinit var coordinator: SweepCoordinator
+        private set
+    internal lateinit var spaceController: SpaceController
         private set
     final override lateinit var travelController: TravelController
         private set
@@ -26,6 +32,9 @@ open class SweepApplication : Application(), TravelModeHost, NetworkModeHost {
         RadioDb.init(this)
         coordinator = SweepCoordinator(this, radioGate)
         coordinator.initialize()
+        spaceController = SpaceController(SpaceStore(File(filesDir, "sweep-spaces")), SpacePdfExporter(File(filesDir, "shares")),
+            sessions = { coordinator.history.value })
+        spaceController.initialize()
         travelController = TravelController(this, canStart = { true }, radioGate = radioGate)
         travelController.initialize()
         if (BuildConfig.SWEEP_NETWORK_ENABLED) {

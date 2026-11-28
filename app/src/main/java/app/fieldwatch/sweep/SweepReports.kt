@@ -33,8 +33,9 @@ object SweepReports {
         "Radio observation" to "Radio observed without a catalog signature match.",
         "Synthetic sample" to "Demo data only; no physical device was detected.",
     )
-    private val decimalNumber = Regex("(?<![A-Za-z0-9])[-+]?\\d{1,3}\\.\\d+(?![A-Za-z0-9])")
-    private val coordinatePair = Regex("(?<![A-Za-z0-9])[-+]?\\d{1,3}(?:\\.\\d+)?\\s*[,;/]\\s*[-+]?\\d{1,3}(?:\\.\\d+)?(?![A-Za-z0-9])")
+    // Radio names and notes sometimes put coordinates directly against letters (e.g. N34.12W118.45).
+    private val decimalNumber = Regex("[-+]?\\d*\\.\\d+")
+    private val coordinatePair = Regex("(?<!\\d)[-+]?\\d{1,3}(?:\\.\\d+)?\\s*[,;/]\\s*[-+]?\\d{1,3}(?:\\.\\d+)?(?!\\d)")
 
     fun json(session: SweepSession, includeIdentifiers: Boolean = false, includeCoordinates: Boolean = false): String {
         val fields = format.encodeToJsonElement(redacted(session, includeIdentifiers, includeCoordinates)).jsonObject.toMutableMap()
@@ -136,7 +137,7 @@ object SweepReports {
         },
     )
 
-    private fun exportedText(value: String, coordinates: Boolean): String {
+    internal fun exportedText(value: String, coordinates: Boolean): String {
         val singleLine = value.replace(Regex("[\\p{Cc}\\p{Cf}]"), " ").take(256)
         return if (coordinates) singleLine else decimalNumber.replace(coordinatePair.replace(singleLine, "[coordinates withheld]"), "[number withheld]")
     }

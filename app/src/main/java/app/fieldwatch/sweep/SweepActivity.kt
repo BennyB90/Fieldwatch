@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.getValue
 import app.fieldwatch.domain.PayloadLocation
 import app.fieldwatch.BuildConfig
+import app.fieldwatch.sweep.spaces.SweepSpacesActivity
 import kotlinx.coroutines.launch
 
 class SweepActivity : ComponentActivity() {
@@ -41,6 +42,7 @@ class SweepActivity : ComponentActivity() {
                     onDelete = coordinator::delete, onDeleteAll = coordinator::deleteAll, onShare = ::share,
                     onDemo = coordinator::showDemo, onClearDemo = coordinator::clearDemo,
                     onSettings = ::openSettings, onMap = ::openMap,
+                    onSpaces = { startActivity(Intent(this, SweepSpacesActivity::class.java)) },
                     radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
                     onRadar = ::openRadar,
                     onTravel = { startActivity(Intent(this, SweepTravelActivity::class.java)) },

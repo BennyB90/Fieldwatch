@@ -148,16 +148,16 @@ object SweepComparisons {
         )
     }
 
-    private fun completed(session: SweepSession): Boolean = session.state == SweepSessionState.COMPLETE &&
+    internal fun completed(session: SweepSession): Boolean = session.state == SweepSessionState.COMPLETE &&
         session.startedAt > 0 && session.endedAt?.let { it >= session.startedAt } == true
 
     private fun transportCoverage(kind: String, older: Long, newer: Long, olderSupported: Boolean, newerSupported: Boolean) =
         SweepTransportComparison(kind, older.coerceAtLeast(0), newer.coerceAtLeast(0),
             olderSupported && newerSupported && older > 0 && newer > 0)
 
-    private data class ComparisonIndex(val findings: Map<String, SweepFinding>, val ambiguousKeys: Set<String>)
+    internal data class ComparisonIndex(val findings: Map<String, SweepFinding>, val ambiguousKeys: Set<String>)
 
-    private fun indexed(
+    internal fun indexed(
         session: SweepSession,
         side: SweepComparisonSide,
         unresolved: MutableList<SweepUnresolvedObservation>,
@@ -182,7 +182,7 @@ object SweepComparisons {
         return ComparisonIndex(result, ambiguous)
     }
 
-    private fun key(finding: SweepFinding): String? {
+    internal fun key(finding: SweepFinding): String? {
         val kind = transport(finding)
         if (kind != "BLE" && kind != "WIFI") return null
         val address = advertisedAddress(finding) ?: return null
@@ -207,7 +207,7 @@ object SweepComparisons {
 
     private fun transport(finding: SweepFinding) = finding.transport.trim().uppercase(Locale.ROOT)
     private fun signatures(finding: SweepFinding) = finding.signatureNames.map { it.trim().lowercase(Locale.ROOT) }.filter { it.isNotEmpty() }.toSet()
-    private fun randomized(finding: SweepFinding): Boolean = finding.randomizedAddress ||
+    internal fun randomized(finding: SweepFinding): Boolean = finding.randomizedAddress ||
         advertisedAddress(finding)?.substringBefore(':')?.toIntOrNull(16)?.let { (it and 0x02) != 0 } == true
 
     private fun identityNote(finding: SweepFinding) = if (randomized(finding)) {

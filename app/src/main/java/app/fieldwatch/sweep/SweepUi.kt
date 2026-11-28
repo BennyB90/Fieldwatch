@@ -92,6 +92,7 @@ fun SweepRoot(
     onTravel: () -> Unit = {},
     networkEnabled: Boolean = false,
     onNetwork: () -> Unit = {},
+    onSpaces: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -203,6 +204,7 @@ fun SweepRoot(
                             onDemo = { selectedFindingId = null; comparisonSessionId = null; onDemo() },
                             onClearDemo = { selectedFindingId = null; onClearDemo() },
                             onSettings = onSettings,
+                            onSpaces = onSpaces,
                         )
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true }, { comparing = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
@@ -240,6 +242,7 @@ private fun ScanScreen(
     session: SweepSession?, coverage: SweepCoverage, starting: Boolean, error: String?, now: Long,
     onStart: () -> Unit, onStop: () -> Unit, onFinding: (SweepFinding) -> Unit,
     onShare: (SweepSession) -> Unit, onDemo: () -> Unit, onClearDemo: () -> Unit, onSettings: () -> Unit,
+    onSpaces: () -> Unit,
 ) {
     val active = session?.state == SweepSessionState.ACTIVE && !session.demo
     val scroll = rememberScrollState()
@@ -249,6 +252,11 @@ private fun ScanScreen(
             Notice(Icons.Outlined.Science, "Sample session", "These example signals demonstrate the interface. They are not observations from your phone.", Color(0xFFF1E8D3))
         }
         ScanHero(session, starting, now, onStart, onStop, onClearDemo)
+        OutlinedButton(onClick = onSpaces, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.Home, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Spaces")
+        }
         if (error != null) Notice(Icons.Outlined.WarningAmber, "Scan needs attention", error, MaterialTheme.colorScheme.errorContainer)
         if (session?.error != null && session.error != error) Notice(Icons.Outlined.WarningAmber, "Session note", session.error, MaterialTheme.colorScheme.errorContainer)
         RadioCoverage(if (session != null && !active) session.coverage else coverage, onSettings, sample = session?.demo == true)

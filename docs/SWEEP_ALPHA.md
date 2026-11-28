@@ -9,11 +9,20 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 - See reported aircraft and control-station/takeoff/fixed positions on a local coordinate plot. Coordinate decoding time is kept distinct from the latest radio reception. Opening an external maps app requires a tap.
 - Review saved sessions after closing or restarting the app, share a report, delete one session or clear local history.
 - Compare two completed saved room scans. Review newly observed, not reobserved, shared and unresolved addresses alongside the recorded radio coverage. Changed identifiers, missed scans and unequal coverage remain explicit limits.
+- Open **Scan → Spaces** in either SWEEP variant to save a room, rental unit, office or vehicle. Choose a completed Room Scan for its known-good baseline, then attach a later scan to an inspection. Only exact transport/address pairs match. Without a baseline, unfamiliar observations are unresolved.
 - Inspect measured signal history inside a finding. Up to 64 real readings are retained; older reports can have no history. Charts do not provide direction or distance.
 - Enable **Travel** explicitly for repeated tracker observations. Location correlation is off by default and records fresh phone GPS fixes only when separately enabled. A visible foreground notification offers Stop; interruptions never auto-resume. Familiar-address exclusions, location revocation and clearing travel history are available in Travel.
 - Search the complete inherited 254-signature catalog. Entries are recognition rules, not experimentally verified detection counts.
 - Explore a clearly labeled sample session. Sample results are synthetic, do not access radios and are never saved as physical scan history.
 - In **SWEEP + Radio**, open **Network** for authorized Wi-Fi service discovery and generic router JSON imports. Live discovery requires Android 13+; imported inventories and saved snapshots support Android 10+. Service records are candidates for investigation, without recorder classification. See [network discovery](NETWORK_DISCOVERY.md).
+
+## Saved Spaces and turnover logs
+
+Record a human checklist outcome for each spot, including N/A for skipped checks. A saved log retains the space name, scan times, coverage, comparison counts, up to 24 detail rows per group, and the checklist as reviewed. Updating the baseline, renaming the space, or rotating Room Scan history preserves that log. Private storage holds up to 25 spaces, 500 baseline addresses and 250 expected devices per space, and the latest 30 inspections per space. Unreadable history offers retry and explicit clear.
+
+Choose **Share inspection PDF**, **Share text**, or **Share JSON** from a saved log. Identifiers and notes, and separately coordinates, default off. The space label appears on the log. Each format shows the SHA-256 of the same compact UTF-8 JSON `payload` object, in export field order, without a trailing newline. The JSON envelope includes both the payload and its digest. Changing a disclosure option produces a new digest. The phone keeps up to eight temporary inspection shares and prunes files older than 24 hours at startup and export.
+
+On November 27, 2026, the Windows JVM suites passed 796 tests for SWEEP and 823 for SWEEP + Radio, with zero failures, errors or skips. Each suite included 26 Saved Spaces tests covering storage and recovery, baseline classification, archived reports and digests, PDF pagination, and ordered controller operations. Lint reported zero errors and 107 warnings in each variant. Both APKs assembled and passed the installer verifier, including exact permissions, signatures, backup and transfer exclusions, and 16 KB alignment. The offline APK has no Internet permission. Both compiled manifests declare Spaces private. Physical handset validation of the checklist, rendered PDF, Android sharing, and RF performance is pending.
 
 ## Installation
 

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <files-path name="logs" path="logs/" />
+    <files-path name="inspection_shares" path="shares/" />
     <cache-path name="debrief" path="debrief/" />
     <cache-path name="export" path="export/" />
     <cache-path name="signatures" path="signatures/" />
