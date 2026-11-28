@@ -10,6 +10,48 @@ import org.junit.Test
 class SpaceReportsTest {
     private val log = inspection()
 
+    @Test fun spectrumMeasurementsAndUsbMetadataAreSealedAndWithheldAcrossExportFormats() {
+        val reading = spectrumCheck().copy(baselinePeakDiffDeciDb = 100, baselineProminenceDiffDeciDb = 50)
+        val measured = log.copy(spectrumCoverageRecorded = true, spectrumChecks = listOf(reading))
+        val public = SpaceReports.report(measured)
+        val full = SpaceReports.report(measured, true, true)
+        val sealed = measured.copy(reportSha256 = public.sha256, archiveSha256 = full.sha256)
+        assertTrue(SpaceReports.integrityValid(sealed))
+        assertFalse(SpaceReports.integrityValid(sealed.copy(archiveSha256 = "")))
+        assertFalse(SpaceReports.integrityValid(sealed.copy(reportSha256 = full.sha256)))
+        assertFalse(SpaceReports.integrityValid(sealed.copy(spectrumCoverageRecorded = false)))
+        val contaminated = measured.copy(redactedSpaceName = "Office ${reading.serialNumber}")
+        assertFalse(reading.serialNumber in SpaceReports.report(contaminated).text())
+        assertNotEquals(public.sha256, SpaceReports.report(measured.copy(id = "another-visit")).sha256)
+        assertFalse("USB wideband spectrum" in SpaceReports.report(log).text())
+        assertTrue("Bands measured: 0" in SpaceReports.report(log.copy(spectrumCoverageRecorded = true)).text())
+        for (ids in listOf(false, true)) for (coords in listOf(false, true)) {
+            val report = SpaceReports.report(measured, ids, coords)
+            val pdf = SpacePdfLayout.pages(report) { text, _ -> text.length * 5f }.flatten().joinToString("\n") { it.text }
+            for (output in listOf(report.text(), report.json(), pdf)) {
+                for (token in listOf(reading.deviceLabel, reading.manufacturer, reading.serialNumber)) {
+                    assertEquals(token, ids, token in output)
+                }
+                assertTrue("433.920001" in output && "-76.0 dBm" in output && "-92.0 dBm" in output && "16.0 dB" in output)
+            }
+        }
+        for (changed in listOf(reading.copy(deviceLabel = "new"), reading.copy(serialNumber = "new"),
+                reading.copy(manufacturer = "new"))) {
+            val tampered = sealed.copy(spectrumChecks = listOf(changed))
+            assertNotEquals(public.sha256, SpaceReports.report(tampered).sha256)
+            assertNotEquals(full.sha256, SpaceReports.report(tampered, true, true).sha256)
+            assertFalse(SpaceReports.integrityValid(tampered))
+        }
+        for (changed in listOf(reading.copy(peakHz = reading.peakHz + 1), reading.copy(medianDeciDbm = -919),
+                reading.copy(peakDeciDbm = -759), reading.copy(capturedAt = 3301), reading.copy(prominenceDeciDb = 161),
+                reading.copy(baselinePeakDiffDeciDb = 99), reading.copy(baselineProminenceDiffDeciDb = 51))) {
+            val tampered = sealed.copy(spectrumChecks = listOf(changed))
+            assertNotEquals(public.sha256, SpaceReports.report(tampered).sha256)
+            assertNotEquals(full.sha256, SpaceReports.report(tampered, true, true).sha256)
+            assertFalse(SpaceReports.integrityValid(tampered))
+        }
+    }
+
     @Test fun thermalMeasurementsAndPrivateUsbMetadataAreCoveredByTheirRespectiveDigests() {
         val t = SpaceThermalCheck(204, 263, 59, 3200, baselineDeltaDiffDeciC = 20,
             deviceLabel = "IR sensor", manufacturer = "USB vendor", serialNumber = "SN-12345")

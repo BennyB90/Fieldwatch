@@ -72,6 +72,14 @@
             android:theme="@style/Theme.Sweep" />
 
         <activity
+            android:name="app.fieldwatch.sweep.spectrum.SweepSpectrumActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden|density"
+            android:exported="false"
+            android:enableOnBackInvokedCallback="true"
+            tools:targetApi="tiramisu"
+            android:theme="@style/Theme.Sweep" />
+
+        <activity
             android:name="app.fieldwatch.sweep.thermal.SweepThermalActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden|density"
             android:exported="false"

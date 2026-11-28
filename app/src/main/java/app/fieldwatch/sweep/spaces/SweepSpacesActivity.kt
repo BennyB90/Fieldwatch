@@ -1,17 +1,28 @@
 package app.fieldwatch.sweep.spaces
 
+import android.app.Activity
 import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.getValue
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.fieldwatch.sweep.SweepApplication
 import app.fieldwatch.sweep.SweepTheme
 import app.fieldwatch.sweep.enableSweepEdgeToEdge
+import app.fieldwatch.sweep.spectrum.SpectrumPreset
+import app.fieldwatch.sweep.spectrum.SweepSpectrumActivity
 import java.io.File
+
+internal class CaptureSpectrumBand : ActivityResultContract<SpectrumPreset, SpaceSpectrumCheck?>() {
+    override fun createIntent(context: Context, input: SpectrumPreset) = SweepSpectrumActivity.captureIntent(context, input)
+    override fun parseResult(resultCode: Int, intent: Intent?) =
+        if (resultCode == Activity.RESULT_OK) SweepSpectrumActivity.reading(intent) else null
+}
 
 class SweepSpacesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

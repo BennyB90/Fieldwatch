@@ -162,6 +162,8 @@ def check_manifest(root, radio):
         else:
             require(exported == "false", f"Unexpected exported/implicit component: {name}")
     require(launcher in component_names, "Missing launcher")
+    require("app.fieldwatch.sweep.spectrum.SweepSpectrumActivity" in component_names,
+            "Missing wideband spectrum activity")
     require("app.fieldwatch.sweep.thermal.SweepThermalActivity" in component_names,
             "Missing thermal inspection activity")
     require(any(node.get(ANDROID + "name") == "android.hardware.usb.host" and

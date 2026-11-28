@@ -5,6 +5,9 @@ import app.fieldwatch.domain.Rssi
 import app.fieldwatch.sweep.SweepCoverage
 import app.fieldwatch.sweep.SweepMapper
 import app.fieldwatch.sweep.SweepReports
+import app.fieldwatch.sweep.spectrum.SpectrumPreset
+import app.fieldwatch.sweep.spectrum.deciDbm
+import app.fieldwatch.sweep.spectrum.formatMhz
 import java.security.MessageDigest
 import java.time.Instant
 import kotlinx.serialization.Serializable
@@ -42,7 +45,11 @@ internal object SpaceReports {
         val diff = log.diffSummary
         val groups = listOf("New since baseline" to diff.newFindings, "Expected / Baseline matched" to diff.expectedFindings,
             "Not reobserved from baseline" to diff.notReobservedBaseline, "Unresolved observations" to diff.unresolvedFindings)
-        val spaceName = if (includeIdentifiers) log.spaceName else mac.replace(log.redactedSpaceName, "[address withheld]")
+        val spaceName = if (includeIdentifiers) log.spaceName else {
+            val usb = log.spectrumChecks.asSequence().flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) } +
+                log.checklist.asSequence().mapNotNull { it.thermal }.flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) }
+            mac.replace(redactSpaceName(log.redactedSpaceName, emptySequence(), usb), "[address withheld]")
+        }
         val sections = buildList {
             add(SpaceReportSection("Inspection", buildList {
                 add("Space: ${freeText(spaceName)}")
@@ -68,7 +75,7 @@ internal object SpaceReports {
                 add("Unresolved baseline records: ${diff.baselineUnresolved}")
                 add("A match is an advertised address on the same transport. Addresses can rotate or be reused.")
                 add("New observations can be pre-existing transmitters. Unobserved transmitters may still be present.")
-                addAll(diff.warnings.filterNot { it == SpaceWarning.THERMAL_DELTA }.map { it.message })
+                addAll(diff.warnings.filterNot { it == SpaceWarning.THERMAL_DELTA || it == SpaceWarning.SPECTRUM_SPIKE }.map { it.message })
             }))
             val skipped = log.checklist.count { it.status == ChecklistStatus.NOT_APPLICABLE }
             val followUp = log.checklist.count { it.status == ChecklistStatus.NEEDS_FOLLOW_UP }
@@ -102,6 +109,36 @@ internal object SpaceReports {
                     add("Surface warmth can have ordinary causes. Inspect the item physically to identify it.")
                 }))
             }
+            if (log.spectrumCoverageRecorded || log.spectrumChecks.isNotEmpty()) {
+                add(SpaceReportSection("USB wideband spectrum", buildList {
+                    add(if (log.spectrumCoverageRecorded) "Bands measured: ${log.spectrumChecks.size} of ${SpectrumPreset.entries.size}."
+                        else "Attached band checks: ${log.spectrumChecks.size}. Overall band coverage unrecorded.")
+                    for (s in log.spectrumChecks) {
+                        val preset = requireNotNull(SpectrumPreset.byId(s.presetId))
+                        add("${preset.title} · ${formatMhz(s.startHz)}–${formatMhz(s.stopHz)} MHz · ${time(s.capturedAt)}")
+                        add("Band median ${deciDbm(s.medianDeciDbm)} dBm · peak ${deciDbm(s.peakDeciDbm)} dBm at ${formatMhz(s.peakHz)} MHz")
+                        add("Peak above band median: ${deciDbm(s.prominenceDeciDb)} dB")
+                        if (s.baselinePeakDiffDeciDb != null && s.baselineProminenceDiffDeciDb != null) {
+                            add("Change from saved band baseline: peak ${deciDbm(s.baselinePeakDiffDeciDb)} dB · prominence ${deciDbm(s.baselineProminenceDiffDeciDb)} dB")
+                        } else add("Earlier baseline unavailable for this band.")
+                        add(preset.guidance)
+                        if (includeIdentifiers) {
+                            if (s.modelLabel.isNotEmpty()) add("Analyzer model: ${freeText(s.modelLabel)}")
+                            if (s.deviceLabel.isNotEmpty()) add("USB product: ${freeText(s.deviceLabel)}")
+                            if (s.manufacturer.isNotEmpty()) add("USB manufacturer: ${freeText(s.manufacturer)}")
+                            if (s.serialNumber.isNotEmpty()) add("USB serial: ${freeText(s.serialNumber)}")
+                        }
+                    }
+                    if (SpaceWarning.SPECTRUM_SPIKE in diff.warnings) add(SpaceWarning.SPECTRUM_SPIKE.message)
+                    if (log.spectrumChecks.isNotEmpty()) {
+                        // The private inspection UUID blinds the digest so exports cannot link USB identities across visits.
+                        val fields = log.spectrumChecks.map { listOf(it.presetId, it.modelLabel, it.deviceLabel, it.manufacturer, it.serialNumber) }
+                        val commitment = sha256(Json.encodeToString(listOf(listOf(log.id)) + fields))
+                        add("USB metadata integrity (SHA-256): $commitment")
+                    }
+                    add("Peaks measure received energy. Identifying a source requires physical inspection. Physical USB-CDC reception awaits bench verification.")
+                }))
+            }
             add(SpaceReportSection("Capability limits", listOf(DISCLAIMER,
                 "Access-point scanning can miss Wi-Fi clients. RF observations do not establish recording activity or physical location.")))
             groups.filter { it.second.count > 0 }.forEach { (label, group) ->
@@ -124,14 +161,19 @@ internal object SpaceReports {
             }
         }
         val payload = SpaceReportPayload(1, "Timestamped Inspection / Turnover Log", sections)
-        val bytes = MessageDigest.getInstance("SHA-256").digest(Json.encodeToString(payload).toByteArray(Charsets.UTF_8))
-        val digest = buildString(64) { bytes.forEach { append(hex[it.toInt() ushr 4 and 15]); append(hex[it.toInt() and 15]) } }
-        return SpaceReport(payload, digest)
+        return SpaceReport(payload, sha256(Json.encodeToString(payload)))
+    }
+
+    private fun sha256(value: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+        return buildString(64) { bytes.forEach { append(hex[it.toInt() ushr 4 and 15]); append(hex[it.toInt() and 15]) } }
     }
 
     fun integrityValid(log: SpaceInspection, redactedReport: SpaceReport = report(log)): Boolean {
         if (redactedReport.sha256 != log.reportSha256) return false
-        if (log.archiveSha256.isEmpty() && (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null })) return false
+        if (log.spectrumChecks.any { it.demo }) return false
+        if (log.archiveSha256.isEmpty() && (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null } ||
+                log.spectrumCoverageRecorded || log.spectrumChecks.isNotEmpty())) return false
         if (log.archiveSha256.isNotEmpty() && report(log, includeIdentifiers = true, includeCoordinates = true).sha256 != log.archiveSha256) {
             return false
         }

@@ -25,6 +25,10 @@ internal fun checked(kind: SpaceKind = SpaceKind.RENTAL_UNIT) = SpaceChecklists.
     else entry.copy(status = if (index == 1) ChecklistStatus.NOT_APPLICABLE else ChecklistStatus.CHECKED_CLEAR)
 }
 
+internal fun spectrumCheck() = SpaceSpectrumCheck("subghz_315_433", 300_000_000, 450_000_000, -920,
+    -760, 433_920_001L, 160, 3300, modelLabel = "tinySA Basic", deviceLabel = "Private Analyzer",
+    manufacturer = "Pocket Instruments", serialNumber = "SN-RF-001")
+
 internal fun inspection(): SpaceInspection {
     val room = space().copy(baseline = SpaceAnalyzer.baseline(scan("baseline", 1000, emptyList())))
     val current = scan(findings = listOf(finding().copy(name = "$SSID $LAT, $LON")))

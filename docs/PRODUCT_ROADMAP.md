@@ -58,8 +58,7 @@ Introduce a modular `ExternalSensor` adapter architecture so supported third-par
 
 1. **USB-C thermal inspection.** Both SWEEP variants implement the open UVC thermal profile, ΔT Electronics Spotlight, per-fixture Saved Space baselines and redacted Turnover PDF measurements. The ordered **Topdon TC001 Max** is the first bench target. Android USB access, physical reception and temperature accuracy on that model still need verification. [Thermal inspection protocol and hardware status](THERMAL_INSPECTION.md)
    - **FLIR ONE** remains deferred unless enterprise customers specifically require it, due to Teledyne FLIR's closed commercial SDK vetting/EULA and MIT incompatibility.
-2. **Wideband Pocket Spectrum Analyzer — `tinySA Ultra` (~$140, USB-C Serial):**
-   - Self-powered (internal battery), open USB-CDC serial command protocol (clean MIT Kotlin implementation), covering `100 kHz – 5.3+ GHz` to detect wideband RF spikes (cellular/analog/non-Wi-Fi/BLE transmitters) outside Android's radio APIs.
+2. **USB wideband spectrum.** Both variants implement a clean-room MIT tinySA / tinySA Ultra serial adapter with eight preset bands, per-band Saved Space baselines and redacted turnover reports. The Ultra calibrated range ends at 5.34 GHz. The 5.8 GHz preset uses uncalibrated extended mode. Physical USB-CDC reception on both models awaits bench verification. [Spectrum protocol and coverage](WIDEBAND_SPECTRUM.md)
 3. **Optional RF Metrology Companion — `monasd` + HackRF One + TCXO (`SWEEP + Radio` only):**
    - Clean-room MIT HTTPS polling client in `SWEEP + Radio` connecting to an operator-hosted `monasd` appliance (mirroring `RdioHttpClient` GPL isolation) for pro-grade BLE channel, SNR, and `>5σ` crystal-offset negative exclusion across rotating MACs. Raw crystal floats remain redacted by default in shared reports.
 

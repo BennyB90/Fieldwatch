@@ -97,12 +97,27 @@ internal class SpaceStore(
                 it.capturedAt > 0 && it.ambientDeciC in -400..6000 && it.peakDeciC in -400..6000 &&
                     it.peakDeciC >= it.ambientDeciC && it.deltaDeciC == it.peakDeciC - it.ambientDeciC
             })
+            space.spectrumBaselines.forEach { (id, baseline) ->
+                require(id == baseline.presetId)
+                baseline.validate()
+            }
             space.inspections.forEach { log ->
                 require(id.matches(log.id) && log.spaceId == space.id && log.spaceKind == space.kind)
                 require(log.createdAt > 0 && log.completedAt >= log.createdAt && digest.matches(log.reportSha256))
                 require(log.archiveSha256.isEmpty() || digest.matches(log.archiveSha256))
-                if (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null }) {
+                if (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null } ||
+                    log.spectrumCoverageRecorded || log.spectrumChecks.isNotEmpty()) {
                     require(digest.matches(log.archiveSha256))
+                }
+                require(log.spectrumChecks.distinctBy { it.presetId }.size == log.spectrumChecks.size)
+                log.spectrumChecks.forEach { reading ->
+                    reading.requireLive()
+                    require(reading.capturedAt in log.createdAt..log.completedAt)
+                    require(listOf(reading.deviceLabel, reading.manufacturer, reading.serialNumber).all {
+                        it.length <= SpaceLimits.RADIO_TEXT
+                    })
+                    require((reading.baselinePeakDiffDeciDb == null) == (reading.baselineProminenceDiffDeciDb == null))
+                    require(listOfNotNull(reading.baselinePeakDiffDeciDb, reading.baselineProminenceDiffDeciDb).all { it in -2140..2140 })
                 }
                 require(log.sessionStartedAt > 0 && log.sessionEndedAt >= log.sessionStartedAt)
                 require(log.checklist.map { it.id } == template.map { it.id })

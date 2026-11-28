@@ -81,7 +81,8 @@ object SpaceAnalyzer {
             SweepComparisons.randomized(finding))
     }
 
-    fun summary(space: SavedSpace, diff: SpaceDiff, checklist: List<SpaceChecklistItem> = emptyList()): SpaceDiffSummary {
+    fun summary(space: SavedSpace, diff: SpaceDiff, checklist: List<SpaceChecklistItem> = emptyList(),
+        spectrumChecks: List<SpaceSpectrumCheck> = emptyList()): SpaceDiffSummary {
         fun group(findings: List<SweepFinding>) = SpaceFindingGroup(findings.size,
             findings.take(SpaceLimits.REPORT_ROWS_PER_GROUP).map { f ->
                 val transport = when (f.transport.trim().uppercase(Locale.ROOT)) {
@@ -105,7 +106,7 @@ object SpaceAnalyzer {
                 }), group(diff.unresolvedFindings), diff.warnings + listOfNotNull(
                     SpaceWarning.THERMAL_DELTA.takeIf { checklist.any { item ->
                         (item.thermal?.baselineDeltaDiffDeciC ?: 0) >= THERMAL_WARNING_DECI_C
-                    } }))
+                    } }, SpaceWarning.SPECTRUM_SPIKE.takeIf { spectrumChecks.any(SpaceSpectrumCheck::spike) }))
     }
 
     // Free-form OS messages are unnecessary for a private inspection log. Keep measured fields.

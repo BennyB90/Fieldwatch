@@ -62,6 +62,7 @@ def build_manifest_xml(radio: bool = False, include_camera_perm: bool = True, ca
         <activity android:name="app.fieldwatch.sweep.SweepActivity" android:exported="true" />
         <activity android:name="app.fieldwatch.sweep.spaces.SweepSpacesActivity" android:exported="false" />
         <activity android:name="app.fieldwatch.sweep.thermal.SweepThermalActivity" android:exported="false" />
+        <activity android:name="app.fieldwatch.sweep.spectrum.SweepSpectrumActivity" android:exported="false" />
         {net_act}
       </application>
     </manifest>"""
@@ -94,6 +95,16 @@ class StageAndVerifyScriptTests(unittest.TestCase):
             verifier.check_manifest(build_manifest_xml(radio=False, include_camera_perm=False), radio=False)
         with self.assertRaisesRegex(ValueError, "android.hardware.camera feature must be declared optional"):
             verifier.check_manifest(build_manifest_xml(radio=False, camera_required="true"), radio=False)
+
+    def test_check_manifest_requires_spectrum_activity_in_both_variants(self):
+        for radio in (False, True):
+            root = build_manifest_xml(radio=radio)
+            app = root.find("application")
+            component = next(node for node in app.findall("activity")
+                             if node.get(verifier.ANDROID + "name").endswith(".SweepSpectrumActivity"))
+            app.remove(component)
+            with self.assertRaisesRegex(ValueError, "Missing wideband spectrum activity"):
+                verifier.check_manifest(root, radio=radio)
 
     def test_has_apk_signing_block_id_detects_play_dependency_block(self):
         with tempfile.TemporaryDirectory() as tmp:

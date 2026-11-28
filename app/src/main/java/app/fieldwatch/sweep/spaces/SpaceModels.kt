@@ -3,6 +3,8 @@ package app.fieldwatch.sweep.spaces
 import app.fieldwatch.sweep.SweepCategory
 import app.fieldwatch.sweep.SweepCoverage
 import app.fieldwatch.sweep.SweepPin
+import app.fieldwatch.sweep.spectrum.SpectrumPreset
+import app.fieldwatch.sweep.spectrum.TinySaModel
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -76,6 +78,49 @@ data class SpaceThermalCheck(
     val serialNumber: String = "",
 )
 
+@Serializable
+data class SpaceSpectrumBaseline(
+    val presetId: String, val startHz: Long, val stopHz: Long, val medianDeciDbm: Int, val peakDeciDbm: Int,
+    val peakHz: Long, val prominenceDeciDb: Int, val capturedAt: Long,
+) {
+    internal fun validate() {
+        val preset = SpectrumPreset.byId(presetId)
+        require(preset != null && startHz == preset.startHz && stopHz == preset.stopHz && peakHz in startHz..stopHz) {
+            "Measurement does not match a supported spectrum band."
+        }
+        require(capturedAt > 0 && medianDeciDbm in -1740..400 && peakDeciDbm in medianDeciDbm..400 &&
+            prominenceDeciDb == peakDeciDbm - medianDeciDbm) { "Invalid spectrum measurement." }
+    }
+}
+
+@Serializable
+data class SpaceSpectrumCheck(
+    val presetId: String, val startHz: Long, val stopHz: Long, val medianDeciDbm: Int, val peakDeciDbm: Int,
+    val peakHz: Long, val prominenceDeciDb: Int, val capturedAt: Long, val baselinePeakDiffDeciDb: Int? = null,
+    val baselineProminenceDiffDeciDb: Int? = null, val modelLabel: String = "", val deviceLabel: String = "",
+    val demo: Boolean = false, val manufacturer: String = "", val serialNumber: String = "",
+) {
+    internal fun baseline() = SpaceSpectrumBaseline(presetId, startHz, stopHz, medianDeciDbm, peakDeciDbm,
+        peakHz, prominenceDeciDb, capturedAt)
+
+    internal fun requireLive() {
+        require(!demo) { "Only a measured USB spectrum sweep can be attached." }
+        baseline().validate()
+        val model = TinySaModel.entries.singleOrNull { it.label == modelLabel }
+        require(model != null && stopHz <= model.maxHz && medianDeciDbm >= (-10 * model.zeroOffsetDbm).toInt()) {
+            "Invalid measurement for the selected analyzer."
+        }
+    }
+
+    internal fun comparedWith(baseline: SpaceSpectrumBaseline?): SpaceSpectrumCheck {
+        val earlier = baseline?.takeIf { it.presetId == presetId && it.capturedAt <= capturedAt }
+        return copy(baselinePeakDiffDeciDb = earlier?.let { peakDeciDbm - it.peakDeciDbm },
+            baselineProminenceDiffDeciDb = earlier?.let { prominenceDeciDb - it.prominenceDeciDb })
+    }
+
+    internal fun spike() = (baselinePeakDiffDeciDb ?: 0) >= 100 || (baselineProminenceDiffDeciDb ?: 0) >= 100
+}
+
 internal fun deciC(value: Int) = java.lang.String.format(java.util.Locale.ROOT, "%.1f", value / 10.0)
 
 internal const val THERMAL_WARNING_DECI_C = 20
@@ -106,6 +151,7 @@ object SpaceChecklists {
 @Serializable
 enum class SpaceWarning(val message: String) {
     NO_BASELINE("No known-good baseline was attached. Unfamiliar observations have no baseline for comparison."),
+    SPECTRUM_SPIKE("A wideband RF sweep band rose by at least 10.0 dB above its saved baseline. Nearby phones, keyfobs, routers or appliances can cause temporary spikes; inspect physically."),
     ROTATING("Randomized or locally administered addresses can rotate or be reused. Physical identity is unverified."),
     WIFI("Wi-Fi coverage is limited. Supported reception, readiness and fresh samples affect this comparison."),
     BLE("BLE coverage is limited. Supported reception, readiness and fresh samples affect this comparison."),
@@ -163,6 +209,8 @@ data class SpaceInspection(
     val reportSha256: String,
     val archiveSha256: String = "",
     val thermalCoverageRecorded: Boolean = false,
+    val spectrumChecks: List<SpaceSpectrumCheck> = emptyList(),
+    val spectrumCoverageRecorded: Boolean = false,
 )
 
 @Serializable
@@ -176,6 +224,7 @@ data class SavedSpace(
     val expectedDevices: List<SpaceExpectedDevice> = emptyList(),
     val inspections: List<SpaceInspection> = emptyList(),
     val thermalBaselines: Map<String, SpaceThermalBaseline> = emptyMap(),
+    val spectrumBaselines: Map<String, SpaceSpectrumBaseline> = emptyMap(),
 )
 
 internal object SpaceLimits {

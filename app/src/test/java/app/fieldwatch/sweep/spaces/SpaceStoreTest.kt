@@ -64,6 +64,34 @@ class SpaceStoreTest {
         assertEquals(listOf("spaces.json"), dir.list()!!.toList())
     }
 
+    @Test fun validatesStoredSpectrumAndReadsArchivesWrittenBeforeSpectrum() {
+        val dir = temporary.newFolder()
+        val store = SpaceStore(dir)
+        val old = space().copy(inspections = listOf(inspection()))
+        store.update { listOf(old) }
+        val file = File(dir, "spaces.json")
+        file.writeText(file.readText().replace(",\"spectrumBaselines\":{}", "")
+            .replace(",\"spectrumChecks\":[],\"spectrumCoverageRecorded\":false", ""))
+        assertEquals(old, store.load().single())
+        val reading = spectrumCheck()
+        val log = inspection().copy(spectrumCoverageRecorded = true, archiveSha256 = "1".repeat(64))
+        val baseline = reading.baseline()
+        val saved = old.copy(spectrumBaselines = mapOf(reading.presetId to baseline),
+            inspections = listOf(log.copy(spectrumChecks = listOf(reading))))
+        store.update { listOf(saved) }
+        fun withChecks(vararg checks: SpaceSpectrumCheck) = saved.copy(inspections = listOf(log.copy(spectrumChecks = checks.toList())))
+        for (bad in listOf(saved.copy(spectrumBaselines = mapOf("other" to baseline)),
+                saved.copy(spectrumBaselines = mapOf(reading.presetId to baseline.copy(medianDeciDbm = Int.MIN_VALUE))),
+                withChecks(reading.copy(demo = true)), withChecks(reading.copy(peakHz = 0)),
+                withChecks(reading.copy(capturedAt = 2999)), withChecks(reading.copy(presetId = "arbitrary")),
+                withChecks(reading.copy(modelLabel = "private label")), withChecks(reading.copy(modelLabel = "")),
+                withChecks(reading, reading),
+                saved.copy(inspections = listOf(log.copy(archiveSha256 = ""))))) {
+            assertThrows(IllegalArgumentException::class.java) { store.update { listOf(bad) } }
+            assertEquals(saved, store.load().single())
+        }
+    }
+
     @Test fun nestedLimitsAndDuplicateIdsRejectWholeMutation() {
         val store = SpaceStore(temporary.newFolder())
         val original = space()

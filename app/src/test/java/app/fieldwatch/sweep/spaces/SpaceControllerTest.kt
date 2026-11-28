@@ -19,6 +19,53 @@ class SpaceControllerTest {
     private fun controller() = SpaceController(SpaceStore(dir), SpacePdfExporter(shares), { history.toList() }, scope) { clock.incrementAndGet() }
     @After fun finish() { scope.cancel() }
 
+    @Test fun spectrumChecksUseEarlierSameBandBaselineAndBothTenDbBoundaries() = runBlocking {
+        val c = controller()
+        val base = spectrumCheck().copy(capturedAt = 2500)
+        val id = c.create("Unit ${base.serialNumber}", SpaceKind.OFFICE).await()
+        c.setSpectrumBaseline(id, base).await()
+        val reviewed = SpaceStore(dir).load().single()
+        assertEquals(base.baseline(), reviewed.spectrumBaselines[base.presetId])
+        for ((i, changes) in listOf(99 to 99, 100 to 0, 0 to 100, -100 to -100).withIndex()) {
+            val (peak, prominence) = changes
+            val reading = spectrumCheck().copy(peakDeciDbm = base.peakDeciDbm + peak,
+                prominenceDeciDb = base.prominenceDeciDb + prominence, medianDeciDbm = base.medianDeciDbm + peak - prominence,
+                baselinePeakDiffDeciDb = 999, baselineProminenceDiffDeciDb = 999)
+            c.saveInspection(reviewed, "current", "rf$i", 3000, checked(SpaceKind.OFFICE), listOf(reading)).await()
+            val log = c.state.value.spaces.single().inspections.first()
+            assertTrue(log.spectrumCoverageRecorded)
+            assertEquals(peak, log.spectrumChecks.single().baselinePeakDiffDeciDb)
+            assertEquals(prominence, log.spectrumChecks.single().baselineProminenceDiffDeciDb)
+            assertEquals(peak >= 100 || prominence >= 100, SpaceWarning.SPECTRUM_SPIKE in log.diffSummary.warnings)
+            assertEquals("[space name withheld]", log.redactedSpaceName)
+            assertTrue(SpaceReports.integrityValid(log))
+        }
+        val logs = c.state.value.spaces.single().inspections
+        c.setSpectrumBaseline(id, base.copy(capturedAt = 3500)).await()
+        val next = c.state.value.spaces.single()
+        assertEquals(logs, next.inspections)
+        assertTrue(runCatching { c.saveInspection(reviewed, "current", "stale", 3000, checked(),
+            listOf(spectrumCheck())).await() }.isFailure)
+        c.saveInspection(next, "current", "earlier", 3000, checked(), listOf(spectrumCheck())).await()
+        assertNull(c.state.value.spaces.single().inspections.first().spectrumChecks.single().baselinePeakDiffDeciDb)
+    }
+
+    @Test fun rejectsSyntheticOutOfWindowAndInvalidSpectrumWithoutWritingThem() = runBlocking {
+        val c = controller()
+        val id = c.create("Room", SpaceKind.ROOM).await()
+        val original = c.state.value.spaces.single()
+        val reading = spectrumCheck()
+        for (bad in listOf(reading.copy(demo = true), reading.copy(peakHz = 5), reading.copy(peakDeciDbm = 1400),
+                reading.copy(prominenceDeciDb = -9), reading.copy(startHz = 400_000_000), reading.copy(presetId = "unknown"))) {
+            assertTrue(runCatching { c.setSpectrumBaseline(id, bad).await() }.isFailure)
+            assertTrue(runCatching { c.saveInspection(original, "current", "rf", 3000, checked(), listOf(bad)).await() }.isFailure)
+        }
+        for (checks in listOf(listOf(reading.copy(capturedAt = 2999)), listOf(reading, reading))) {
+            assertTrue(runCatching { c.saveInspection(original, "current", "rf", 3000, checked(), checks).await() }.isFailure)
+        }
+        assertEquals(original, SpaceStore(dir).load().single())
+    }
+
     @Test fun fixtureDeltaUsesTheSameItemsRecordedBaselineAndSurvivesReplacement() = runBlocking {
         val c = controller()
         val id = c.create("Office", SpaceKind.OFFICE).await()

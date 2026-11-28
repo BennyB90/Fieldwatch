@@ -32,6 +32,9 @@ import app.fieldwatch.sweep.SweepFinding
 import app.fieldwatch.sweep.SweepMapper
 import app.fieldwatch.sweep.SweepSession
 import app.fieldwatch.sweep.thermal.SweepThermalActivity
+import app.fieldwatch.sweep.spectrum.SpectrumPreset
+import app.fieldwatch.sweep.spectrum.deciDbm
+import app.fieldwatch.sweep.spectrum.formatMhz
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -89,9 +92,29 @@ internal fun SweepSpacesUi(
         if (itemId != null && reading != null) {
             when (route) {
                 Route.SPACE -> runAction { controller.setThermalBaseline(spaceId, itemId, reading).await() }
-                Route.INSPECT -> draftJson = Json.encodeToString(thermalDraft + (itemId to reading))
+                Route.INSPECT -> if (reading.capturedAt >= startedAt) {
+                    error = null
+                    draftJson = Json.encodeToString(thermalDraft + (itemId to reading))
+                } else error = "Capture the thermal check during this inspection."
                 else -> Unit
             }
+        }
+    }
+    var spectrumJson by rememberSaveable(inspectionId) { mutableStateOf("{}") }
+    val spectrumDraft = remember(spectrumJson) { Json.decodeFromString<Map<String, SpaceSpectrumCheck>>(spectrumJson) }
+    val spectrumLauncher = rememberLauncherForActivityResult(remember { CaptureSpectrumBand() }) { reading ->
+        if (reading != null) when (route) {
+            Route.SPACE -> runAction { controller.setSpectrumBaseline(spaceId, reading).await() }
+            Route.INSPECT -> runCatching {
+                reading.requireLive()
+                require(reading.capturedAt >= startedAt) { "Capture the wideband sweep during this inspection." }
+            }.onSuccess {
+                error = null
+                spectrumJson = Json.encodeToString(spectrumDraft + (reading.presetId to reading))
+            }.onFailure { failure ->
+                error = failure.message ?: "Invalid wideband spectrum sweep."
+            }
+            else -> Unit
         }
     }
     fun measure(item: SpaceChecklistItem) {
@@ -160,7 +183,7 @@ internal fun SweepSpacesUi(
                 }
                 space == null -> Unit
                 route == Route.SPACE -> SpaceDetails(space, onBaseline = { route = Route.BASELINE }, onInspect = { route = Route.SCAN },
-                    onThermal = ::measure,
+                    onThermal = ::measure, onSpectrum = { spectrumLauncher.launch(it) },
                     onRename = { dialog = Dialog.RENAME }, onDelete = { dialog = Dialog.DELETE },
                     onRemove = { runAction { controller.removeExpected(space.id, it).await() } },
                     onLog = { inspectionId = it; route = Route.LOG })
@@ -195,13 +218,15 @@ internal fun SweepSpacesUi(
                 route == Route.INSPECT && scan != null -> key(inspectionId) {
                     InspectSpace(space, scan, busy,
                         thermal = thermalDraft, onThermal = ::measure,
+                        spectrum = spectrumDraft, onSpectrum = { spectrumLauncher.launch(it) },
+                        onRemoveSpectrum = { spectrumJson = Json.encodeToString(spectrumDraft - it) },
                         onRemoveThermal = { draftJson = Json.encodeToString(thermalDraft - it) },
                         onExpected = { key, remove -> runAction {
                             if (remove) controller.removeExpected(space.id, key).await()
                             else controller.markExpected(space.id, scan.id, key).await()
                         } },
                         onSave = { checklist -> runAction {
-                            controller.saveInspection(space, scan.id, inspectionId, startedAt, checklist).await()
+                            controller.saveInspection(space, scan.id, inspectionId, startedAt, checklist, spectrumDraft.values.toList()).await()
                             route = Route.LOG
                         } })
                 }
@@ -294,7 +319,7 @@ private fun NameDialog(space: SavedSpace?, close: () -> Unit, save: (String, Spa
 private fun SpaceDetails(
     space: SavedSpace, onBaseline: () -> Unit, onInspect: () -> Unit, onRename: () -> Unit,
     onDelete: () -> Unit, onRemove: (String) -> Unit, onLog: (String) -> Unit,
-    onThermal: (SpaceChecklistItem) -> Unit,
+    onThermal: (SpaceChecklistItem) -> Unit, onSpectrum: (SpectrumPreset) -> Unit,
 ) {
     var expectedOpen by rememberSaveable { mutableStateOf(false) }
     var thermalOpen by rememberSaveable { mutableStateOf(false) }
@@ -309,6 +334,15 @@ private fun SpaceDetails(
             Text(space.baseline?.let { "${date(it.startedAt)} · ${it.devices.size} comparable addresses · ${it.unresolvedCount} unresolved" }
                 ?: "No baseline set")
             OutlinedButton(onBaseline) { Text(if (space.baseline == null) "Set baseline" else "Update baseline") }
+        }
+        item {
+            Heading("USB spectrum baselines")
+            SpectrumBandPicker("Measure band baseline", onSpectrum)
+            space.spectrumBaselines.values.forEach { band ->
+                Text("${SpectrumPreset.byId(band.presetId)?.title} · ${date(band.capturedAt)}")
+                Text("Median ${deciDbm(band.medianDeciDbm)} dBm · peak ${deciDbm(band.peakDeciDbm)} dBm at ${formatMhz(band.peakHz)} MHz · Δ ${deciDbm(band.prominenceDeciDb)} dB",
+                    style = MaterialTheme.typography.bodySmall)
+            }
         }
         item { OutlinedButton({ thermalOpen = !thermalOpen }) {
             Text("Thermal baselines (${space.thermalBaselines.size})")
@@ -337,9 +371,23 @@ private fun SpaceDetails(
 }
 
 @Composable
+private fun SpectrumBandPicker(label: String, select: (SpectrumPreset) -> Unit, enabled: Boolean = true) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton({ open = true }, enabled = enabled) { Text(label) }
+        DropdownMenu(open, { open = false }) {
+            SpectrumPreset.entries.forEach { preset ->
+                DropdownMenuItem({ Text(preset.title) }, { open = false; select(preset) })
+            }
+        }
+    }
+}
+
+@Composable
 private fun InspectSpace(
     space: SavedSpace, scan: SweepSession, busy: Boolean, onExpected: (String, Boolean) -> Unit,
     thermal: Map<String, SpaceThermalCheck>, onThermal: (SpaceChecklistItem) -> Unit, onRemoveThermal: (String) -> Unit,
+    spectrum: Map<String, SpaceSpectrumCheck>, onSpectrum: (SpectrumPreset) -> Unit, onRemoveSpectrum: (String) -> Unit,
     onSave: (List<SpaceChecklistItem>) -> Unit,
 ) {
     val diff = remember(space.baseline, space.expectedDevices, scan) { SpaceAnalyzer.diff(space, scan) }
@@ -387,6 +435,20 @@ private fun InspectSpace(
             Text("A transmitter can be missed on a scan. An address match does not establish physical identity.")
             if ((space.baseline?.unresolvedCount ?: 0) > 0) Text("Unresolved baseline records: ${space.baseline?.unresolvedCount}")
             diff.warnings.filterNot { it == SpaceWarning.NO_BASELINE }.forEach { Text(it.message) }
+        }
+        item {
+            Heading("USB wideband spectrum")
+            SpectrumBandPicker("Measure band check", onSpectrum, enabled = !busy)
+        }
+        items(spectrum.values.toList(), key = { it.presetId }) { reading ->
+            val check = reading.comparedWith(space.spectrumBaselines[reading.presetId])
+            Heading(requireNotNull(SpectrumPreset.byId(check.presetId)).title)
+            Text("Median ${deciDbm(check.medianDeciDbm)} dBm · peak ${deciDbm(check.peakDeciDbm)} dBm at ${formatMhz(check.peakHz)} MHz · Δ ${deciDbm(check.prominenceDeciDb)} dB")
+            if (check.baselinePeakDiffDeciDb != null && check.baselineProminenceDiffDeciDb != null) {
+                Text("Change from baseline · peak ${deciDbm(check.baselinePeakDiffDeciDb)} dB · prominence ${deciDbm(check.baselineProminenceDiffDeciDb)} dB")
+                if (check.spike()) Text(SpaceWarning.SPECTRUM_SPIKE.message)
+            } else Text("Earlier band baseline unavailable.")
+            TextButton({ onRemoveSpectrum(check.presetId) }, enabled = !busy) { Text("Remove band check") }
         }
         item { Heading("Guided physical checklist") }
         items(template.size) { index ->
@@ -455,7 +517,7 @@ private fun ArchivedLog(
     val clipboard = LocalClipboardManager.current
     SpaceList {
         item {
-            Text(log.spaceName, style = MaterialTheme.typography.headlineMedium)
+            Text(report.payload.title, style = MaterialTheme.typography.headlineMedium)
             Text(date(log.completedAt))
             Text(SpaceReports.DISCLAIMER)
         }

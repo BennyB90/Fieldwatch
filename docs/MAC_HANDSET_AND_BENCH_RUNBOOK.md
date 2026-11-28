@@ -89,3 +89,11 @@ adb logcat -s SweepThermal:* System.err:*
    - **Spatial & radiometric alignment:** Hold a warm cup or USB wall charger in front of the lens; confirm the grayscale luminance outline and temperature hotspot move together across all 4 rotations (`0°/90°/180°/270°`) and shutter calibration (`0x01`) frames skip without corrupting °C readings.
    - **Saved Space Turnover PDF round-trip:** In **Scan → Spaces**, record a cold fixture baseline (e.g., an unplugged wall adapter), plug the adapter in for 3 minutes, run **Measure USB thermal check** on that checklist item, confirm `THERMAL_DELTA` triggers once peak-above-median rises by `>= +2.0 °C`, and export the redacted **Turnover PDF**.
    - **Hot-unplug safety:** Unplug the TC001 Max mid-stream and reconnect; confirm `libsweep_uvc.so` drains URBs cleanly without ANRs or native crashes.
+
+## 4. tinySA and tinySA Ultra USB bench trial
+
+Physical reception is pending for both models. Repeat this trial for each available analyzer and record its firmware, Android build, antenna/input setup, attenuation and resolution bandwidth.
+
+1. Open **Scan → Spectrum → Discover USB devices**, select the analyzer and approve the Android USB prompt. Check the identified model against the enclosure. For a custom banner, record the manual model selection.
+2. Supply a known test signal at a safe input level within a supported preset. Compare the app's peak frequency and dBm reading to the analyzer display using matching settings. Record the band median, peak and prominence. Test single and continuous sweeps, rotation, backgrounding, denial, detach and reconnect. Test 5.8 GHz separately on an Ultra configured for extended harmonic mode and label the result uncalibrated.
+3. Measure a Saved Space band baseline, change the reference level and attach a new check during an inspection. Verify the signed peak and prominence changes and the +10.0 dB threshold in the turnover log. Check that PDF, text and JSON omit USB strings by default and that the synthetic preview cannot attach. [Wire protocol and band limits](WIDEBAND_SPECTRUM.md)

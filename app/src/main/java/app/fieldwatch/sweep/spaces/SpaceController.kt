@@ -76,6 +76,11 @@ internal class SpaceController(
         }
     }
 
+    fun setSpectrumBaseline(id: String, reading: SpaceSpectrumCheck) = ordered {
+        reading.requireLive()
+        edit(id) { it.copy(spectrumBaselines = it.spectrumBaselines + (reading.presetId to reading.baseline())) }
+    }
+
     private fun requireLive(reading: SpaceThermalCheck) {
         require(!reading.demo && reading.capturedAt > 0) { "Only a measured USB thermal frame can be attached." }
         require(reading.ambientDeciC in -2732..7509 && reading.peakDeciC in reading.ambientDeciC..7509 &&
@@ -101,12 +106,12 @@ internal class SpaceController(
 
     fun saveInspection(
         reviewed: SavedSpace, scanId: String, inspectionId: String, startedAt: Long,
-        checklist: List<SpaceChecklistItem>,
+        checklist: List<SpaceChecklistItem>, spectrumChecks: List<SpaceSpectrumCheck> = emptyList(),
     ) = ordered {
         edit(reviewed.id) { space ->
             if (space.inspections.any { it.id == inspectionId }) return@edit space
             require(space.baseline == reviewed.baseline && space.expectedDevices == reviewed.expectedDevices &&
-                space.thermalBaselines == reviewed.thermalBaselines) {
+                space.thermalBaselines == reviewed.thermalBaselines && space.spectrumBaselines == reviewed.spectrumBaselines) {
                 "The baseline or expected list changed. Review the updated comparison before saving."
             }
             val scan = session(scanId)
@@ -128,19 +133,31 @@ internal class SpaceController(
                 }
                 item.copy(status = entry.status, note = SpaceLimits.clean(entry.note, SpaceLimits.NOTE), thermal = thermal)
             }
+            require(spectrumChecks.distinctBy { it.presetId }.size == spectrumChecks.size) { "Attach one check per band." }
+            val spectrum = spectrumChecks.map { reading ->
+                reading.requireLive()
+                require(reading.capturedAt in startedAt..completedAt) { "Capture the spectrum check during this inspection." }
+                reading.comparedWith(space.spectrumBaselines[reading.presetId]).copy(
+                    deviceLabel = SpaceLimits.clean(reading.deviceLabel, SpaceLimits.RADIO_TEXT),
+                    manufacturer = SpaceLimits.clean(reading.manufacturer, SpaceLimits.RADIO_TEXT),
+                    serialNumber = SpaceLimits.clean(reading.serialNumber, SpaceLimits.RADIO_TEXT))
+            }
             val radioNames = scan.findings.asSequence()
                 .flatMap { sequenceOf(it.name, it.identifier, it.droneId.orEmpty()) }
                 .map { SpaceLimits.clean(it, SpaceLimits.RADIO_TEXT) } +
                 space.baseline?.devices.orEmpty().asSequence().flatMap { sequenceOf(it.name, it.identifier) } +
                 space.expectedDevices.asSequence().map { it.label }
             val usbIdentifiers = checked.asSequence().mapNotNull { it.thermal }
-                .flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) }
+                .flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) } +
+                spectrumChecks.asSequence().flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) } +
+                spectrum.asSequence().flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) }
             val inspection = SpaceInspection(
                 id = inspectionId, spaceId = space.id, spaceName = space.name, spaceKind = space.kind,
                 redactedSpaceName = SpaceReports.redactSpaceName(space.name, radioNames, usbIdentifiers),
                 createdAt = startedAt, completedAt = completedAt, sessionId = scan.id,
                 sessionStartedAt = scan.startedAt, sessionEndedAt = requireNotNull(scan.endedAt),
-                coverage = SpaceAnalyzer.coverage(scan.coverage), diffSummary = SpaceAnalyzer.summary(space, diff, checked),
+                coverage = SpaceAnalyzer.coverage(scan.coverage), diffSummary = SpaceAnalyzer.summary(space, diff, checked, spectrum),
+                spectrumChecks = spectrum, spectrumCoverageRecorded = true,
                 thermalCoverageRecorded = true,
                 checklist = checked, reportSha256 = "", archiveSha256 = "",
             )
