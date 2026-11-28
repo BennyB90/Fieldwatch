@@ -27,7 +27,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           SM=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
           yes | "$SM" --licenses >/dev/null || true
-          "$SM" --install "platforms;android-36" "build-tools;36.0.0"
+          "$SM" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest testSpikeUnitTest testSweepUnitTest testSweepRadioUnitTest lintSweep lintSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace
@@ -74,7 +74,7 @@ jobs:
           "ANDROID_SDK_ROOT=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
           $sm = Get-ChildItem -Path "$sdk\cmdline-tools" -Filter "sdkmanager.bat" -Recurse | Select-Object -Last 1
           ("y`n" * 20) | & $sm.FullName --licenses | Out-Null
-          & $sm.FullName --install "platforms;android-36" "build-tools;36.0.0"
+          & $sm.FullName --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Windows JVM and Python tests
         shell: pwsh
@@ -117,7 +117,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           SM=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -1)
           yes | "$SM" --licenses >/dev/null || true
-          "$SM" --install "platforms;android-36" "build-tools;36.0.0"
+          "$SM" --install "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
 
       - name: Assemble APKs and Play AABs
         run: ./gradlew assembleDebug assembleSpike assembleSweep assembleSweepRadio bundleSweep bundleSweepRadio --no-parallel --max-workers=1 -Pkotlin.daemon.jvmargs=-Xmx3g --stacktrace

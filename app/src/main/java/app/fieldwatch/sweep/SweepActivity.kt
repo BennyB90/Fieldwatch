@@ -45,6 +45,7 @@ class SweepActivity : ComponentActivity() {
                     onSpaces = { startActivity(Intent(this, SweepSpacesActivity::class.java)) },
                     radioEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onRadio = ::openRadio,
                     onRadar = ::openRadar,
+                    onThermal = { startActivity(Intent(this, app.fieldwatch.sweep.thermal.SweepThermalActivity::class.java)) },
                     onTravel = { startActivity(Intent(this, SweepTravelActivity::class.java)) },
                     networkEnabled = BuildConfig.SWEEP_NETWORK_ENABLED, onNetwork = ::openNetwork,
                 )

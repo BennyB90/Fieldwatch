@@ -29,11 +29,17 @@ fun releaseProp(sweepName: String, legacyName: String): String? =
 android {
     namespace = "app.fieldwatch"
     compileSdk = 36
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild.cmake {
+        path = file("src/main/cpp/CMakeLists.txt")
+        version = "3.22.1"
+    }
 
     defaultConfig {
         applicationId = "app.fieldwatch"
         minSdk = 29
         targetSdk = 36
+        ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
         versionCode = 39
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true

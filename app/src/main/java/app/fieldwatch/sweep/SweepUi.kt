@@ -93,6 +93,7 @@ fun SweepRoot(
     networkEnabled: Boolean = false,
     onNetwork: () -> Unit = {},
     onSpaces: () -> Unit = {},
+    onThermal: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(SweepTab.SCAN) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -205,6 +206,7 @@ fun SweepRoot(
                             onClearDemo = { selectedFindingId = null; onClearDemo() },
                             onSettings = onSettings,
                             onSpaces = onSpaces,
+                            onThermal = onThermal,
                         )
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true }, { comparing = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
@@ -243,6 +245,7 @@ private fun ScanScreen(
     onStart: () -> Unit, onStop: () -> Unit, onFinding: (SweepFinding) -> Unit,
     onShare: (SweepSession) -> Unit, onDemo: () -> Unit, onClearDemo: () -> Unit, onSettings: () -> Unit,
     onSpaces: () -> Unit,
+    onThermal: () -> Unit,
 ) {
     val active = session?.state == SweepSessionState.ACTIVE && !session.demo
     val scroll = rememberScrollState()
@@ -257,6 +260,7 @@ private fun ScanScreen(
             Spacer(Modifier.width(8.dp))
             Text("Spaces")
         }
+        OutlinedButton(onThermal, modifier = Modifier.fillMaxWidth()) { Text("Thermal") }
         if (error != null) Notice(Icons.Outlined.WarningAmber, "Scan needs attention", error, MaterialTheme.colorScheme.errorContainer)
         if (session?.error != null && session.error != error) Notice(Icons.Outlined.WarningAmber, "Session note", session.error, MaterialTheme.colorScheme.errorContainer)
         RadioCoverage(if (session != null && !active) session.coverage else coverage, onSettings, sample = session?.demo == true)

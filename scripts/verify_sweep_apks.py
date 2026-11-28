@@ -19,7 +19,7 @@ ANDROID = "{http://schemas.android.com/apk/res/android}"
 DOMAINS = {"root", "file", "database", "sharedpref", "external", "device_root",
            "device_file", "device_database", "device_sharedpref"}
 BASE_PERMISSIONS = {
-    "ACCESS_WIFI_STATE", "CHANGE_WIFI_STATE", "ACCESS_NETWORK_STATE",
+    "CAMERA", "ACCESS_WIFI_STATE", "CHANGE_WIFI_STATE", "ACCESS_NETWORK_STATE",
     "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "BLUETOOTH", "BLUETOOTH_ADMIN",
     "BLUETOOTH_SCAN", "BLUETOOTH_CONNECT", "NEARBY_WIFI_DEVICES", "POST_NOTIFICATIONS",
     "VIBRATE", "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_LOCATION",
@@ -138,6 +138,11 @@ def check_manifest(root, radio):
     expected = {"android.permission." + item for item in BASE_PERMISSIONS | (RADIO_PERMISSIONS if radio else set())}
     expected.add(package + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
     require(permissions == expected, "Permission set changed: " + str(sorted(permissions ^ expected)))
+    features = {node.get(ANDROID + "name"): node.get(ANDROID + "required") for node in root.findall("uses-feature")}
+    require(features.get("android.hardware.camera") == "false",
+            "android.hardware.camera feature must be declared optional (required=false)")
+    require(features.get("android.hardware.usb.host") == "false",
+            "android.hardware.usb.host feature must be declared optional (required=false)")
     require(root.find("queries") is None, "Unexpected package-visibility <queries> declaration in SWEEP")
     if radio:
         require(app.get(ANDROID + "usesCleartextTraffic") == "false", "Cleartext network traffic enabled")
@@ -157,6 +162,11 @@ def check_manifest(root, radio):
         else:
             require(exported == "false", f"Unexpected exported/implicit component: {name}")
     require(launcher in component_names, "Missing launcher")
+    require("app.fieldwatch.sweep.thermal.SweepThermalActivity" in component_names,
+            "Missing thermal inspection activity")
+    require(any(node.get(ANDROID + "name") == "android.hardware.usb.host" and
+                node.get(ANDROID + "required") == "false" for node in root.findall("uses-feature")),
+            "USB host support must be optional")
     require(("app.fieldwatch.sweep.network.SweepNetworkActivity" in component_names) == radio,
             "Network screen in wrong variant")
     require("app.fieldwatch.MainActivity" not in component_names and "app.fieldwatch.radio.ScanService" not in component_names,
@@ -166,28 +176,38 @@ def check_manifest(root, radio):
     return app
 
 
-def native_alignment(archive_path: Path, prefixes=("lib/arm64-v8a/", "lib/x86_64/", "base/lib/arm64-v8a/", "base/lib/x86_64/")):
+def native_alignment(archive_path: Path, lib_root: str):
     libraries = []
+    bridges = []
+    expected_bridges = {f"{lib_root}/{abi}/libsweep_uvc.so" for abi in
+                        ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")}
     with ZipFile(archive_path) as archive:
+        require(expected_bridges <= set(archive.namelist()), f"Missing thermal bridge ABI in {archive_path}")
         for name in archive.namelist():
-            if not name.startswith(prefixes) or not name.endswith(".so"):
+            is_64 = name.startswith((f"{lib_root}/arm64-v8a/", f"{lib_root}/x86_64/"))
+            if not name.endswith(".so") or not (is_64 or name in expected_bridges):
                 continue
             data = archive.read(name)
-            require(data[:5] == b"\x7fELF\x02", f"Invalid 64-bit ELF: {name}")
+            require(data[:4] == b"\x7fELF" and data[4] == (2 if is_64 else 1), f"Invalid ELF class: {name}")
             require(data[5] in (1, 2), f"Invalid ELF byte order: {name}")
             order = "<" if data[5] == 1 else ">"
-            header = struct.unpack_from(order + "HHIQQQIHHHHHH", data, 16)
+            header = struct.unpack_from(order + ("HHIQQQIHHHHHH" if is_64 else "HHIIIIIHHHHHH"), data, 16)
             offset, size, count = header[4], header[8], header[9]
             alignments = []
             for index in range(count):
-                segment = struct.unpack_from(order + "IIQQQQQQ", data, offset + index * size)
+                segment = struct.unpack_from(order + ("IIQQQQQQ" if is_64 else "IIIIIIII"), data, offset + index * size)
                 if segment[0] == 1:
-                    require(segment[-1] >= 16384 and segment[2] % 16384 == segment[3] % 16384,
+                    file_offset, vaddr = segment[2:4] if is_64 else segment[1:3]
+                    require(segment[-1] >= 16384 and file_offset % 16384 == vaddr % 16384,
                             f"Native load segment lacks 16 KB alignment: {name}")
                     alignments.append(segment[-1])
             require(bool(alignments), f"No load segments: {name}")
-            libraries.append({"path": name, "loadAlignments": alignments})
-    return libraries
+            entry = {"path": name, "loadAlignments": alignments}
+            if is_64:
+                libraries.append(entry)
+            if name in expected_bridges:
+                bridges.append(entry)
+    return libraries, bridges
 
 
 def has_apk_signing_block_id(apk: Path, target_id: int) -> bool:
@@ -247,7 +267,7 @@ def verify(apk: Path, radio: bool, analyzer: Path, build_tools: Path):
     run(zipalign, "-c", "-P", "16", "4", apk)
     require(not has_apk_signing_block_id(apk, DEPENDENCY_INFO_BLOCK_ID),
             "Sideload APK unexpectedly contains Google Play encrypted dependency block")
-    libraries = native_alignment(apk)
+    libraries, bridges = native_alignment(apk, "lib")
     return {
         "path": str(apk), "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
         "bytes": apk.stat().st_size, "package": root.get("package"),
@@ -259,6 +279,7 @@ def verify(apk: Path, radio: bool, analyzer: Path, build_tools: Path):
         "cloudAndTransferExclusionsVerified": True, "zipAlignment16KB": True,
         "playDependencyBlockExcluded": True,
         "nativeLibraries64Bit": libraries,
+        "thermalBridge": bridges,
     }
 
 
@@ -273,13 +294,14 @@ def verify_bundle(aab: Path, radio: bool):
                 f"Missing compiled DEX in {aab}")
         manifest_bytes = archive.read("base/manifest/AndroidManifest.xml")
         require(package.encode("utf-8") in manifest_bytes, f"Wrong package identity in {aab}")
-    libraries = native_alignment(aab)
+    libraries, bridges = native_alignment(aab, "base/lib")
     return {
         "path": str(aab),
         "sha256": hashlib.sha256(aab.read_bytes()).hexdigest(),
         "bytes": aab.stat().st_size,
         "package": package,
         "nativeLibraries64Bit": libraries,
+        "thermalBridge": bridges,
     }
 
 

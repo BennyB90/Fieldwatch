@@ -19,6 +19,74 @@ class SpaceControllerTest {
     private fun controller() = SpaceController(SpaceStore(dir), SpacePdfExporter(shares), { history.toList() }, scope) { clock.incrementAndGet() }
     @After fun finish() { scope.cancel() }
 
+    @Test fun fixtureDeltaUsesTheSameItemsRecordedBaselineAndSurvivesReplacement() = runBlocking {
+        val c = controller()
+        val id = c.create("Office", SpaceKind.OFFICE).await()
+        val rows = checked(SpaceKind.OFFICE)
+        val baseline = SpaceThermalCheck(215, 247, 32, 2800)
+        c.setThermalBaseline(id, rows.first().id, baseline).await()
+        val reviewed = SpaceStore(dir).load().single()
+        assertEquals(SpaceThermalBaseline(215, 247, 32, 2800), reviewed.thermalBaselines[rows.first().id])
+        for (change in listOf(-1, 19, 20, 21)) {
+            val reading = SpaceThermalCheck(201, 233 + change, 32 + change, 3400, baselineDeltaDiffDeciC = 999)
+            val observed = rows.mapIndexed { index, row -> if (index <= 1) row.copy(thermal = reading) else row }
+            c.saveInspection(reviewed, "current", "log$change", 3000, observed).await()
+            val saved = c.state.value.spaces.single().inspections.first()
+            assertEquals(change, saved.checklist[0].thermal!!.baselineDeltaDiffDeciC)
+            assertNull(saved.checklist[1].thermal!!.baselineDeltaDiffDeciC)
+            assertEquals(change >= 20, SpaceWarning.THERMAL_DELTA in saved.diffSummary.warnings)
+        }
+        val logs = c.state.value.spaces.single().inspections
+        c.setThermalBaseline(id, rows.first().id, baseline.copy(capturedAt = 3950)).await()
+        assertEquals(logs, SpaceStore(dir).load().single().inspections)
+        val reading = rows.first().copy(thermal = baseline.copy(capturedAt = 3400))
+        val olderCheck = listOf(reading) + rows.drop(1)
+        assertTrue(runCatching { c.saveInspection(reviewed, "current", "stale", 3000, olderCheck).await() }.isFailure)
+        c.saveInspection(c.state.value.spaces.single(), "current", "laterBaseline", 3000, olderCheck).await()
+        assertNull(c.state.value.spaces.single().inspections.first().checklist.first().thermal!!.baselineDeltaDiffDeciC)
+    }
+
+    @Test fun rejectsSampleThermalBaselinesChecksAndStoredReadings() = runBlocking {
+        val c = controller()
+        val id = c.create("Rental", SpaceKind.RENTAL_UNIT).await()
+        val reviewed = c.state.value.spaces.single()
+        val rows = checked()
+        val sample = SpaceThermalCheck(189, 218, 29, 3500, demo = true)
+        assertTrue(runCatching { c.setThermalBaseline(id, rows.first().id, sample).await() }.isFailure)
+        fun withReading(t: SpaceThermalCheck) = listOf(rows.first().copy(thermal = t)) + rows.drop(1)
+        for (invalid in listOf(sample, sample.copy(demo = false, capturedAt = 2999), sample.copy(demo = false, deltaDeciC = 1))) {
+            assertTrue(runCatching { c.saveInspection(reviewed, "current", "log", 3000, withReading(invalid)).await() }.isFailure)
+        }
+        assertEquals(reviewed, SpaceStore(dir).load().single())
+        c.saveInspection(reviewed, "current", "log", 3000, withReading(sample.copy(demo = false))).await()
+        val saved = SpaceStore(dir).load().single()
+        val injected = saved.inspections.single().copy(checklist = withReading(sample))
+        assertThrows(IllegalArgumentException::class.java) {
+            SpaceStore(dir).update { listOf(saved.copy(inspections = listOf(injected))) }
+        }
+        assertEquals(saved, SpaceStore(dir).load().single())
+    }
+
+    @Test fun turnoverExportsWithholdUsbMetadataIncludingSerialInTheSpaceName() = runBlocking {
+        val c = controller()
+        val usb = SpaceThermalCheck(-24, 26, 50, 3400, deviceLabel = "Thermal USB",
+            manufacturer = "Example Instruments", serialNumber = "CAM-88242")
+        val id = c.create("Office ${usb.serialNumber}", SpaceKind.OFFICE).await()
+        val rows = checked(SpaceKind.OFFICE)
+        c.saveInspection(c.state.value.spaces.single(), "current", "log", 3000,
+            listOf(rows.first().copy(thermal = usb)) + rows.drop(1)).await()
+        val saved = SpaceStore(dir).load().single().inspections.single()
+        assertEquals("[space name withheld]", saved.redactedSpaceName)
+        for (ids in listOf(false, true)) for (coords in listOf(false, true)) {
+            val json = c.export(id, "log", SpaceExportFormat.JSON, ids, coords).await().readText()
+            for (token in listOf(usb.deviceLabel, usb.manufacturer, usb.serialNumber)) assertEquals(token, ids, token in json)
+            assertTrue("-2.4 °C" in json && "2.6 °C" in json && "5.0 °C" in json)
+        }
+        assertEquals(SpaceReports.report(saved).sha256, saved.reportSha256)
+        assertEquals(SpaceReports.report(saved, true, true).sha256, saved.archiveSha256)
+        assertTrue(SpaceReports.integrityValid(saved))
+    }
+
     @Test fun queuedMutationsPublishInOrderAndNeverResurrectADeletedSpace() = runBlocking {
         val c = controller()
         c.initialize().await()

@@ -55,7 +55,7 @@ When signed with a non-debug certificate and verified with `--bundle-dir`, `scri
 
 ## 2. Android 16 (API 36) Behavior Verification Summary
 
-- **Mandatory Edge-to-Edge (`targetSdk = 36`)**: All six SWEEP Activities call `enableSweepEdgeToEdge()` with explicit light system-bar styling (`SystemBarStyle.light`) and `Theme.Sweep` (`#F6F5EE` window background), preventing illegible white status/navigation icons when Android System Dark Mode is active, and honoring `WindowInsets.safeDrawing` across camera cutouts and landscape system bars.
+- **Mandatory Edge-to-Edge (`targetSdk = 36`)**: All SWEEP Activities call `enableSweepEdgeToEdge()` with explicit light system-bar styling (`SystemBarStyle.light`) and `Theme.Sweep` (`#F6F5EE` window background), preventing illegible white status/navigation icons when Android System Dark Mode is active, and honoring `WindowInsets.safeDrawing` across camera cutouts and landscape system bars.
 - **Large-Screen Resizability & Orientation (`sw >= 600dp`)**: No Activity locks `screenOrientation` or sets `resizeableActivity="false"`. SWEEP Compose Activities handle `orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden` seamlessly and guard `onStop()` with `!isChangingConfigurations` so multi-window resizing, foldable transitions, and rotation do not abort active 60-second network discovery, SAF JSON imports, Rdio sessions, or Valentine BLE GATT connections.
 - **Predictive Back (`targetSdk = 36`)**: Leaf Activities delegate root back gestures directly to Android's `OnBackInvokedDispatcher` for native cross-activity predictive back animations; inner detail sub-routes enable `BackHandler` only while a child view is open.
 - **16 KB Page Size Support**: `verify_sweep_apks.py` enforces 16 KB ZIP alignment (`zipalign -c -P 16 4`) and 16 KB ELF load-segment alignment on any 64-bit native libraries in both APKs and AABs.
@@ -85,9 +85,12 @@ Both variants declare:
 3. **`FOREGROUND_SERVICE_MEDIA_PLAYBACK` (`ScannerRadioService` — `SWEEP + Radio` only)**:
    - **Purpose**: User-initiated HTTPS audio stream playback with standard Android media-session controls so audio continues when the user locks the screen or switches apps, and stops on Stop, consent revocation, or task dismissal.
 
-### D. Prominent In-App Disclosure Text (Location & Permissions)
+### D. Prominent In-App Disclosure Text (Location & Camera for USB UVC)
 Play policy requires a clear in-app disclosure before runtime location permission prompts when location APIs are used for Wi-Fi/BLE scanning or Travel correlation. SWEEP displays this directly on the Scan, Travel, and Radar screens before requesting runtime permissions:
 > *"Android requires location access and location services to scan Wi-Fi and nearby Bluetooth broadcasts. Room scans do not request or store your phone's GPS location. Optional Travel location correlation records phone GPS fixes locally only when you separately enable 'Also compare my phone's locations' before starting Travel."*
+
+For optional USB-C thermal accessories (`Scan → Thermal`), Android 9+ requires `android.permission.CAMERA` before `UsbManager` will authorize any USB Video Class (`UVC`) device (`android.hardware.camera` and `android.hardware.usb.host` are declared `android:required="false"`). SWEEP never requests `CAMERA` during wireless scans and displays this disclosure in the Thermal connect dialog before requesting `CAMERA`:
+> *"Android requires Camera permission before granting USB access to USB Video Class (UVC) thermal accessories; SWEEP uses USB only and never opens the phone's built-in cameras."*
 
 ### E. Store Listing Claims Checklist (Truthful Representation)
 - Present SWEEP as an **on-device wireless observation and evidence tool**, never as a "hidden camera finder guarantee," "safe room certifier," "all-microphone detector," or "stalker detector."

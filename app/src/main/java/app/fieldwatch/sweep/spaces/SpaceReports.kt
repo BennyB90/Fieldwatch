@@ -68,7 +68,7 @@ internal object SpaceReports {
                 add("Unresolved baseline records: ${diff.baselineUnresolved}")
                 add("A match is an advertised address on the same transport. Addresses can rotate or be reused.")
                 add("New observations can be pre-existing transmitters. Unobserved transmitters may still be present.")
-                addAll(diff.warnings.map { it.message })
+                addAll(diff.warnings.filterNot { it == SpaceWarning.THERMAL_DELTA }.map { it.message })
             }))
             val skipped = log.checklist.count { it.status == ChecklistStatus.NOT_APPLICABLE }
             val followUp = log.checklist.count { it.status == ChecklistStatus.NEEDS_FOLLOW_UP }
@@ -82,6 +82,26 @@ internal object SpaceReports {
                     if (includeIdentifiers && item.note.isNotBlank()) add("Note: ${freeText(item.note)}")
                 }
             }))
+            if (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null }) {
+                val template = SpaceChecklists.forKind(log.spaceKind).associateBy { it.id }
+                add(SpaceReportSection("USB thermal inspection", buildList {
+                    add("Measured checklist items: ${log.checklist.count { it.thermal != null }} of ${log.checklist.size}.")
+                    for (item in log.checklist) {
+                        val t = item.thermal ?: continue
+                        add("${template.getValue(item.id).title} · ${time(t.capturedAt)}")
+                        add("Frame median ${deciC(t.ambientDeciC)} °C · peak ${deciC(t.peakDeciC)} °C · ΔT ${deciC(t.deltaDeciC)} °C")
+                        add(t.baselineDeltaDiffDeciC?.let { "Change in ΔT from item baseline: ${deciC(it)} °C" }
+                            ?: "Item thermal baseline unavailable.")
+                        if (includeIdentifiers) {
+                            if (t.deviceLabel.isNotBlank()) add("USB accessory: ${freeText(t.deviceLabel)}")
+                            if (t.manufacturer.isNotBlank()) add("USB manufacturer: ${freeText(t.manufacturer)}")
+                            if (t.serialNumber.isNotBlank()) add("USB serial: ${freeText(t.serialNumber)}")
+                        }
+                    }
+                    if (SpaceWarning.THERMAL_DELTA in diff.warnings) add(SpaceWarning.THERMAL_DELTA.message)
+                    add("Surface warmth can have ordinary causes. Inspect the item physically to identify it.")
+                }))
+            }
             add(SpaceReportSection("Capability limits", listOf(DISCLAIMER,
                 "Access-point scanning can miss Wi-Fi clients. RF observations do not establish recording activity or physical location.")))
             groups.filter { it.second.count > 0 }.forEach { (label, group) ->
@@ -111,6 +131,7 @@ internal object SpaceReports {
 
     fun integrityValid(log: SpaceInspection, redactedReport: SpaceReport = report(log)): Boolean {
         if (redactedReport.sha256 != log.reportSha256) return false
+        if (log.archiveSha256.isEmpty() && (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null })) return false
         if (log.archiveSha256.isNotEmpty() && report(log, includeIdentifiers = true, includeCoordinates = true).sha256 != log.archiveSha256) {
             return false
         }
@@ -120,9 +141,21 @@ internal object SpaceReports {
     private val formatChars = Regex("\\p{Cf}")
 
     /** A user-entered space label may repeat a name heard on the radio. Check even rows beyond the archive detail limit. */
-    fun redactSpaceName(name: String, radioNames: Sequence<String>): String {
+    fun redactSpaceName(name: String, radioNames: Sequence<String>, usbIdentifiers: Sequence<String> = emptySequence()): String {
         val cleanName = SpaceLimits.clean(name, SpaceLimits.NAME)
         val compactName = formatChars.replace(name, "").trim()
+        val usbMatched = usbIdentifiers.flatMap { raw ->
+            sequenceOf(SpaceLimits.clean(raw, SpaceLimits.RADIO_TEXT), SpaceLimits.clean(formatChars.replace(raw, ""), SpaceLimits.RADIO_TEXT))
+        }.any { token ->
+            if (token.isBlank()) false
+            else if (token.length >= 4) cleanName.contains(token, ignoreCase = true) || compactName.contains(token, ignoreCase = true)
+            else {
+                val boundary = Regex("(?i)(?<![\\p{L}\\p{N}])${Regex.escape(token)}(?![\\p{L}\\p{N}])")
+                cleanName.equals(token, ignoreCase = true) || compactName.equals(token, ignoreCase = true) ||
+                    boundary.containsMatchIn(cleanName) || boundary.containsMatchIn(compactName)
+            }
+        }
+        if (usbMatched) return "[space name withheld]"
         val genericLabels = app.fieldwatch.sweep.SweepCategory.entries.map { SweepMapper.categoryLabel(it) }.toSet()
         val matched = radioNames.flatMap { raw ->
             sequenceOf(SpaceLimits.clean(raw, SpaceLimits.RADIO_TEXT), SpaceLimits.clean(formatChars.replace(raw, ""), SpaceLimits.RADIO_TEXT))

@@ -56,10 +56,7 @@ Build directly on SWEEP's existing Room Scan, [SweepComparisons](../app/src/main
 
 Introduce a modular `ExternalSensor` adapter architecture so supported third-party sensors plug directly into a **Saved Space** session and **Inspection PDF** without forcing users to install cloud-connected vendor apps:
 
-1. **USB-C Thermal Camera — Topdon TC001 / TC001 Plus (Open UVC / MIT SDK):**
-   - **Why Topdon first:** Both the **TC001** (256×192 IR, 25 Hz, battery-free USB-C) and **TC001 Plus** (adds a 1 MP visible-light lens for dual-image fusion) stream over standard USB Video Class (UVC), and Topdon publishes its official `TopdonTechnology/Thermal` SDK resources on GitHub under the **MIT License**—avoiding proprietary closed-SDK approval gates and royalties.
-   - **Recommended hardware for prototyping & field use:** Grab **Topdon TC001 Plus** when visual-edge context is needed to pinpoint exact warm spots inside vents/outlets/clocks, or standard **Topdon TC001** as the lowest-cost, most widely documented pure-UVC prototyping target.
-   - **SWEEP integration value:** Zero-Internet offline thermal capture focused on subtle ΔT electronics heat spots, logged directly against a Saved Space physical checklist item and embedded into the Turnover PDF.
+1. **USB-C thermal inspection.** Both SWEEP variants implement the open UVC thermal profile, ΔT Electronics Spotlight, per-fixture Saved Space baselines and redacted Turnover PDF measurements. The ordered **Topdon TC001 Max** is the first bench target. Android USB access, physical reception and temperature accuracy on that model still need verification. [Thermal inspection protocol and hardware status](THERMAL_INSPECTION.md)
    - **FLIR ONE** remains deferred unless enterprise customers specifically require it, due to Teledyne FLIR's closed commercial SDK vetting/EULA and MIT incompatibility.
 2. **Wideband Pocket Spectrum Analyzer — `tinySA Ultra` (~$140, USB-C Serial):**
    - Self-powered (internal battery), open USB-CDC serial command protocol (clean MIT Kotlin implementation), covering `100 kHz – 5.3+ GHz` to detect wideband RF spikes (cellular/analog/non-Wi-Fi/BLE transmitters) outside Android's radio APIs.

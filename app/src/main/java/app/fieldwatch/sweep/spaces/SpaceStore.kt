@@ -92,11 +92,26 @@ internal class SpaceStore(
             require(space.inspections.size <= SpaceLimits.INSPECTIONS)
             require(space.inspections.distinctBy { it.id }.size == space.inspections.size)
             val template = SpaceChecklists.forKind(space.kind)
+            require(space.thermalBaselines.keys.all { key -> template.any { it.id == key } })
+            require(space.thermalBaselines.values.all {
+                it.capturedAt > 0 && it.ambientDeciC in -400..6000 && it.peakDeciC in -400..6000 &&
+                    it.peakDeciC >= it.ambientDeciC && it.deltaDeciC == it.peakDeciC - it.ambientDeciC
+            })
             space.inspections.forEach { log ->
                 require(id.matches(log.id) && log.spaceId == space.id && log.spaceKind == space.kind)
                 require(log.createdAt > 0 && log.completedAt >= log.createdAt && digest.matches(log.reportSha256))
+                require(log.archiveSha256.isEmpty() || digest.matches(log.archiveSha256))
+                if (log.thermalCoverageRecorded || log.checklist.any { it.thermal != null }) {
+                    require(digest.matches(log.archiveSha256))
+                }
                 require(log.sessionStartedAt > 0 && log.sessionEndedAt >= log.sessionStartedAt)
                 require(log.checklist.map { it.id } == template.map { it.id })
+                require(log.checklist.mapNotNull { it.thermal }.all {
+                    !it.demo && it.capturedAt in log.createdAt..log.completedAt &&
+                        it.ambientDeciC in -400..6000 && it.peakDeciC in -400..6000 &&
+                        it.peakDeciC >= it.ambientDeciC && it.deltaDeciC == it.peakDeciC - it.ambientDeciC &&
+                        listOf(it.deviceLabel, it.manufacturer, it.serialNumber).all { field -> field.length <= SpaceLimits.RADIO_TEXT }
+                })
                 require(log.checklist.all { it.status != ChecklistStatus.UNCHECKED && it.note.length <= SpaceLimits.NOTE })
                 val d = log.diffSummary
                 listOf(d.newFindings, d.expectedFindings, d.notReobservedBaseline, d.unresolvedFindings).forEach {

@@ -67,6 +67,23 @@ internal class SpaceController(
         edit(id) { it.copy(baseline = baseline) }
     }
 
+    fun setThermalBaseline(id: String, itemId: String, reading: SpaceThermalCheck) = ordered {
+        edit(id) { space ->
+            require(SpaceChecklists.forKind(space.kind).any { it.id == itemId }) { "Unknown checklist item." }
+            requireLive(reading)
+            space.copy(thermalBaselines = space.thermalBaselines + (itemId to SpaceThermalBaseline(
+                reading.ambientDeciC, reading.peakDeciC, reading.deltaDeciC, reading.capturedAt)))
+        }
+    }
+
+    private fun requireLive(reading: SpaceThermalCheck) {
+        require(!reading.demo && reading.capturedAt > 0) { "Only a measured USB thermal frame can be attached." }
+        require(reading.ambientDeciC in -2732..7509 && reading.peakDeciC in reading.ambientDeciC..7509 &&
+            reading.deltaDeciC in 0..10240 && kotlin.math.abs(reading.peakDeciC - reading.ambientDeciC - reading.deltaDeciC) <= 1) {
+            "Invalid measured thermal values."
+        }
+    }
+
     fun markExpected(id: String, sessionId: String, key: String) = ordered {
         val scan = session(sessionId)
         edit(id) { space ->
@@ -88,7 +105,8 @@ internal class SpaceController(
     ) = ordered {
         edit(reviewed.id) { space ->
             if (space.inspections.any { it.id == inspectionId }) return@edit space
-            require(space.baseline == reviewed.baseline && space.expectedDevices == reviewed.expectedDevices) {
+            require(space.baseline == reviewed.baseline && space.expectedDevices == reviewed.expectedDevices &&
+                space.thermalBaselines == reviewed.thermalBaselines) {
                 "The baseline or expected list changed. Review the updated comparison before saving."
             }
             val scan = session(scanId)
@@ -100,19 +118,30 @@ internal class SpaceController(
                 "Choose an outcome for every checklist item, including N/A for skipped items."
             }
             val checked = template.zip(checklist) { item, entry ->
-                item.copy(status = entry.status, note = SpaceLimits.clean(entry.note, SpaceLimits.NOTE))
+                val thermal = entry.thermal?.let { reading ->
+                    requireLive(reading)
+                    require(reading.capturedAt in startedAt..completedAt) { "Capture the thermal check during this inspection." }
+                    reading.copy(deviceLabel = SpaceLimits.clean(reading.deviceLabel, SpaceLimits.RADIO_TEXT),
+                        manufacturer = SpaceLimits.clean(reading.manufacturer, SpaceLimits.RADIO_TEXT),
+                        serialNumber = SpaceLimits.clean(reading.serialNumber, SpaceLimits.RADIO_TEXT),
+                        baselineDeltaDiffDeciC = reading.changeFrom(space.thermalBaselines[item.id]))
+                }
+                item.copy(status = entry.status, note = SpaceLimits.clean(entry.note, SpaceLimits.NOTE), thermal = thermal)
             }
             val radioNames = scan.findings.asSequence()
                 .flatMap { sequenceOf(it.name, it.identifier, it.droneId.orEmpty()) }
                 .map { SpaceLimits.clean(it, SpaceLimits.RADIO_TEXT) } +
                 space.baseline?.devices.orEmpty().asSequence().flatMap { sequenceOf(it.name, it.identifier) } +
                 space.expectedDevices.asSequence().map { it.label }
+            val usbIdentifiers = checked.asSequence().mapNotNull { it.thermal }
+                .flatMap { sequenceOf(it.deviceLabel, it.manufacturer, it.serialNumber) }
             val inspection = SpaceInspection(
                 id = inspectionId, spaceId = space.id, spaceName = space.name, spaceKind = space.kind,
-                redactedSpaceName = SpaceReports.redactSpaceName(space.name, radioNames),
+                redactedSpaceName = SpaceReports.redactSpaceName(space.name, radioNames, usbIdentifiers),
                 createdAt = startedAt, completedAt = completedAt, sessionId = scan.id,
                 sessionStartedAt = scan.startedAt, sessionEndedAt = requireNotNull(scan.endedAt),
-                coverage = SpaceAnalyzer.coverage(scan.coverage), diffSummary = SpaceAnalyzer.summary(space, diff),
+                coverage = SpaceAnalyzer.coverage(scan.coverage), diffSummary = SpaceAnalyzer.summary(space, diff, checked),
+                thermalCoverageRecorded = true,
                 checklist = checked, reportSha256 = "", archiveSha256 = "",
             )
             val archived = inspection.copy(

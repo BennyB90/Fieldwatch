@@ -1,7 +1,10 @@
 package app.fieldwatch.sweep.spaces
 
+import android.app.Activity
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -19,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -27,12 +31,15 @@ import app.fieldwatch.sweep.SweepComparisons
 import app.fieldwatch.sweep.SweepFinding
 import app.fieldwatch.sweep.SweepMapper
 import app.fieldwatch.sweep.SweepSession
+import app.fieldwatch.sweep.thermal.SweepThermalActivity
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 private enum class Route(val title: String) {
     SPACES("Saved Spaces"), SPACE("Space"), BASELINE("Choose baseline"), SCAN("Attach Room Scan"),
@@ -71,6 +78,27 @@ internal fun SweepSpacesUi(
     val scans = remember(history) { history.filter(SpaceAnalyzer::eligible) }
     val scan = scans.find { it.id == scanId }
     val log = space?.inspections?.find { it.id == inspectionId }
+    val context = LocalContext.current
+    var pendingItem by rememberSaveable { mutableStateOf<String?>(null) }
+    var draftJson by rememberSaveable(inspectionId) { mutableStateOf("{}") }
+    val thermalDraft = remember(draftJson) { Json.decodeFromString<Map<String, SpaceThermalCheck>>(draftJson) }
+    val thermalLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val itemId = pendingItem
+        pendingItem = null
+        val reading = if (result.resultCode == Activity.RESULT_OK) SweepThermalActivity.reading(result.data) else null
+        if (itemId != null && reading != null) {
+            when (route) {
+                Route.SPACE -> runAction { controller.setThermalBaseline(spaceId, itemId, reading).await() }
+                Route.INSPECT -> draftJson = Json.encodeToString(thermalDraft + (itemId to reading))
+                else -> Unit
+            }
+        }
+    }
+    fun measure(item: SpaceChecklistItem) {
+        if (busy || pendingItem != null) return
+        pendingItem = item.id
+        thermalLauncher.launch(SweepThermalActivity.captureIntent(context, item.title))
+    }
     fun back() {
         if (busy) return
         error = null
@@ -132,6 +160,7 @@ internal fun SweepSpacesUi(
                 }
                 space == null -> Unit
                 route == Route.SPACE -> SpaceDetails(space, onBaseline = { route = Route.BASELINE }, onInspect = { route = Route.SCAN },
+                    onThermal = ::measure,
                     onRename = { dialog = Dialog.RENAME }, onDelete = { dialog = Dialog.DELETE },
                     onRemove = { runAction { controller.removeExpected(space.id, it).await() } },
                     onLog = { inspectionId = it; route = Route.LOG })
@@ -165,6 +194,8 @@ internal fun SweepSpacesUi(
                 }
                 route == Route.INSPECT && scan != null -> key(inspectionId) {
                     InspectSpace(space, scan, busy,
+                        thermal = thermalDraft, onThermal = ::measure,
+                        onRemoveThermal = { draftJson = Json.encodeToString(thermalDraft - it) },
                         onExpected = { key, remove -> runAction {
                             if (remove) controller.removeExpected(space.id, key).await()
                             else controller.markExpected(space.id, scan.id, key).await()
@@ -263,8 +294,10 @@ private fun NameDialog(space: SavedSpace?, close: () -> Unit, save: (String, Spa
 private fun SpaceDetails(
     space: SavedSpace, onBaseline: () -> Unit, onInspect: () -> Unit, onRename: () -> Unit,
     onDelete: () -> Unit, onRemove: (String) -> Unit, onLog: (String) -> Unit,
+    onThermal: (SpaceChecklistItem) -> Unit,
 ) {
     var expectedOpen by rememberSaveable { mutableStateOf(false) }
+    var thermalOpen by rememberSaveable { mutableStateOf(false) }
     SpaceList {
         item {
             Text(space.name, style = MaterialTheme.typography.headlineMedium)
@@ -276,6 +309,14 @@ private fun SpaceDetails(
             Text(space.baseline?.let { "${date(it.startedAt)} · ${it.devices.size} comparable addresses · ${it.unresolvedCount} unresolved" }
                 ?: "No baseline set")
             OutlinedButton(onBaseline) { Text(if (space.baseline == null) "Set baseline" else "Update baseline") }
+        }
+        item { OutlinedButton({ thermalOpen = !thermalOpen }) {
+            Text("Thermal baselines (${space.thermalBaselines.size})")
+        } }
+        if (thermalOpen) items(SpaceChecklists.forKind(space.kind), key = { "thermal-${it.id}" }) { row ->
+            val baseline = space.thermalBaselines[row.id]
+            SelectRow(row.title, baseline?.let { "ΔT ${deciC(it.deltaDeciC)} °C · ${date(it.capturedAt)} · measure again" }
+                ?: "Measure item baseline") { onThermal(row) }
         }
         item { OutlinedButton({ expectedOpen = !expectedOpen }) {
             Text("${if (expectedOpen) "Hide" else "Show"} expected devices (${space.expectedDevices.size})")
@@ -298,6 +339,7 @@ private fun SpaceDetails(
 @Composable
 private fun InspectSpace(
     space: SavedSpace, scan: SweepSession, busy: Boolean, onExpected: (String, Boolean) -> Unit,
+    thermal: Map<String, SpaceThermalCheck>, onThermal: (SpaceChecklistItem) -> Unit, onRemoveThermal: (String) -> Unit,
     onSave: (List<SpaceChecklistItem>) -> Unit,
 ) {
     val diff = remember(space.baseline, space.expectedDevices, scan) { SpaceAnalyzer.diff(space, scan) }
@@ -355,6 +397,18 @@ private fun InspectSpace(
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Heading(item.title)
                     Text(item.guidance)
+                    val reading = thermal[item.id]
+                    if (reading != null) {
+                        Text("Measured ΔT ${deciC(reading.deltaDeciC)} °C")
+                        reading.changeFrom(space.thermalBaselines[item.id])?.let { difference ->
+                            Text("Change from baseline ${deciC(difference)} °C")
+                            if (difference >= THERMAL_WARNING_DECI_C) Text(SpaceWarning.THERMAL_DELTA.message)
+                        }
+                        TextButton({ onRemoveThermal(item.id) }, enabled = !busy) { Text("Remove thermal check") }
+                    }
+                    OutlinedButton({ onThermal(item) }, enabled = !busy) {
+                        Text(if (reading == null) "Measure USB thermal check" else "Measure again")
+                    }
                     Box {
                         OutlinedButton({ choosing = true }) { Text(status.label) }
                         DropdownMenu(choosing, { choosing = false }) {
@@ -377,7 +431,8 @@ private fun InspectSpace(
             val completed = statuses.count { it != ChecklistStatus.UNCHECKED.name }
             Text("$completed of ${template.size} outcomes recorded")
             Button(onClick = {
-                onSave(template.mapIndexed { index, item -> item.copy(status = ChecklistStatus.valueOf(statuses[index]), note = notes[index]) })
+                onSave(template.mapIndexed { index, item -> item.copy(status = ChecklistStatus.valueOf(statuses[index]),
+                    note = notes[index], thermal = thermal[item.id]) })
             }, enabled = !busy && completed == template.size) { Text("Save timestamped inspection") }
         }
     }
@@ -406,7 +461,7 @@ private fun ArchivedLog(
         }
         item {
             Heading("Export inspection")
-            Toggle("Include identifiers, advertised names and notes", identifiers) { identifiers = it }
+            Toggle("Include identifiers, radio and USB device details, and notes", identifiers) { identifiers = it }
             Toggle("Include coordinates", coordinates) { coordinates = it }
             Text("SHA-256 of this export payload", style = MaterialTheme.typography.labelLarge)
             Text(report.sha256, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)

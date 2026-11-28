@@ -10,6 +10,7 @@ SWEEP now has its own native app rather than wrapping the Fieldwatch instrument 
 - Review saved sessions after closing or restarting the app, share a report, delete one session or clear local history.
 - Compare two completed saved room scans. Review newly observed, not reobserved, shared and unresolved addresses alongside the recorded radio coverage. Changed identifiers, missed scans and unequal coverage remain explicit limits.
 - Open **Scan → Spaces** in either SWEEP variant to save a room, rental unit, office or vehicle. Choose a completed Room Scan for its known-good baseline, then attach a later scan to an inspection. Only exact transport/address pairs match. Without a baseline, unfamiliar observations are unresolved.
+- Open **Scan → Thermal** for the USB thermal viewer and ΔT Electronics Spotlight. Saved Spaces can record a live fixture baseline and include a later thermal check in a Turnover PDF. A rise of at least +2.0 °C in peak above scene median flags the item for physical review. Physical reception on the ordered Topdon TC001 Max awaits bench testing. [Thermal inspection and Android USB access](THERMAL_INSPECTION.md)
 - Inspect measured signal history inside a finding. Up to 64 real readings are retained; older reports can have no history. Charts do not provide direction or distance.
 - Enable **Travel** explicitly for repeated tracker observations. Location correlation is off by default and records fresh phone GPS fixes only when separately enabled. A visible foreground notification offers Stop; interruptions never auto-resume. Familiar-address exclusions, location revocation and clearing travel history are available in Travel.
 - Search the complete inherited 254-signature catalog. Entries are recognition rules, not experimentally verified detection counts.
@@ -22,11 +23,11 @@ Record a human checklist outcome for each spot, including N/A for skipped checks
 
 Choose **Share inspection PDF**, **Share text**, or **Share JSON** from a saved log. Identifiers and notes, and separately coordinates, default off. The space label appears on the log. Each format shows the SHA-256 of the same compact UTF-8 JSON `payload` object, in export field order, without a trailing newline. The JSON envelope includes both the payload and its digest. Changing a disclosure option produces a new digest. The phone keeps up to eight temporary inspection shares and prunes files older than 24 hours at startup and export.
 
-On November 27, 2026, the Windows JVM suites passed 796 tests for SWEEP and 823 for SWEEP + Radio, with zero failures, errors or skips. Each suite included 26 Saved Spaces tests covering storage and recovery, baseline classification, archived reports and digests, PDF pagination, and ordered controller operations. Lint reported zero errors and 107 warnings in each variant. Both APKs assembled and passed the installer verifier, including exact permissions, signatures, backup and transfer exclusions, and 16 KB alignment. The offline APK has no Internet permission. Both compiled manifests declare Spaces private. Physical handset validation of the checklist, rendered PDF, Android sharing, and RF performance is pending.
+On November 27, 2026, the Windows JVM suites passed 819 tests each for Debug, Spike and SWEEP, and 846 for SWEEP + Radio, with zero failures, errors or skips. Each included 17 thermal protocol and engine tests and 32 Saved Spaces tests. Lint reported zero errors and 107 warnings per SWEEP variant, with zero warnings in the thermal and native sources. Both APKs passed the permission, signature, backup and ZIP alignment checks. Both APKs and both AABs contained the thermal bridge for four ABIs with every ELF load segment aligned to 16,384 bytes. Handset validation of USB reception, the rendered PDF, Android sharing and RF performance is pending.
 
 ## Installation
 
-Build with JDK 17 or 21 and Android SDK platform 36:
+The build uses JDK 17 or 21, Android SDK platform 36, NDK 28.2.13676358 and CMake 3.22.1.
 
 ```sh
 ./gradlew --no-daemon :app:testSweepUnitTest :app:assembleSweep
