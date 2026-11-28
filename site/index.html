@@ -35,7 +35,7 @@
         <span class="badge">Android 10+ · Targets Android 16 (API 36) · Zero Cloud Accounts</span>
         <h1>A clearer view of nearby wireless signals — kept on your phone.</h1>
         <p class="lead">
-          SWEEP is an open-source, on-demand wireless observation tool for Android. Inspect nearby Bluetooth LE tracker broadcasts, Wi-Fi access-point signatures, and self-reported OpenDroneID broadcasts locally, with explicit evidence and honest limits.
+          SWEEP is an open-source, on-demand wireless and physical inspection tool for Android. Inspect nearby Bluetooth LE tracker broadcasts, Wi-Fi access-point signatures, OpenDroneID frames, Saved Space baselines, and optional USB-C thermal ΔT readings locally — with timestamped Turnover PDF logs and honest limits.
         </p>
         <div class="btn-row">
           <a class="btn" href="#downloads">Download Alpha Installers</a>
@@ -50,12 +50,12 @@
           <article class="card">
             <span class="badge">Offline Default</span>
             <h3>SWEEP</h3>
-            <p>Pure on-device RF scanner. The compiled manifest removes <code>android.permission.INTERNET</code> entirely — findings, room comparisons, and Travel history cannot leave your phone unless you explicitly share a report.</p>
+            <p>Pure on-device scanner &amp; space inspector. The compiled manifest removes <code>android.permission.INTERNET</code> entirely — findings, Saved Spaces, USB thermal readings, and Travel history cannot leave your phone unless you explicitly share a report.</p>
             <ul class="meta-list">
               <li><strong>Package:</strong> <code>app.fieldwatch.sweep</code></li>
-              <li><strong>Version:</strong> <span id="sweep-version">1.1.26-sweep-alpha.5 (code 39)</span></li>
-              <li><strong>Size:</strong> <span id="sweep-size">9.39 MB (9,840,939 bytes)</span></li>
-              <li><strong>SHA-256:</strong> <code class="hash" id="sweep-sha256">6105c3c6c782c984af564f15c0e5db1b80f69b3c1f0e7548561d2353bdca7fc8</code></li>
+              <li><strong>Version:</strong> <span id="sweep-version">1.1.26-sweep-alpha.6 (code 40)</span></li>
+              <li><strong>Size:</strong> <span id="sweep-size">9.87 MB (10,346,664 bytes)</span></li>
+              <li><strong>SHA-256:</strong> <code class="hash" id="sweep-sha256">9b026dd91cf57299aa56afaf0214522ec88e3e5aeb1e34b5aea45a99b0d7be5b</code></li>
             </ul>
             <div class="btn-row">
               <a class="btn" href="/downloads/app-sweep.apk" download>Download app-sweep.apk</a>
@@ -68,9 +68,9 @@
             <p>Everything in SWEEP, plus explicit opt-in HTTPS scanner stream playback, a foreground Rdio recorded-call browser, and authorized local Wi-Fi service discovery (DNS-SD on Android 13+) &amp; generic router JSON review.</p>
             <ul class="meta-list">
               <li><strong>Package:</strong> <code>app.fieldwatch.sweep.radio</code></li>
-              <li><strong>Version:</strong> <span id="radio-version">1.1.26-sweep-radio-alpha.5 (code 39)</span></li>
-              <li><strong>Size:</strong> <span id="radio-size">12.33 MB (12,928,389 bytes)</span></li>
-              <li><strong>SHA-256:</strong> <code class="hash" id="radio-sha256">1fd794239da8c427522266878ee10f03298394341d22dbea573f859594f8fe2e</code></li>
+              <li><strong>Version:</strong> <span id="radio-version">1.1.26-sweep-radio-alpha.6 (code 40)</span></li>
+              <li><strong>Size:</strong> <span id="radio-size">12.84 MB (13,466,882 bytes)</span></li>
+              <li><strong>SHA-256:</strong> <code class="hash" id="radio-sha256">c82f80c4da7abb9c63bcaca87ad00baab763b77ddf013366ce73eb34e389155a</code></li>
             </ul>
             <div class="btn-row">
               <a class="btn btn-secondary" href="/downloads/app-sweepRadio.apk" download>Download app-sweepRadio.apk</a>
@@ -86,28 +86,28 @@
         <h2>What SWEEP Includes</h2>
         <div class="grid-3">
           <div class="card">
-            <h3>On-Demand Room Scans</h3>
-            <p>Bounded 20-minute foreground sessions showing matched tracker, camera, and drone indicators alongside unmatched radios, signal history charts, and exact rule match reasons.</p>
+            <h3>Room Scans &amp; Comparisons</h3>
+            <p>Bounded 20-minute foreground sessions showing matched tracker, camera, and drone indicators alongside unmatched radios, signal charts, and side-by-side scan diffs.</p>
           </div>
           <div class="card">
-            <h3>Room Scan Comparisons</h3>
-            <p>Compare two completed scans side-by-side to review newly observed, not reobserved, shared, and unresolved addresses alongside radio sample coverage.</p>
+            <h3>Saved Spaces &amp; Turnover PDFs</h3>
+            <p>Save known-good wireless baselines and expected devices for a room, rental unit, office, or car, run guided physical checklists, and export offline SHA-256 Inspection PDFs.</p>
+          </div>
+          <div class="card">
+            <h3>USB-C Thermal &amp; ΔT Spotlight</h3>
+            <p>Clean-room 16 KB-aligned UVC thermal engine with ΔT Electronics Spotlight, per-fixture Saved Space baselines (+2.0 °C alert threshold), and synthetic preview mode.</p>
           </div>
           <div class="card">
             <h3>Opt-In Travel Mode</h3>
-            <p>Foreground Bluetooth tracker observation (up to 4 hours) with familiar-address exclusions, optional phone GPS correlation (off by default, erasable anytime), and a built-in handset battery meter.</p>
+            <p>Foreground Bluetooth tracker observation (up to 4 hours) with familiar-address exclusions, optional phone GPS correlation (off by default, erasable anytime), and a handset battery meter.</p>
           </div>
           <div class="card">
-            <h3>OpenDroneID Evidence</h3>
-            <p>Decodes supported BLE, Wi-Fi beacon vendor IE, and Wi-Fi Aware (NAN) Remote ID frames, keeping aircraft, control-station, takeoff, and fixed operator pins distinct.</p>
+            <h3>OpenDroneID &amp; 254-Rule Catalog</h3>
+            <p>Decodes supported BLE, Wi-Fi beacon vendor IE, and Wi-Fi Aware (NAN) Remote ID frames with distinct operator pin types, backed by a searchable 254-signature catalog.</p>
           </div>
           <div class="card">
-            <h3>254-Signature Catalog</h3>
-            <p>Searchable on-device signature catalog inherited from Fieldwatch, plus a clearly labeled synthetic sample session that never touches your radios or saved history.</p>
-          </div>
-          <div class="card">
-            <h3>Redacted Sharing</h3>
-            <p>Shared session, Travel, battery, and network summaries withhold broadcast names, MAC addresses, and coordinates by default unless you explicitly include them.</p>
+            <h3>Redacted Sharing by Default</h3>
+            <p>Shared session, Saved Space PDF, thermal, Travel, battery, and network exports withhold names, MACs, USB serials, notes, and coordinates unless you explicitly opt in.</p>
           </div>
         </div>
       </section>
@@ -115,11 +115,12 @@
       <section class="limits-box" id="limits">
         <h2>Important Capability Limits</h2>
         <ul>
-          <li><strong>Not a safe-room guarantee:</strong> A quiet scan only means no matching Wi-Fi or Bluetooth broadcasts were received by Android during that window.</li>
+          <li><strong>Not a safe-room guarantee:</strong> A quiet scan or completed turnover checklist documents what was checked at that timestamp — it never certifies a space free of surveillance.</li>
           <li><strong>Invisible devices exist:</strong> Offline SD-card audio/video recorders, wired cameras, cellular-only trackers, Bluetooth Classic inquiry devices, and Wi-Fi cameras operating as silent client stations may emit nothing Android scan APIs can observe.</li>
           <li><strong>Indicators, not verdicts:</strong> A matched vendor OUI, service UUID, or repeated tracker sighting is a clue to check visually — never proof of malicious surveillance or unwanted tracking.</li>
+          <li><strong>Thermal shows heat differences, not cameras:</strong> Compact ΔT hotspots can come from sunlight, wall chargers, routers, or normal standby electronics; physical USB-C reception on the Topdon TC001 Max awaits hardware bench verification.</li>
           <li><strong>Signal strength is not distance:</strong> RSSI varies with walls, antenna orientation, body shielding, and handset hardware.</li>
-          <li><strong>Alpha status:</strong> Current installers are alpha builds undergoing physical handset and RF benchmark validation.</li>
+          <li><strong>Alpha status:</strong> Current installers are alpha builds undergoing physical handset, USB thermal, and RF benchmark validation.</li>
         </ul>
       </section>
 
@@ -134,7 +135,7 @@ sha256sum app-sweep.apk
 Get-FileHash .\app-sweep.apk -Algorithm SHA256</code></pre>
           </li>
           <li>Open the downloaded APK from your phone's <strong>Files</strong> app and allow installation if prompted. (Google Play Protect may note that alpha sideload builds are not yet registered on Play.)</li>
-          <li>Open <strong>SWEEP</strong> and tap <strong>Start scan</strong>. Android requires Location permission and Location services to deliver Wi-Fi and unfiltered BLE scan results, plus Nearby devices &amp; Notifications on newer Android versions. <strong>Room scans never request or store your phone's GPS coordinates.</strong></li>
+          <li>Open <strong>SWEEP</strong> and tap <strong>Start scan</strong>. Android requires Location permission and Location services to deliver Wi-Fi and unfiltered BLE scan results, plus Nearby devices &amp; Notifications on newer Android versions. <strong>Room scans never request or store your phone's GPS coordinates.</strong> (Camera permission is requested only if you connect a USB-C UVC thermal accessory in <strong>Scan → Thermal</strong>; SWEEP uses USB only and never opens built-in phone cameras.)</li>
         </ol>
       </section>
     </main>

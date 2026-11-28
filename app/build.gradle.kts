@@ -40,7 +40,7 @@ android {
         minSdk = 29
         targetSdk = 36
         ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
-        versionCode = 39
+        versionCode = 40
         versionName = "1.1.26"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "false")
@@ -109,7 +109,7 @@ android {
         create("sweep") {
             initWith(getByName("spike"))
             applicationIdSuffix = ".sweep"
-            versionNameSuffix = "-sweep-alpha.5"
+            versionNameSuffix = "-sweep-alpha.6"
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
@@ -121,7 +121,7 @@ android {
         create("sweepRadio") {
             initWith(getByName("sweep"))
             applicationIdSuffix = ".sweep.radio"
-            versionNameSuffix = "-sweep-radio-alpha.5"
+            versionNameSuffix = "-sweep-radio-alpha.6"
             buildConfigField("boolean", "SWEEP_RADIO_ENABLED", "true")
             buildConfigField("boolean", "SWEEP_NETWORK_ENABLED", "true")
             if (hasReleaseSigning) {

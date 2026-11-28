@@ -30,10 +30,10 @@
 
     <main>
       <section class="hero">
-        <span class="badge">Effective Date: November 25, 2026</span>
+        <span class="badge">Effective Date: November 27, 2026</span>
         <h1>Privacy Policy</h1>
         <p class="lead">
-          SWEEP is designed so wireless observation data stays on your device under your control. We operate no user accounts, cloud databases, analytics pipelines, crash-reporting trackers, or advertising SDKs.
+          SWEEP is designed so wireless and physical inspection data stays on your device under your control. We operate no user accounts, cloud databases, analytics pipelines, crash-reporting trackers, or advertising SDKs.
         </p>
       </section>
 
@@ -42,9 +42,10 @@
         <ul>
           <li><strong>No Internet permission:</strong> The compiled <code>app.fieldwatch.sweep</code> Android package removes <code>android.permission.INTERNET</code> from its manifest. The app cannot transmit data over the internet.</li>
           <li><strong>Why Android asks for Location &amp; Nearby permissions:</strong> Android requires <code>ACCESS_FINE_LOCATION</code> (while-in-use) and enabled system Location services to return Wi-Fi scan results and unfiltered Bluetooth LE advertisements, plus <code>BLUETOOTH_SCAN</code>, <code>BLUETOOTH_CONNECT</code>, and <code>NEARBY_WIFI_DEVICES</code> on newer Android versions. SWEEP never requests background location (<code>ACCESS_BACKGROUND_LOCATION</code>).</li>
-          <li><strong>Room scans store no phone GPS:</strong> Starting a Room scan or connecting a Valentine BLE radar accessory does not request GPS fixes or record your phone's geographic coordinates.</li>
+          <li><strong>Why Android asks for Camera permission only during USB-C thermal connection:</strong> On Android 9 and newer, Android's USB system requires <code>android.permission.CAMERA</code> before <code>UsbManager</code> will authorize any USB Video Class (<code>UVC</code>) accessory (<code>android.hardware.camera</code> and <code>android.hardware.usb.host</code> are optional). SWEEP never requests Camera permission for wireless scans, uses USB only, and <strong>never opens your phone's built-in front or rear cameras</strong>. Raw thermal video frames stay in volatile memory only; Saved Spaces store only summary temperature readings (°C median, peak, and ΔT) when you attach a fixture baseline or check.</li>
+          <li><strong>Room scans store no phone GPS:</strong> Starting a Room scan, inspecting Saved Spaces, using USB thermal, or connecting a Valentine BLE radar accessory does not request GPS fixes or record your phone's geographic coordinates.</li>
           <li><strong>Optional Travel location correlation:</strong> Travel mode leaves phone GPS off by default. Only if you explicitly check <em>“Also compare my phone’s locations”</em> before starting Travel does SWEEP request foreground GPS fixes to evaluate whether a tracker broadcast was observed at distinct places. You can revoke correlation and erase all saved phone coordinates at any time from the Travel screen.</li>
-          <li><strong>Local retention &amp; backup exclusion:</strong> Scan sessions (up to 100 sessions), Travel observations (up to 8 sessions / 7 days), and battery test readings (up to 12 runs) are stored in app-private storage with Android Auto Backup and device-to-device transfer explicitly disabled across all storage domains.</li>
+          <li><strong>Local retention &amp; backup exclusion:</strong> Scan sessions (up to 100 sessions), Saved Spaces (up to 25 spaces and 30 inspection logs per space, plus up to 8 temporary PDF/report shares pruned after 24 hours), Travel observations (up to 8 sessions / 7 days), and battery test readings (up to 12 runs) are stored in app-private storage with Android Auto Backup and device-to-device transfer explicitly disabled across all storage domains.</li>
         </ul>
       </section>
 
@@ -61,8 +62,8 @@
       <section class="card">
         <h2>3. User-Initiated Sharing &amp; External Apps</h2>
         <ul>
-          <li>Reports leave SWEEP only when you tap a <strong>Share</strong> button and choose a destination app in the Android share sheet.</li>
-          <li>By default, shared scan, Travel, battery, and network summaries omit broadcast names, MAC addresses, device identifiers, and coordinates unless you explicitly opt in for that share.</li>
+          <li>Reports and inspection PDFs leave SWEEP only when you tap a <strong>Share</strong> button and choose a destination app in the Android share sheet.</li>
+          <li>By default, shared scan, Saved Space inspection/turnover PDF, USB thermal, Travel, battery, and network exports omit broadcast names, MAC addresses, USB product/manufacturer/serial strings, checklist notes, and coordinates unless you explicitly opt in for that share.</li>
           <li>Tapping a decoded Remote ID aircraft or operator pin to open a map passes only that broadcast coordinate to your chosen maps app via a standard <code>geo:</code> link.</li>
           <li>Deleting history inside SWEEP removes local copies immediately, but cannot recall copies you previously sent to another app.</li>
         </ul>
