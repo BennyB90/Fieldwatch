@@ -49,6 +49,7 @@ class SweepActivity : ComponentActivity() {
                     onSpectrum = { startActivity(Intent(this, app.fieldwatch.sweep.spectrum.SweepSpectrumActivity::class.java)) },
                     onTravel = { startActivity(Intent(this, SweepTravelActivity::class.java)) },
                     networkEnabled = BuildConfig.SWEEP_NETWORK_ENABLED, onNetwork = ::openNetwork,
+                    monasEnabled = BuildConfig.SWEEP_RADIO_ENABLED, onMonas = ::openMonas,
                 )
             }
         }
@@ -64,6 +65,11 @@ class SweepActivity : ComponentActivity() {
     private fun openNetwork() {
         if (!BuildConfig.SWEEP_NETWORK_ENABLED) return
         startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.network.SweepNetworkActivity"))
+    }
+
+    private fun openMonas() {
+        if (!BuildConfig.SWEEP_RADIO_ENABLED) return
+        startActivity(Intent().setClassName(this, "app.fieldwatch.sweep.radio.monas.SweepMonasActivity"))
     }
 
     private fun openRadar() {

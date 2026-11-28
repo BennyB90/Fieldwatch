@@ -92,6 +92,8 @@ fun SweepRoot(
     onTravel: () -> Unit = {},
     networkEnabled: Boolean = false,
     onNetwork: () -> Unit = {},
+    monasEnabled: Boolean = false,
+    onMonas: () -> Unit = {},
     onSpaces: () -> Unit = {},
     onThermal: () -> Unit = {},
     onSpectrum: () -> Unit = {},
@@ -209,6 +211,7 @@ fun SweepRoot(
                             onSpaces = onSpaces,
                             onThermal = onThermal,
                             onSpectrum = onSpectrum,
+                            monasEnabled = monasEnabled, onMonas = onMonas,
                         )
                         SweepTab.SESSIONS -> SessionsScreen(history, now, { selectedSessionId = it.id }, { clearAll = true }, { comparing = true })
                         SweepTab.CATALOG -> CatalogScreen(catalog, { selectedFleetId = it.id })
@@ -249,6 +252,7 @@ private fun ScanScreen(
     onSpaces: () -> Unit,
     onThermal: () -> Unit,
     onSpectrum: () -> Unit,
+    monasEnabled: Boolean, onMonas: () -> Unit,
 ) {
     val active = session?.state == SweepSessionState.ACTIVE && !session.demo
     val scroll = rememberScrollState()
@@ -265,6 +269,7 @@ private fun ScanScreen(
         }
         OutlinedButton(onThermal, modifier = Modifier.fillMaxWidth()) { Text("Thermal") }
         OutlinedButton(onSpectrum, modifier = Modifier.fillMaxWidth()) { Text("Spectrum") }
+        if (monasEnabled) OutlinedButton(onMonas, modifier = Modifier.fillMaxWidth()) { Text("Monas SDR") }
         if (error != null) Notice(Icons.Outlined.WarningAmber, "Scan needs attention", error, MaterialTheme.colorScheme.errorContainer)
         if (session?.error != null && session.error != error) Notice(Icons.Outlined.WarningAmber, "Session note", session.error, MaterialTheme.colorScheme.errorContainer)
         RadioCoverage(if (session != null && !active) session.coverage else coverage, onSettings, sample = session?.demo == true)

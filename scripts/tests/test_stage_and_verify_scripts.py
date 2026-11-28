@@ -50,6 +50,7 @@ def build_manifest_xml(radio: bool = False, include_camera_perm: bool = True, ca
     perm_tags += f'\n<uses-permission android:name="{pkg}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />'
     net_act = (
         '<activity android:name="app.fieldwatch.sweep.network.SweepNetworkActivity" android:exported="false" />'
+        '<activity android:name="app.fieldwatch.sweep.radio.monas.SweepMonasActivity" android:exported="false" />'
         if radio else ""
     )
     cleartext = 'android:usesCleartextTraffic="false"' if radio else ""
@@ -105,6 +106,19 @@ class StageAndVerifyScriptTests(unittest.TestCase):
             app.remove(component)
             with self.assertRaisesRegex(ValueError, "Missing wideband spectrum activity"):
                 verifier.check_manifest(root, radio=radio)
+
+    def test_monas_activity_is_exclusive_to_sweep_radio(self):
+        name = "app.fieldwatch.sweep.radio.monas.SweepMonasActivity"
+        for radio in (True, False):
+            with self.subTest(radio=radio):
+                root = build_manifest_xml(radio=radio)
+                app = root.find("application")
+                if radio:
+                    app.remove(next(a for a in app.findall("activity") if a.get(verifier.ANDROID + "name") == name))
+                else:
+                    ET.SubElement(app, "activity", {verifier.ANDROID + "name": name, verifier.ANDROID + "exported": "false"})
+                with self.assertRaisesRegex(ValueError, "Monas SDR screen in wrong variant"):
+                    verifier.check_manifest(root, radio=radio)
 
     def test_has_apk_signing_block_id_detects_play_dependency_block(self):
         with tempfile.TemporaryDirectory() as tmp:

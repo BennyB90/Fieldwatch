@@ -9,7 +9,7 @@
       "versionCode": "40",
       "targetSdk": "36",
       "bytes": 10494152,
-      "sha256": "16655d6d3ee8f33e68ccc29d2e2956a02ff691bb7aa89522df289fcff51c03f4"
+      "sha256": "48c4a93dcbec7ee36c52d0c3fda21c09a53c74767ff0115995a6ce063c09bcff"
     },
     "sweepRadio": {
       "filename": "app-sweepRadio.apk",
@@ -18,8 +18,8 @@
       "versionName": "1.1.26-sweep-radio-alpha.6",
       "versionCode": "40",
       "targetSdk": "36",
-      "bytes": 13597986,
-      "sha256": "9999e1d8f18e0eabc50196955270890751f2ee53f5f89981cb515af4a0a52bc4"
+      "bytes": 13761870,
+      "sha256": "8311a4a4dbf8cae0903fd675fb5f3721d3658619fb713c26c4b1a1b1a6ed7180"
     }
   }
 }

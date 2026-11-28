@@ -60,7 +60,7 @@ Introduce a modular `ExternalSensor` adapter architecture so supported third-par
    - **FLIR ONE** remains deferred unless enterprise customers specifically require it, due to Teledyne FLIR's closed commercial SDK vetting/EULA and MIT incompatibility.
 2. **USB wideband spectrum.** Both variants implement a clean-room MIT tinySA / tinySA Ultra serial adapter with eight preset bands, per-band Saved Space baselines and redacted turnover reports. The Ultra calibrated range ends at 5.34 GHz. The 5.8 GHz preset uses uncalibrated extended mode. Physical USB-CDC reception on both models awaits bench verification. [Spectrum protocol and coverage](WIDEBAND_SPECTRUM.md)
 3. **Optional RF Metrology Companion — `monasd` + HackRF One + TCXO (`SWEEP + Radio` only):**
-   - Clean-room MIT HTTPS polling client in `SWEEP + Radio` connecting to an operator-hosted `monasd` appliance (mirroring `RdioHttpClient` GPL isolation) for pro-grade BLE channel, SNR, and `>5σ` crystal-offset negative exclusion across rotating MACs. Raw crystal floats remain redacted by default in shared reports.
+   - Implemented a clean-room MIT HTTPS client with optional SPKI pinning, a synthetic preview and a single-census pair inspector. Concurrent CFO separation ≥5σ supports negative exclusion. Reports default to aggregate counts. Handset and receiver bench trials remain pending. [Monas SDR companion](MONAS_SDR_COMPANION.md)
 
 ### Phase 4 — Layer 4: Curated SWEEP Field Kit *(Post-PMF Hardware + Software Bundle)*
 

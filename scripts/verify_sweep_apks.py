@@ -171,6 +171,8 @@ def check_manifest(root, radio):
             "USB host support must be optional")
     require(("app.fieldwatch.sweep.network.SweepNetworkActivity" in component_names) == radio,
             "Network screen in wrong variant")
+    require(("app.fieldwatch.sweep.radio.monas.SweepMonasActivity" in component_names) == radio,
+            "Monas SDR screen in wrong variant")
     require("app.fieldwatch.MainActivity" not in component_names and "app.fieldwatch.radio.ScanService" not in component_names,
             "Upstream entry points leaked into SWEEP")
     require(not any(node.get(ANDROID + "name") == "android.net.VpnService" for node in root.iter()),

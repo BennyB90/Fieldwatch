@@ -6,6 +6,8 @@ Build with `./gradlew :app:testSweepUnitTest :app:assembleSweep` (`.\gradlew.bat
 
 **Scan → Spectrum** connects a tinySA or tinySA Ultra over USB-CDC in either SWEEP variant. Review band medians, peaks and prominence, then attach measured checks to a Saved Space turnover log. Physical reception on both models awaits bench verification. [Wideband spectrum guide](docs/WIDEBAND_SPECTRUM.md)
 
+**SWEEP + Radio → Scan → Monas SDR** reads an operator-hosted HTTPS `monasd` receiver. Compare two BLE crystal offsets in a live census or try the labeled offline sample. Shared summaries omit address rows and numerical crystal measurements by default. [Monas SDR companion](docs/MONAS_SDR_COMPANION.md)
+
 Scope and capability limits: [SCOPE.md](SCOPE.md). Rig protocol: [spike/README.md](spike/README.md). Hardware candidates: [docs/PROCUREMENT.md](docs/PROCUREMENT.md). Spike build: [docs/SPIKE_BUILD.md](docs/SPIKE_BUILD.md).
 
 Physical detection rates and battery performance have not yet been measured on physical hardware. Original MIT attribution and third-party notices are preserved below and in `LICENSE` / `NOTICE`. The inherited `dist/Fieldwatch.apk` is the upstream instrument, not the SWEEP APK. Sample mode is explicitly synthetic and is excluded from saved scan history.

@@ -72,9 +72,10 @@ When signed with a non-debug certificate and verified with `--bundle-dir`, `scri
   - **User-initiated sharing / external intents**: Reports and broadcast drone coordinates leave the device **only** when the user taps **Share** (Android share sheet, redacted by default unless the user opts in to identifiers or coordinates) or taps a decoded Remote ID coordinate to open an external maps app (`geo:` URI). Per Google Play Data Safety rules, purely local storage and user-initiated system share sheets / external-app intents are not background developer "collection," though your privacy policy should explain both clearly.
 
 ### B. Data Safety Section (`app.fieldwatch.sweep.radio` — SWEEP + Radio)
-- Same local RF scanning guarantees as offline SWEEP, plus two explicit user-initiated network features:
+- Same local RF scanning guarantees as offline SWEEP, plus three explicit user-initiated network features:
   1. **Listen / Rdio Scanner**: Connects over HTTPS **only** to operator-authorized stream URLs or Rdio servers explicitly entered by the user after enabling Internet listening consent. Those third-party servers receive standard HTTPS request metadata (client IP address and, for Rdio, the listener access code in POST bodies). No RF findings or phone GPS coordinates are sent.
   2. **Network**: Performs 60-second local Wi-Fi DNS-SD (`NsdManager`) multicast discovery on Android 13+ while the Network screen is open and authorized, with no endpoint connections or cloud uploads.
+  3. **Monas SDR** reads five HTTPS routes on the operator’s receiver after Radio network consent and explicit session authorization. The proxy receives the phone IP and optional in-memory bearer token. Default summaries withhold address rows and numerical hardware fingerprints. [Monas SDR companion](MONAS_SDR_COMPANION.md)
 
 ### C. Foreground Service Permissions Declaration (Play Console -> App Content)
 Both variants declare:
